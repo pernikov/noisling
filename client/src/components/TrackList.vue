@@ -11,11 +11,25 @@ const props = defineProps({
   showArtist: { type: Boolean, default: false },
   showAlbum: { type: Boolean, default: false },
   showPlays: { type: Boolean, default: false },
+  showLastPlayed: { type: Boolean, default: false },
   startIndex: { type: Number, default: 0 },
   getAllTracks: { type: Function, default: null }, // () => Promise<Track[]> for full library play/shuffle
 });
 
 const { state, playAlbum, playFromQueue, queueMatches } = usePlayer();
+
+function timeAgo(date) {
+  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  return `${months}mo ago`;
+}
 
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60);
@@ -84,6 +98,7 @@ function isCurrentTrack(track) {
           <th v-if="showArtist" class="text-left py-2 px-3 hidden sm:table-cell">Artist</th>
           <th v-if="showAlbum" class="text-left py-2 px-3 hidden md:table-cell">Album</th>
           <th v-if="showPlays" class="text-right py-2 px-3 w-16 hidden sm:table-cell">Plays</th>
+          <th v-if="showLastPlayed" class="text-right py-2 px-3 hidden sm:table-cell">Played</th>
           <th class="text-right py-2 px-3 w-16">Time</th>
         </tr>
       </thead>
@@ -123,6 +138,7 @@ function isCurrentTrack(track) {
             >{{ track.album }}</router-link>
           </td>
           <td v-if="showPlays" class="py-2 px-3 text-right text-zinc-500 hidden sm:table-cell">{{ track.playCount || 0 }}</td>
+          <td v-if="showLastPlayed" class="py-2 px-3 text-right text-zinc-500 hidden sm:table-cell">{{ track.lastPlayedAt ? timeAgo(track.lastPlayedAt) : '' }}</td>
           <td class="py-2 px-3 text-right text-zinc-500">{{ formatDuration(track.duration) }}</td>
         </tr>
       </tbody>

@@ -68,6 +68,47 @@ router.get('/artists', async (req, res) => {
   res.json({ artists, total, page, limit });
 });
 
+// GET /api/artists/random — random sample of artists
+router.get('/artists/random', async (req, res) => {
+  const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
+
+  const pipeline = [
+    {
+      $project: {
+        _id: 0,
+        pairs: { $zip: { inputs: ['$artists', '$artistsNorm'] } },
+        album: 1,
+        cover: 1,
+      },
+    },
+    { $unwind: '$pairs' },
+    {
+      $group: {
+        _id: { $arrayElemAt: ['$pairs', 1] },
+        name: { $first: { $arrayElemAt: ['$pairs', 0] } },
+        albumCount: { $addToSet: '$album' },
+        trackCount: { $sum: 1 },
+        covers: { $addToSet: '$cover' },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        name: 1,
+        albumCount: { $size: '$albumCount' },
+        trackCount: 1,
+        covers: {
+          $filter: { input: '$covers', cond: { $ne: ['$$this', ''] } },
+        },
+      },
+    },
+    { $sample: { size: limit } },
+  ];
+
+  const artists = await Track.aggregate(pipeline);
+  res.json(artists);
+});
+
 // GET /api/artists/:name — artist detail with albums
 router.get('/artists/:name', async (req, res) => {
   const { name } = req.params;

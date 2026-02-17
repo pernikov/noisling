@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router';
 
 const routes = [
-  { path: '/', redirect: '/artists' },
+  { path: '/', name: 'home', component: () => import('./views/HomeView.vue') },
   { path: '/artists', name: 'artists', component: () => import('./views/ArtistsView.vue') },
   { path: '/artists/:name', name: 'artist', component: () => import('./views/ArtistView.vue') },
   { path: '/albums/:artist/:album', name: 'album', component: () => import('./views/AlbumView.vue') },

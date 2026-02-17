@@ -16,6 +16,7 @@ export function useApi() {
       if (search) params.set('search', search);
       return request(`/artists?${params}`);
     },
+    getRandomArtists: (limit = 12) => request(`/artists/random?limit=${limit}`),
     getArtist: (name) => request(`/artists/${encodeURIComponent(name)}`),
     getArtistTracks: (name) => request(`/artists/${encodeURIComponent(name)}/tracks`),
     getAlbums: () => request('/albums'),

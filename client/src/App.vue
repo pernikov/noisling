@@ -55,13 +55,6 @@ useKeyboardShortcuts();
             >
               Songs
             </router-link>
-            <router-link
-              to="/recent"
-              class="text-zinc-400 hover:text-zinc-100 transition-colors"
-              active-class="!text-zinc-100"
-            >
-              Recent
-            </router-link>
           </div>
         </div>
 
