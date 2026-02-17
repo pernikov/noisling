@@ -36,6 +36,7 @@ audio.addEventListener('timeupdate', () => {
 
 audio.addEventListener('loadedmetadata', () => {
   state.duration = audio.duration;
+  updateMediaSessionPositionState();
 });
 
 audio.addEventListener('ended', () => {
@@ -50,11 +51,44 @@ audio.addEventListener('pause', () => {
   state.isPlaying = false;
 });
 
+function updateMediaSession(track) {
+  if (!('mediaSession' in navigator)) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: track.title || '',
+    artist: track.artist || '',
+    album: track.album || '',
+    artwork: track.cover
+      ? [{ src: api.coverUrl(track.cover), sizes: '512x512', type: 'image/jpeg' }]
+      : [],
+  });
+}
+
+function updateMediaSessionPositionState() {
+  if (!('mediaSession' in navigator) || !audio.duration) return;
+  navigator.mediaSession.setPositionState({
+    duration: audio.duration,
+    playbackRate: audio.playbackRate,
+    position: audio.currentTime,
+  });
+}
+
+// Register media session action handlers for OS-level media controls
+if ('mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => resume());
+  navigator.mediaSession.setActionHandler('pause', () => pause());
+  navigator.mediaSession.setActionHandler('previoustrack', () => prev());
+  navigator.mediaSession.setActionHandler('nexttrack', () => next());
+  navigator.mediaSession.setActionHandler('seekto', (details) => {
+    if (details.seekTime != null) seek(details.seekTime);
+  });
+}
+
 function play(track) {
   state.currentTrack = track;
   playReported = false;
   audio.src = api.streamUrl(track._id);
   audio.play();
+  updateMediaSession(track);
 }
 
 function shuffleArray(arr) {
