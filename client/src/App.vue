@@ -1,14 +1,23 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useApi } from './composables/useApi.js';
 import PlayerBar from './components/PlayerBar.vue';
 import { usePlayer } from './composables/usePlayer.js';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
+import { useAccentColor } from './composables/useAccentColor.js';
 
 const api = useApi();
 const router = useRouter();
 const { state: playerState } = usePlayer();
+const { accentColor } = useAccentColor();
+
+const navStyle = computed(() => {
+  if (!accentColor.value) return {};
+  return {
+    background: `linear-gradient(to right, rgba(${accentColor.value}, 0.25), rgba(${accentColor.value}, 0.1) 60%, transparent)`,
+  };
+});
 useKeyboardShortcuts();
 const scanning = ref(false);
 const scanResult = ref(null);
@@ -29,7 +38,7 @@ async function scanLibrary() {
 <template>
   <div class="min-h-screen" :class="{ 'pb-24': playerState.currentTrack }">
     <!-- Top nav -->
-    <nav class="sticky top-0 bg-zinc-950/90 backdrop-blur border-b border-zinc-800 z-40">
+    <nav class="sticky top-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40" :style="navStyle">
       <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
         <div class="flex items-center gap-6">
           <router-link to="/" class="flex items-center gap-2 text-lg font-bold tracking-tight">

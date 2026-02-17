@@ -1,17 +1,27 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import TrackList from '../components/TrackList.vue';
 
 const api = useApi();
+const route = useRoute();
+const router = useRouter();
 const allTracks = ref([]);
-const search = ref('');
+const search = ref(route.query.search || '');
 const loading = ref(true);
-const page = ref(1);
+const page = ref(Number(route.query.page) || 1);
 const total = ref(0);
 const limit = 100;
 let searchTimeout = null;
+
+function updateQuery() {
+  const query = {};
+  if (search.value) query.search = search.value;
+  if (page.value > 1) query.page = String(page.value);
+  router.replace({ query });
+}
 
 async function loadTracks() {
   loading.value = true;
@@ -30,6 +40,7 @@ watch(search, () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     page.value = 1;
+    updateQuery();
     loadTracks();
   }, 300);
 });
@@ -46,6 +57,7 @@ const totalPages = computed(() => Math.ceil(total.value / limit));
 function nextPage() {
   if (page.value < totalPages.value) {
     page.value++;
+    updateQuery();
     loadTracks();
   }
 }
@@ -53,6 +65,7 @@ function nextPage() {
 function prevPage() {
   if (page.value > 1) {
     page.value--;
+    updateQuery();
     loadTracks();
   }
 }
@@ -77,7 +90,7 @@ function prevPage() {
     </div>
 
     <template v-else>
-      <TrackList :tracks="allTracks" show-artist show-album show-plays :get-all-tracks="fetchAllTracks" />
+      <TrackList :tracks="allTracks" show-artist show-album show-plays :start-index="(page - 1) * limit" :get-all-tracks="fetchAllTracks" />
 
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-4 mt-6 text-sm">
         <button

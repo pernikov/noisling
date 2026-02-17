@@ -43,7 +43,7 @@ function progressPercent() {
 <template>
   <div
     v-if="state.currentTrack"
-    class="fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-zinc-800 px-4 py-3 flex items-center justify-between gap-4 z-40"
+    class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 py-3 flex items-center justify-between gap-4 z-40"
     :style="barStyle"
   >
     <!-- Track info -->

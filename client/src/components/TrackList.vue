@@ -9,6 +9,7 @@ const props = defineProps({
   showArtist: { type: Boolean, default: false },
   showAlbum: { type: Boolean, default: false },
   showPlays: { type: Boolean, default: false },
+  startIndex: { type: Number, default: 0 },
   getAllTracks: { type: Function, default: null }, // () => Promise<Track[]> for full library play/shuffle
 });
 
@@ -94,7 +95,7 @@ function isCurrentTrack(track) {
         >
           <td class="py-2 px-3 text-zinc-500">
             <span v-if="isCurrentTrack(track) && state.isPlaying" class="text-emerald-400">&#9654;</span>
-            <span v-else>{{ i + 1 }}</span>
+            <span v-else>{{ startIndex + i + 1 }}</span>
           </td>
           <td class="py-2 px-3 font-medium truncate max-w-[200px] sm:max-w-none">{{ track.title }}</td>
           <td v-if="showArtist" class="py-2 px-3 text-zinc-400 hidden sm:table-cell">

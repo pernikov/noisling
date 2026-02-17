@@ -1,19 +1,27 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import ArtistCover from '../components/ArtistCover.vue';
 
 const api = useApi();
+const route = useRoute();
 const router = useRouter();
 const artists = ref([]);
-const search = ref('');
+const search = ref(route.query.search || '');
 const loading = ref(true);
-const page = ref(1);
+const page = ref(Number(route.query.page) || 1);
 const total = ref(0);
 const limit = 60;
 let searchTimeout = null;
+
+function updateQuery() {
+  const query = {};
+  if (search.value) query.search = search.value;
+  if (page.value > 1) query.page = String(page.value);
+  router.replace({ query });
+}
 
 async function loadArtists() {
   loading.value = true;
@@ -32,6 +40,7 @@ watch(search, () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => {
     page.value = 1;
+    updateQuery();
     loadArtists();
   }, 300);
 });
@@ -44,6 +53,7 @@ const totalPages = computed(() => Math.ceil(total.value / limit));
 function nextPage() {
   if (page.value < totalPages.value) {
     page.value++;
+    updateQuery();
     loadArtists();
   }
 }
@@ -51,6 +61,7 @@ function nextPage() {
 function prevPage() {
   if (page.value > 1) {
     page.value--;
+    updateQuery();
     loadArtists();
   }
 }
