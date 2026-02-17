@@ -12,6 +12,8 @@ const scanResult = ref(null);
 const deleting = ref(false);
 const deleteResult = ref(null);
 const showDeleteConfirm = ref(false);
+const missingCoverAlbums = ref([]);
+const loadingCovers = ref(true);
 
 let eventSource = null;
 
@@ -38,7 +40,21 @@ function listenForProgress() {
   });
 }
 
-onMounted(() => listenForProgress());
+async function loadMissingCovers() {
+  try {
+    const albums = await api.getAlbums();
+    missingCoverAlbums.value = albums.filter(a => !a.cover);
+  } catch (err) {
+    console.error('Failed to load albums:', err);
+  } finally {
+    loadingCovers.value = false;
+  }
+}
+
+onMounted(() => {
+  listenForProgress();
+  loadMissingCovers();
+});
 onUnmounted(() => {
   eventSource?.close();
   eventSource = null;
@@ -174,6 +190,50 @@ async function deleteLibrary() {
             <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
           </svg>
           {{ scanResult.error }}
+        </div>
+      </div>
+
+      <div class="border-t border-zinc-800" />
+
+      <!-- Missing Covers -->
+      <div class="space-y-3">
+        <div>
+          <p class="text-sm font-medium text-zinc-200">Missing covers</p>
+          <p class="text-xs text-zinc-500">Albums in your library without artwork.</p>
+        </div>
+
+        <div v-if="loadingCovers" class="text-xs text-zinc-500">Loading...</div>
+
+        <div v-else-if="missingCoverAlbums.length === 0"
+          class="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-3"
+        >
+          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+          All albums have artwork
+        </div>
+
+        <div v-else class="space-y-1 max-h-64 overflow-y-auto rounded-lg bg-zinc-800/50 p-2">
+          <div class="text-xs text-zinc-400 px-2 py-1">
+            {{ missingCoverAlbums.length }} album{{ missingCoverAlbums.length !== 1 ? 's' : '' }} without artwork
+          </div>
+          <router-link
+            v-for="album in missingCoverAlbums"
+            :key="album.name + album.artists?.[0]"
+            :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
+            class="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-zinc-700/50 transition-colors"
+          >
+            <div class="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center flex-shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-zinc-500">
+                <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0l-1.91 1.909-4.72-4.719a.75.75 0 0 0-1.06 0L2.5 11.06Zm6-3.31a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium truncate">{{ album.name }}</div>
+              <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
+            </div>
+            <span class="text-xs text-zinc-500 shrink-0">{{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}</span>
+          </router-link>
         </div>
       </div>
 
