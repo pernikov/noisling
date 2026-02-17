@@ -7,6 +7,7 @@ const routes = [
   { path: '/albums/:artist/:album', name: 'album', component: () => import('./views/AlbumView.vue') },
   { path: '/songs', name: 'songs', component: () => import('./views/SongsView.vue') },
   { path: '/recent', name: 'recent', component: () => import('./views/RecentView.vue') },
+  { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
 ];
 
 export default createRouter({

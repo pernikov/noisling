@@ -1,7 +1,10 @@
 import { Router } from 'express';
+import { rm } from 'fs/promises';
 import { scanLibrary } from '../services/scanner.js';
 import { broadcast } from '../services/events.js';
 import { pauseWatcher, resumeWatcher } from '../services/watcher.js';
+import Track from '../models/Track.js';
+import config from '../config.js';
 
 const router = Router();
 
@@ -23,6 +26,20 @@ router.post('/scan', async (req, res) => {
   } finally {
     resumeWatcher();
     scanning = false;
+  }
+});
+
+router.delete('/library', async (req, res) => {
+  try {
+    pauseWatcher();
+    const { deletedCount } = await Track.deleteMany({});
+    await rm(config.coversDir, { recursive: true, force: true });
+    broadcast('library-updated', { cleared: true });
+    res.json({ deletedTracks: deletedCount });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    resumeWatcher();
   }
 });
 

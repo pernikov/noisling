@@ -35,6 +35,7 @@ export function useApi() {
     getRecentTracks: (limit = 20) => request(`/tracks/recent?limit=${limit}`),
     getTrack: (id) => request(`/tracks/${id}`),
     scanLibrary: () => request('/scan', { method: 'POST' }),
+    deleteLibrary: () => request('/library', { method: 'DELETE' }),
     reportPlay: (id) => request(`/tracks/${id}/play`, { method: 'POST' }),
     streamUrl: (id) => `${BASE}/stream/${id}`,
     coverUrl: (filename) => filename ? `${BASE}/covers/${filename}` : '/placeholder.svg',
