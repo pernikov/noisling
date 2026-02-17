@@ -37,6 +37,7 @@ export function useApi() {
     getTrack: (id) => request(`/tracks/${id}`),
     scanLibrary: () => request('/scan', { method: 'POST' }),
     deleteLibrary: () => request('/library', { method: 'DELETE' }),
+    getStats: () => request('/stats'),
     reportPlay: (id) => request(`/tracks/${id}/play`, { method: 'POST' }),
     streamUrl: (id) => `${BASE}/stream/${id}`,
     coverUrl: (filename) => filename ? `${BASE}/covers/${filename}` : '/placeholder.svg',

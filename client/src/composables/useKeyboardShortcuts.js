@@ -2,7 +2,7 @@ import { onMounted, onUnmounted } from 'vue';
 import { usePlayer } from './usePlayer.js';
 
 export function useKeyboardShortcuts() {
-  const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute } = usePlayer();
+  const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute, cycleRepeat } = usePlayer();
 
   function isTyping(e) {
     const tag = e.target.tagName;
@@ -45,6 +45,9 @@ export function useKeyboardShortcuts() {
         break;
       case 'KeyM':
         toggleMute();
+        break;
+      case 'KeyR':
+        cycleRepeat();
         break;
     }
   }

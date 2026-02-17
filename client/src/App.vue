@@ -42,18 +42,25 @@ useKeyboardShortcuts();
           </router-link>
           <div class="flex gap-4 text-sm">
             <router-link
-              to="/artists"
-              class="text-zinc-400 hover:text-zinc-100 transition-colors"
-              active-class="!text-zinc-100"
+            to="/songs"
+            class="text-zinc-400 hover:text-zinc-100 transition-colors"
+            active-class="!text-zinc-100"
             >
-              Artists
-            </router-link>
+            Songs
+          </router-link>
+          <router-link
+            to="/artists"
+            class="text-zinc-400 hover:text-zinc-100 transition-colors"
+            active-class="!text-zinc-100"
+          >
+            Artists
+          </router-link>
             <router-link
-              to="/songs"
+              to="/stats"
               class="text-zinc-400 hover:text-zinc-100 transition-colors"
               active-class="!text-zinc-100"
             >
-              Songs
+              Stats
             </router-link>
           </div>
         </div>

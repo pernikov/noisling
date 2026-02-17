@@ -15,6 +15,7 @@ const state = reactive({
   duration: 0,
   volume: 1,
   shuffle: false,
+  repeat: 'off', // 'off' | 'all' | 'one'
   originalQueue: [], // pre-shuffle order
   showVisualizer: false,
 });
@@ -40,7 +41,13 @@ audio.addEventListener('loadedmetadata', () => {
 });
 
 audio.addEventListener('ended', () => {
-  next();
+  if (state.repeat === 'one') {
+    audio.currentTime = 0;
+    playReported = false;
+    audio.play();
+  } else {
+    next();
+  }
 });
 
 audio.addEventListener('play', () => {
@@ -178,9 +185,18 @@ function next() {
   if (nextIndex < state.queue.length) {
     state.queueIndex = nextIndex;
     play(state.queue[nextIndex]);
+  } else if (state.repeat === 'all') {
+    state.queueIndex = 0;
+    play(state.queue[0]);
   } else {
     state.isPlaying = false;
   }
+}
+
+function cycleRepeat() {
+  const modes = ['off', 'all', 'one'];
+  const i = modes.indexOf(state.repeat);
+  state.repeat = modes[(i + 1) % modes.length];
 }
 
 function prev() {
@@ -239,6 +255,7 @@ export function usePlayer() {
     toggleShuffle,
     toggleMute,
     toggleVisualizer,
+    cycleRepeat,
     audio,
     moveTrack,
     playFromQueue,

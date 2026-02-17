@@ -5,7 +5,7 @@ import { useAccentColor } from '../composables/useAccentColor.js';
 import CoverArt from './CoverArt.vue';
 import QueueDrawer from './QueueDrawer.vue';
 
-const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleVisualizer, hasNext, hasPrev } = usePlayer();
+const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleVisualizer, cycleRepeat, hasNext, hasPrev } = usePlayer();
 const { accentColor } = useAccentColor();
 
 const barStyle = computed(() => {
@@ -127,6 +127,22 @@ function progressPercent() {
         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <path d="M3 18h2v-6H3v6zm4 0h2V6H7v12zm4 0h2v-8h-2v8zm4 0h2v-4h-2v4zm4 0h2V9h-2v9z"/>
         </svg>
+      </button>
+
+      <!-- Repeat -->
+      <button
+        class="transition-colors relative"
+        :class="state.repeat !== 'off' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+        @click="cycleRepeat"
+        :title="'Repeat: ' + state.repeat"
+      >
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
+        </svg>
+        <span
+          v-if="state.repeat === 'one'"
+          class="absolute -top-1 -right-1 text-[8px] font-bold leading-none"
+        >1</span>
       </button>
 
       <!-- Shuffle -->

@@ -254,6 +254,92 @@ router.get('/tracks/recent', async (req, res) => {
   res.json(tracks);
 });
 
+// GET /api/stats — library and listening statistics
+router.get('/stats', async (req, res) => {
+  const [result] = await Track.aggregate([
+    {
+      $facet: {
+        overview: [
+          {
+            $group: {
+              _id: null,
+              totalTracks: { $sum: 1 },
+              totalDuration: { $sum: '$duration' },
+              totalPlays: { $sum: '$playCount' },
+              totalFileSize: { $sum: '$fileSize' },
+              artists: { $addToSet: { $arrayElemAt: ['$artistsNorm', 0] } },
+              albums: { $addToSet: '$album' },
+            },
+          },
+          {
+            $project: {
+              _id: 0,
+              totalTracks: 1,
+              totalDuration: 1,
+              totalPlays: 1,
+              totalFileSize: 1,
+              totalArtists: { $size: '$artists' },
+              totalAlbums: { $size: '$albums' },
+            },
+          },
+        ],
+        formats: [
+          { $group: { _id: '$format', count: { $sum: 1 } } },
+          { $project: { _id: 0, format: '$_id', count: 1 } },
+          { $sort: { count: -1 } },
+        ],
+        topTracks: [
+          { $match: { playCount: { $gt: 0 } } },
+          { $sort: { playCount: -1 } },
+          { $limit: 10 },
+          { $project: { title: 1, artists: 1, album: 1, cover: 1, playCount: 1 } },
+        ],
+        topArtists: [
+          { $match: { playCount: { $gt: 0 } } },
+          { $unwind: '$artists' },
+          {
+            $group: {
+              _id: '$artists',
+              plays: { $sum: '$playCount' },
+              trackCount: { $sum: 1 },
+            },
+          },
+          { $sort: { plays: -1 } },
+          { $limit: 10 },
+          { $project: { _id: 0, name: '$_id', plays: 1, trackCount: 1 } },
+        ],
+        topAlbums: [
+          { $match: { playCount: { $gt: 0 } } },
+          {
+            $group: {
+              _id: '$album',
+              artists: { $first: '$artists' },
+              cover: { $first: '$cover' },
+              plays: { $sum: '$playCount' },
+            },
+          },
+          { $sort: { plays: -1 } },
+          { $limit: 10 },
+          { $project: { _id: 0, name: '$_id', artists: 1, cover: 1, plays: 1 } },
+        ],
+      },
+    },
+  ]);
+
+  const overview = result.overview[0] || {
+    totalTracks: 0, totalArtists: 0, totalAlbums: 0,
+    totalDuration: 0, totalPlays: 0, totalFileSize: 0,
+  };
+
+  res.json({
+    ...overview,
+    formats: result.formats,
+    topTracks: result.topTracks,
+    topArtists: result.topArtists,
+    topAlbums: result.topAlbums,
+  });
+});
+
 // GET /api/tracks/:id — single track
 router.get('/tracks/:id', async (req, res) => {
   const track = await Track.findById(req.params.id).lean();
