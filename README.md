@@ -10,6 +10,15 @@ Noisling reads tags embedded in your audio files (ID3, Vorbis, MP4, etc.) to pop
 
 **Supported formats:** `.mp3` `.flac` `.ogg` `.m4a` `.aac` `.wav` `.aiff` `.wma` `.opus`
 
+### Cover art
+
+Cover art is resolved in the following order:
+
+1. **Embedded artwork** — extracted directly from the audio file's metadata tags
+2. **Folder images** — if no embedded art is found, the scanner looks for image files in the same directory as the track. It checks common names first (`cover`, `folder`, `front`, `album`, `art`, `artwork`, `thumb`, `thumbnail`) and falls back to any image file in the folder
+
+**Supported image formats:** `.jpg` `.jpeg` `.png` `.webp` `.gif` `.bmp` `.tiff` `.avif`
+
 ## Running with Docker
 
 ```bash

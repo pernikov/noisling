@@ -1,11 +1,13 @@
 <script setup>
 import { useRouter } from 'vue-router';
 import { usePlayer } from '../composables/usePlayer.js';
+import CoverArt from './CoverArt.vue';
 
 const router = useRouter();
 
 const props = defineProps({
   tracks: { type: Array, required: true },
+  showCover: { type: Boolean, default: false },
   showArtist: { type: Boolean, default: false },
   showAlbum: { type: Boolean, default: false },
   showPlays: { type: Boolean, default: false },
@@ -97,7 +99,12 @@ function isCurrentTrack(track) {
             <span v-if="isCurrentTrack(track) && state.isPlaying" class="text-emerald-400">&#9654;</span>
             <span v-else>{{ startIndex + i + 1 }}</span>
           </td>
-          <td class="py-2 px-3 font-medium truncate max-w-[200px] sm:max-w-none">{{ track.title }}</td>
+          <td class="py-2 px-3 font-medium truncate max-w-[200px] sm:max-w-none">
+            <div class="flex items-center gap-2">
+              <CoverArt v-if="showCover" :cover="track.cover" size="w-8 h-8" />
+              <span class="truncate">{{ track.title }}</span>
+            </div>
+          </td>
           <td v-if="showArtist" class="py-2 px-3 text-zinc-400 hidden sm:table-cell">
             <template v-for="(artist, ai) in track.artists" :key="ai">
               <span v-if="ai > 0">, </span>

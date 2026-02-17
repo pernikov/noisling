@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
@@ -15,6 +15,17 @@ const page = ref(Number(route.query.page) || 1);
 const total = ref(0);
 const limit = 60;
 let searchTimeout = null;
+const searchExpanded = ref(!!route.query.search);
+const searchInput = ref(null);
+
+function expandSearch() {
+  searchExpanded.value = true;
+  nextTick(() => searchInput.value?.focus());
+}
+
+function onSearchBlur() {
+  if (!search.value) searchExpanded.value = false;
+}
 
 function updateQuery() {
   const query = {};
@@ -75,12 +86,23 @@ function goToArtist(name) {
   <div>
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold">Artists</h1>
-      <input
-        v-model="search"
-        type="text"
-        placeholder="Search artists..."
-        class="bg-zinc-800 border border-zinc-700 rounded px-3 py-1.5 text-sm outline-none focus:border-zinc-500 w-64"
-      />
+      <div class="relative flex items-center h-8">
+        <input
+          ref="searchInput"
+          v-model="search"
+          type="text"
+          placeholder="Search artists..."
+          class="bg-zinc-800 border border-zinc-700 rounded pr-8 py-1.5 text-sm outline-none focus:border-zinc-500 transition-all duration-200 ease-in-out"
+          :class="searchExpanded ? 'w-64 pl-3 opacity-100' : 'w-0 pl-0 opacity-0 border-transparent'"
+          @blur="onSearchBlur"
+        />
+        <button
+          class="absolute right-0 text-zinc-400 hover:text-zinc-100 h-8 w-8 flex items-center justify-center"
+          @click="expandSearch"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        </button>
+      </div>
     </div>
 
     <div v-if="loading" class="text-zinc-500">Loading...</div>

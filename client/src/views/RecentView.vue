@@ -37,6 +37,6 @@ watch(() => playerState.currentTrack?._id, (newId, oldId) => {
       No recently played tracks yet. Start listening!
     </div>
 
-    <TrackList v-else :tracks="tracks" show-artist show-album />
+    <TrackList v-else :tracks="tracks" show-cover show-artist show-album />
   </div>
 </template>

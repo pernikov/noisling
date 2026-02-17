@@ -1,5 +1,5 @@
-import { readdir, stat, mkdir, writeFile, unlink } from 'fs/promises';
-import { join, extname, basename } from 'path';
+import { readdir, stat, mkdir, writeFile, readFile, unlink } from 'fs/promises';
+import { join, extname, basename, dirname } from 'path';
 import { createHash } from 'crypto';
 import { parseFile } from 'music-metadata';
 import Track from '../models/Track.js';
@@ -33,26 +33,87 @@ async function walkDir(dir) {
   return files;
 }
 
-async function extractCover(metadata) {
-  const pictures = metadata.common.picture;
-  if (!pictures || pictures.length === 0) return '';
+const COVER_FILENAMES = [
+  'cover', 'folder', 'front', 'album', 'art', 'artwork', 'thumb', 'thumbnail',
+];
 
-  const pic = pictures[0];
-  const hash = createHash('md5').update(pic.data).digest('hex');
-  const ext = pic.format === 'image/png' ? '.png' : '.jpg';
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.avif'];
+
+async function findFolderCover(audioFilePath) {
+  const dir = dirname(audioFilePath);
+  let entries;
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return null;
+  }
+
+  // Build a lookup of lowercase name -> actual name
+  const lookup = new Map(entries.map((e) => [e.toLowerCase(), e]));
+
+  // Try known cover filenames first (cover.jpg, folder.png, etc.)
+  for (const name of COVER_FILENAMES) {
+    for (const ext of IMAGE_EXTENSIONS) {
+      const match = lookup.get(`${name}${ext}`);
+      if (match) return join(dir, match);
+    }
+  }
+
+  // Fall back to any image file in the directory
+  for (const entry of entries) {
+    if (IMAGE_EXTENSIONS.includes(extname(entry).toLowerCase())) {
+      return join(dir, entry);
+    }
+  }
+
+  return null;
+}
+
+async function saveCoverFile(data, ext) {
+  const hash = createHash('md5').update(data).digest('hex');
   const filename = `${hash}${ext}`;
   const coverPath = join(config.coversDir, filename);
 
   await mkdir(config.coversDir, { recursive: true });
-  await writeFile(coverPath, pic.data);
+  await writeFile(coverPath, data);
 
   return filename;
+}
+
+async function extractCover(metadata, audioFilePath) {
+  const pictures = metadata.common.picture;
+
+  // 1. Use embedded cover art if available
+  if (pictures && pictures.length > 0) {
+    const pic = pictures[0];
+    const mimeToExt = {
+      'image/png': '.png',
+      'image/jpeg': '.jpg',
+      'image/webp': '.webp',
+      'image/gif': '.gif',
+      'image/bmp': '.bmp',
+      'image/tiff': '.tiff',
+      'image/avif': '.avif',
+    };
+    const ext = mimeToExt[pic.format] || '.jpg';
+    return saveCoverFile(pic.data, ext);
+  }
+
+  // 2. Look for a cover image file in the same folder
+  const folderCover = await findFolderCover(audioFilePath);
+  if (folderCover) {
+    const data = await readFile(folderCover);
+    const ext = extname(folderCover).toLowerCase();
+    return saveCoverFile(data, ext === '.jpeg' ? '.jpg' : ext);
+  }
+
+  return '';
 }
 
 async function processFile(filePath) {
   const metadata = await parseFile(filePath);
   const fileStat = await stat(filePath);
-  const cover = await extractCover(metadata);
+  const cover = await extractCover(metadata, filePath);
 
   const { common, format } = metadata;
 
