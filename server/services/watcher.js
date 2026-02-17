@@ -1,6 +1,6 @@
 import chokidar from 'chokidar';
 import config from '../config.js';
-import { handleFileAdd, handleFileRemove } from './scanner.js';
+import { handleFileAdd, handleFileRemove, handleImageAdd, handleImageRemove } from './scanner.js';
 import { broadcast } from './events.js';
 
 let watcher = null;
@@ -15,11 +15,13 @@ function scheduleBroadcast() {
 
 async function onAdd(filePath) {
   await handleFileAdd(filePath);
+  await handleImageAdd(filePath);
   scheduleBroadcast();
 }
 
 async function onRemove(filePath) {
   await handleFileRemove(filePath);
+  await handleImageRemove(filePath);
   scheduleBroadcast();
 }
 

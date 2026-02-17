@@ -17,6 +17,12 @@ function isAudioFile(filePath) {
   return AUDIO_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
 
+function isImageFile(filePath) {
+  const name = basename(filePath);
+  if (name.startsWith('.')) return false; // skip macOS resource forks (._cover.jpg etc.)
+  return IMAGE_EXTENSION_SET.has(extname(filePath).toLowerCase());
+}
+
 async function walkDir(dir) {
   const files = [];
   const entries = await readdir(dir, { withFileTypes: true });
@@ -38,6 +44,7 @@ const COVER_FILENAMES = [
 ];
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.avif'];
+const IMAGE_EXTENSION_SET = new Set(IMAGE_EXTENSIONS);
 
 async function findFolderCover(audioFilePath) {
   const dir = dirname(audioFilePath);
@@ -96,7 +103,8 @@ async function extractCover(metadata, audioFilePath) {
       'image/avif': '.avif',
     };
     const ext = mimeToExt[pic.format] || '.jpg';
-    return saveCoverFile(pic.data, ext);
+    const cover = await saveCoverFile(pic.data, ext);
+    return { cover, hasEmbeddedCover: true };
   }
 
   // 2. Look for a cover image file in the same folder
@@ -104,16 +112,17 @@ async function extractCover(metadata, audioFilePath) {
   if (folderCover) {
     const data = await readFile(folderCover);
     const ext = extname(folderCover).toLowerCase();
-    return saveCoverFile(data, ext === '.jpeg' ? '.jpg' : ext);
+    const cover = await saveCoverFile(data, ext === '.jpeg' ? '.jpg' : ext);
+    return { cover, hasEmbeddedCover: false };
   }
 
-  return '';
+  return { cover: '', hasEmbeddedCover: false };
 }
 
 async function processFile(filePath) {
   const metadata = await parseFile(filePath);
   const fileStat = await stat(filePath);
-  const cover = await extractCover(metadata, filePath);
+  const { cover, hasEmbeddedCover } = await extractCover(metadata, filePath);
 
   const { common, format } = metadata;
 
@@ -140,6 +149,7 @@ async function processFile(filePath) {
     genre: common.genre?.[0] || '',
     year: common.year || 0,
     cover,
+    hasEmbeddedCover,
     fileSize: fileStat.size,
     fileMtime: fileStat.mtimeMs,
     scannedAt: new Date(),
@@ -320,4 +330,90 @@ export async function handleFileRemove(filePath) {
       }
     }
   }
+}
+
+// Handle a cover image added/changed in an album folder
+export async function handleImageAdd(imagePath) {
+  if (!isImageFile(imagePath)) return;
+  const dir = dirname(imagePath);
+
+  // Find tracks in the same folder that don't have an embedded cover
+  const tracks = await Track.find({
+    path: { $regex: `^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^/]+$` },
+    hasEmbeddedCover: { $ne: true },
+  });
+
+  if (tracks.length === 0) return;
+
+  try {
+    const data = await readFile(imagePath);
+    const ext = extname(imagePath).toLowerCase();
+    const coverFilename = await saveCoverFile(data, ext === '.jpeg' ? '.jpg' : ext);
+
+    const oldCovers = new Set(tracks.map((t) => t.cover).filter(Boolean));
+
+    await Track.updateMany(
+      { _id: { $in: tracks.map((t) => t._id) } },
+      { $set: { cover: coverFilename } },
+    );
+
+    // Clean up old folder covers that are no longer referenced
+    for (const oldCover of oldCovers) {
+      if (oldCover === coverFilename) continue;
+      const stillUsed = await Track.exists({ cover: oldCover });
+      if (!stillUsed) {
+        try {
+          await unlink(join(config.coversDir, oldCover));
+        } catch { /* already gone */ }
+      }
+    }
+
+    console.log(`[watcher] Updated cover for ${tracks.length} track(s) in ${dir}`);
+  } catch (err) {
+    console.error(`[watcher] Error processing cover image ${imagePath}:`, err.message);
+  }
+}
+
+// Handle a cover image removed from an album folder
+export async function handleImageRemove(imagePath) {
+  if (!isImageFile(imagePath)) return;
+  const dir = dirname(imagePath);
+
+  // Find tracks in this folder without embedded covers
+  const tracks = await Track.find({
+    path: { $regex: `^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^/]+$` },
+    hasEmbeddedCover: { $ne: true },
+  });
+
+  if (tracks.length === 0) return;
+
+  // Try to find another cover image in the folder
+  const altCover = await findFolderCover(tracks[0].path);
+  let newCoverFilename = '';
+
+  if (altCover) {
+    const data = await readFile(altCover);
+    const ext = extname(altCover).toLowerCase();
+    newCoverFilename = await saveCoverFile(data, ext === '.jpeg' ? '.jpg' : ext);
+  }
+
+  const oldCovers = new Set(tracks.map((t) => t.cover).filter(Boolean));
+
+  await Track.updateMany(
+    { _id: { $in: tracks.map((t) => t._id) } },
+    { $set: { cover: newCoverFilename } },
+  );
+
+  // Clean up old covers no longer referenced
+  for (const oldCover of oldCovers) {
+    if (oldCover === newCoverFilename) continue;
+    const stillUsed = await Track.exists({ cover: oldCover });
+    if (!stillUsed) {
+      try {
+        await unlink(join(config.coversDir, oldCover));
+      } catch { /* already gone */ }
+    }
+  }
+
+  console.log(`[watcher] ${altCover ? 'Replaced' : 'Cleared'} cover for ${tracks.length} track(s) in ${dir}`);
 }

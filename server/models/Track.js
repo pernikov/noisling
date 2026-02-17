@@ -15,6 +15,7 @@ const trackSchema = new mongoose.Schema({
   genre: { type: String, default: '' },
   year: { type: Number, default: 0 },
   cover: { type: String, default: '' }, // cover filename in covers dir
+  hasEmbeddedCover: { type: Boolean, default: false },
   fileSize: { type: Number, default: 0 },
   fileMtime: { type: Number, default: 0 }, // file modification time in ms
   playCount: { type: Number, default: 0 },
