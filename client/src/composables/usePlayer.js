@@ -16,6 +16,7 @@ const state = reactive({
   volume: 1,
   shuffle: false,
   originalQueue: [], // pre-shuffle order
+  showVisualizer: false,
 });
 
 let playReported = false;
@@ -121,6 +122,10 @@ function setVolume(v) {
 
 let volumeBeforeMute = 1;
 
+function toggleVisualizer() {
+  state.showVisualizer = !state.showVisualizer;
+}
+
 function toggleMute() {
   if (state.volume > 0) {
     volumeBeforeMute = state.volume;
@@ -199,6 +204,8 @@ export function usePlayer() {
     prev,
     toggleShuffle,
     toggleMute,
+    toggleVisualizer,
+    audio,
     moveTrack,
     playFromQueue,
     queueMatches,

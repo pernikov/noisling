@@ -5,7 +5,7 @@ import { useAccentColor } from '../composables/useAccentColor.js';
 import CoverArt from './CoverArt.vue';
 import QueueDrawer from './QueueDrawer.vue';
 
-const { state, toggle, next, prev, seek, setVolume, toggleShuffle, hasNext, hasPrev } = usePlayer();
+const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleVisualizer, hasNext, hasPrev } = usePlayer();
 const { accentColor } = useAccentColor();
 
 const barStyle = computed(() => {
@@ -117,6 +117,18 @@ function progressPercent() {
 
     <!-- Right group: shuffle, queue, volume -->
     <div class="hidden sm:flex items-center gap-3 w-44 flex-shrink-0 justify-end">
+      <!-- Visualizer -->
+      <button
+        class="transition-colors"
+        :class="state.showVisualizer ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+        @click="toggleVisualizer"
+        title="Toggle visualizer"
+      >
+        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M3 18h2v-6H3v6zm4 0h2V6H7v12zm4 0h2v-8h-2v8zm4 0h2v-4h-2v4zm4 0h2V9h-2v9z"/>
+        </svg>
+      </button>
+
       <!-- Shuffle -->
       <button
         class="transition-colors"

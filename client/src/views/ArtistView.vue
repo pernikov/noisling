@@ -91,7 +91,7 @@ function formatDuration(seconds) {
       <div
         v-for="album in albums"
         :key="album.name"
-        class="bg-zinc-900 rounded-lg p-4 hover:bg-zinc-800 cursor-pointer transition-colors"
+        class="rounded-lg p-4 hover:bg-zinc-900 cursor-pointer transition-colors"
         @click="goToAlbum(album)"
       >
         <CoverArt :cover="album.cover" size="w-full aspect-square mb-3" />

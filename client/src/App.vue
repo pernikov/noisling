@@ -1,15 +1,22 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import { useApi } from './composables/useApi.js';
 import PlayerBar from './components/PlayerBar.vue';
+import SpectrogramVisualizer from './components/SpectrogramVisualizer.vue';
 import { usePlayer } from './composables/usePlayer.js';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
 import { useAccentColor } from './composables/useAccentColor.js';
 
 const api = useApi();
 const router = useRouter();
+const route = useRoute();
 const { state: playerState } = usePlayer();
+
+watch(() => route.path, () => {
+  playerState.showVisualizer = false;
+});
+
 const { accentColor } = useAccentColor();
 
 const navStyle = computed(() => {
@@ -36,7 +43,12 @@ async function scanLibrary() {
 </script>
 
 <template>
-  <div class="min-h-screen" :class="{ 'pb-24': playerState.currentTrack }">
+  <div
+    class="flex flex-col"
+    :class="playerState.showVisualizer
+      ? 'h-screen overflow-hidden'
+      : { 'min-h-screen': true, 'pb-24': playerState.currentTrack }"
+  >
     <!-- Top nav -->
     <nav class="sticky top-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40" :style="navStyle">
       <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
@@ -81,9 +93,12 @@ async function scanLibrary() {
     </nav>
 
     <!-- Main content -->
-    <main class="max-w-6xl mx-auto px-4 py-6">
+    <main v-if="!playerState.showVisualizer" class="w-full max-w-6xl mx-auto px-4 py-6">
       <router-view />
     </main>
+
+    <!-- Spectrogram visualizer -->
+    <SpectrogramVisualizer v-else class="flex-1" />
 
     <!-- Player bar -->
     <PlayerBar />

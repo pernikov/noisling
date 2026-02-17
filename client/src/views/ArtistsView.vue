@@ -94,7 +94,7 @@ function goToArtist(name) {
         <div
           v-for="artist in artists"
           :key="artist.name"
-          class="bg-zinc-900 rounded-lg p-4 hover:bg-zinc-800 cursor-pointer transition-colors group"
+          class="rounded-lg p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
           @click="goToArtist(artist.name)"
         >
           <ArtistCover :covers="artist.covers || []" />
