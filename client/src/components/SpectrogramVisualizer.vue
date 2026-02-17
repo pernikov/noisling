@@ -192,14 +192,52 @@ function draw() {
   const a = 0.15;
   const b2 = 0.02 + smoothSpiralEnergy * 2.4;
 
+  const freqBins = analyser.frequencyBinCount;
+
+  // Boundaries: bass keeps spiral shape, mids/highs form a circle
+  const bassPointEnd = Math.floor(numPoints * 0.12);
+  const midPointEnd = Math.floor(numPoints * 0.45);
+
   const points = new Array(numPoints);
   for (let i = 0; i < numPoints; i++) {
-    const t = (spiralAngle / 100) * i;
-    let x = (a + b2 * t) * Math.sin(t) + Math.sin(i / (spiralAngle / 100));
-    let y = (a + b2 * t) * Math.cos(t) + Math.cos(i / (spiralAngle / 100));
-
     const dataIdx = i % bufferLength;
-    const displacement = floatTimeData[dataIdx] * timeData[dataIdx] * intensity;
+    const freqIdx = Math.floor((i / numPoints) * freqBins);
+    const freqLevel = freqData[Math.min(freqIdx, freqBins - 1)] / 255;
+
+    let x, y, bandGain, threshold, gatedLevel;
+
+    if (i < bassPointEnd) {
+      // ── Bass: full spiral shape, big pumps ──
+      const t = (spiralAngle / 100) * i;
+      x = (a + b2 * t) * Math.sin(t) + Math.sin(i / (spiralAngle / 100));
+      y = (a + b2 * t) * Math.cos(t) + Math.cos(i / (spiralAngle / 100));
+      bandGain = 1.8;
+      threshold = 0.25;
+    } else {
+      // ── Mids & Highs: tight circle that only expands on energy ──
+      const angle = ((i - bassPointEnd) / (numPoints - bassPointEnd)) * Math.PI * 2;
+      // Base radius — compact circle
+      const baseRadius = 2.5;
+      if (i < midPointEnd) {
+        bandGain = 0.6;
+        threshold = 0.4;
+      } else {
+        bandGain = 0.3;
+        threshold = 0.5;
+      }
+      gatedLevel = freqLevel > threshold ? (freqLevel - threshold) / (1 - threshold) : 0;
+      // Circle expands outward only when energy is present
+      const expandRadius = baseRadius + gatedLevel * bandGain * 4.0;
+      x = expandRadius * Math.sin(angle);
+      y = expandRadius * Math.cos(angle);
+    }
+
+    // Gated level for bass (mids/highs already computed above)
+    if (i < bassPointEnd) {
+      gatedLevel = freqLevel > threshold ? (freqLevel - threshold) / (1 - threshold) : 0;
+    }
+
+    const displacement = floatTimeData[dataIdx] * timeData[dataIdx] * intensity * bandGain * (0.3 + gatedLevel * 0.7);
     const dist = Math.sqrt(x * x + y * y) || 1;
     x += (x / dist) * displacement * 0.7;
     y += (y / dist) * displacement * 0.7;
@@ -212,21 +250,31 @@ function draw() {
     };
   }
 
+  // Build mirrored bass points (rotate 180°)
+  const mirrorPoints = new Array(bassPointEnd);
+  for (let i = 0; i < bassPointEnd; i++) {
+    const p = points[i];
+    mirrorPoints[i] = {
+      x: cx - (p.x - cx),
+      y: cy - (p.y - cy),
+      wave: p.wave,
+      displacement: p.displacement,
+    };
+  }
+
   // Draw lines with lighter blend so they glow against the blobs
   c.globalCompositeOperation = 'lighter';
   c.lineCap = 'round';
   c.lineJoin = 'round';
 
-  for (let i = 0; i < numPoints - 1; i++) {
-    const p0 = points[i];
-    const p1 = points[i + 1];
-
+  // Helper to draw a line segment with distance-based fade
+  function drawSegment(p0, p1, fade) {
     const wave = p0.wave;
     const shift = wave * 0.2;
     const R = Math.max(0, Math.min(1, (pr / 255) + shift));
     const G = Math.max(0, Math.min(1, (pg / 255) - Math.abs(shift) * 0.25));
     const B = Math.max(0, Math.min(1, (pb / 255) - shift * 0.4));
-    const alpha = Math.min(0.55, energy * 0.8 + Math.abs(wave) * 0.15);
+    const alpha = Math.min(0.55, energy * 0.8 + Math.abs(wave) * 0.15) * fade;
 
     c.beginPath();
     c.moveTo(p0.x, p0.y);
@@ -234,6 +282,26 @@ function draw() {
     c.strokeStyle = `rgba(${Math.round(R * 255)},${Math.round(G * 255)},${Math.round(B * 255)},${alpha})`;
     c.lineWidth = 0.6 + Math.abs(p0.displacement) * 0.015 * scale;
     c.stroke();
+  }
+
+  // Draw original points — fade out with distance from center
+  for (let i = 0; i < numPoints - 1; i++) {
+    const dx = points[i].x - cx;
+    const dy = points[i].y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = minDim * 0.5;
+    const fade = Math.max(0.15, 1 - (dist / maxDist) * 0.6);
+    drawSegment(points[i], points[i + 1], fade);
+  }
+
+  // Draw mirrored bass spiral — same distance fade
+  for (let i = 0; i < bassPointEnd - 1; i++) {
+    const dx = mirrorPoints[i].x - cx;
+    const dy = mirrorPoints[i].y - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    const maxDist = minDim * 0.5;
+    const fade = Math.max(0.15, 1 - (dist / maxDist) * 0.6);
+    drawSegment(mirrorPoints[i], mirrorPoints[i + 1], fade);
   }
 
   c.globalCompositeOperation = 'source-over';
