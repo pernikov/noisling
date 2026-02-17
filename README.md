@@ -1,6 +1,6 @@
 # Noisling
 
-A minimal, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by artist, album, or song.
+A minimal, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by album or song. Songs are the main focus — there are no dedicated artist pages, just your music organized by albums and tracks.
 
 There is no authentication — this is meant to run on a trusted local network.
 
@@ -16,6 +16,7 @@ Cover art is resolved in the following order:
 
 1. **Embedded artwork** — extracted directly from the audio file's metadata tags
 2. **Folder images** — if no embedded art is found, the scanner looks for image files in the same directory as the track. It checks common names first (`cover`, `folder`, `front`, `album`, `art`, `artwork`, `thumb`, `thumbnail`) and falls back to any image file in the folder
+3. **Live updates** — a file watcher detects when you add or change a cover image in an album folder and automatically updates all tracks in that folder that don't have embedded art
 
 **Supported image formats:** `.jpg` `.jpeg` `.png` `.webp` `.gif` `.bmp` `.tiff` `.avif`
 

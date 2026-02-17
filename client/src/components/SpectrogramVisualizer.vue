@@ -9,6 +9,7 @@ const { accentColor } = useAccentColor();
 const containerRef = ref(null);
 const canvasRef = ref(null);
 const isFullscreen = ref(false);
+const vizMode = ref('spiral'); // 'spiral' | 'wave'
 let animId = null;
 
 function ensureAudioContext() {
@@ -62,6 +63,18 @@ let spiralDir = true;
 let smoothSpiralEnergy = 0; // separate slow smoother for spiral expansion
 let time = 0;
 let vizCtx = null;
+let smoothWaveBass = 0;
+
+function toggleMode() {
+  vizMode.value = vizMode.value === 'spiral' ? 'wave' : 'spiral';
+  // Clear canvas on mode switch to avoid leftover artifacts
+  const canvas = canvasRef.value;
+  if (canvas) {
+    const c = canvas.getContext('2d');
+    c.fillStyle = 'rgb(9, 9, 11)';
+    c.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
 
 function toggleFullscreen() {
   if (!containerRef.value) return;
@@ -76,7 +89,138 @@ function onFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
 }
 
+function setupCanvas() {
+  const canvas = canvasRef.value;
+  if (!canvas) return null;
+  const c = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    c.scale(dpr, dpr);
+  }
+  return { c, w: rect.width, h: rect.height };
+}
+
+function drawWave() {
+  const canvas = canvasRef.value;
+  const analyser = vizCtx?.analyser;
+  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
+
+  const setup = setupCanvas();
+  if (!setup) { animId = requestAnimationFrame(draw); return; }
+  const { c, w, h } = setup;
+  const cy = h / 2;
+
+  const bufferLength = analyser.fftSize;
+  const floatTimeData = new Float32Array(bufferLength);
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getFloatTimeDomainData(floatTimeData);
+  analyser.getByteFrequencyData(freqData);
+
+  const [r, g, b] = getColor();
+
+  // Bass energy for radial glow
+  const bassEnd = Math.floor(analyser.frequencyBinCount / 6);
+  let bass = 0;
+  for (let i = 0; i < bassEnd; i++) bass += freqData[i];
+  bass = bass / bassEnd / 255;
+
+  // Fast attack, fast release
+  if (bass > smoothWaveBass) smoothWaveBass += (bass - smoothWaveBass) * 0.7;
+  else smoothWaveBass += (bass - smoothWaveBass) * 0.5;
+  bass = smoothWaveBass;
+
+  // Full clear — single crisp line, no trail
+  c.clearRect(0, 0, w, h);
+  c.fillStyle = 'rgb(9, 9, 11)';
+  c.fillRect(0, 0, w, h);
+
+  // Edge vignette glow on bass/kick/snare hits
+  if (bass > 0.5) {
+    const [br, bg, bb] = [r, g, b];
+    const strength = Math.min(1, (bass - 0.5) * 3.0);
+    const alpha = strength * 0.4;
+
+    c.globalCompositeOperation = 'screen';
+
+    const diag = Math.sqrt(w * w + h * h) / 2;
+    const innerR = diag * 0.7;
+    const outerR = diag;
+
+    const grad = c.createRadialGradient(w / 2, h / 2, innerR, w / 2, h / 2, outerR);
+    grad.addColorStop(0, `rgba(${br},${bg},${bb},0)`);
+    grad.addColorStop(0.5, `rgba(${br},${bg},${bb},${alpha * 0.3})`);
+    grad.addColorStop(1, `rgba(${br},${bg},${bb},${alpha})`);
+    c.fillStyle = grad;
+    c.fillRect(0, 0, w, h);
+
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  // Sample fewer points for sharp angular look
+  const numPoints = 64;
+  const step = Math.floor(bufferLength / numPoints);
+
+  // Lines: almost flat baseline, peaks punch through
+  const lineGate = Math.max(0, bass - 0.35) / 0.65;
+  const bassAmp = h * (0.008 + lineGate * 0.3);
+  const lineAlpha = 0.15 + lineGate * 0.7;
+  const lineWidth = 1.5 + lineGate * 2.0;
+
+  // Pre-compute points — bass pumps the displacement
+  const pts = new Array(numPoints);
+  for (let i = 0; i < numPoints; i++) {
+    const sample = floatTimeData[i * step] || 0;
+    const abs = Math.abs(sample);
+    const shaped = Math.sign(sample) * Math.pow(abs, 1.8) * 1.5;
+    pts[i] = { x: (i / (numPoints - 1)) * w, y: cy + shaped * bassAmp };
+  }
+
+  // Draw with glow layers (like spiral mode)
+  c.globalCompositeOperation = 'lighter';
+  c.lineJoin = 'miter';
+  c.lineCap = 'butt';
+
+  // Wide outer glow
+  c.beginPath();
+  for (let i = 0; i < numPoints; i++) {
+    if (i === 0) c.moveTo(pts[i].x, pts[i].y);
+    else c.lineTo(pts[i].x, pts[i].y);
+  }
+  c.strokeStyle = `rgba(${r},${g},${b},${lineAlpha * 0.08})`;
+  c.lineWidth = lineWidth + 10;
+  c.stroke();
+
+  // Medium glow
+  c.beginPath();
+  for (let i = 0; i < numPoints; i++) {
+    if (i === 0) c.moveTo(pts[i].x, pts[i].y);
+    else c.lineTo(pts[i].x, pts[i].y);
+  }
+  c.strokeStyle = `rgba(${r},${g},${b},${lineAlpha * 0.2})`;
+  c.lineWidth = lineWidth + 4;
+  c.stroke();
+
+  // Core line
+  c.beginPath();
+  for (let i = 0; i < numPoints; i++) {
+    if (i === 0) c.moveTo(pts[i].x, pts[i].y);
+    else c.lineTo(pts[i].x, pts[i].y);
+  }
+  c.strokeStyle = `rgba(${r},${g},${b},${lineAlpha})`;
+  c.lineWidth = lineWidth;
+  c.stroke();
+
+  c.globalCompositeOperation = 'source-over';
+
+  animId = requestAnimationFrame(draw);
+}
+
 function draw() {
+  if (vizMode.value === 'wave') { drawWave(); return; }
+
   const canvas = canvasRef.value;
   const analyser = vizCtx?.analyser;
   if (!canvas || !analyser) {
@@ -84,18 +228,9 @@ function draw() {
     return;
   }
 
-  const c = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-
-  if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    c.scale(dpr, dpr);
-  }
-
-  const w = rect.width;
-  const h = rect.height;
+  const setup = setupCanvas();
+  if (!setup) { animId = requestAnimationFrame(draw); return; }
+  const { c, w, h } = setup;
   const cx = w / 2;
   const cy = h / 2;
   const minDim = Math.min(w, h);
@@ -334,6 +469,19 @@ onUnmounted(() => {
     :class="isFullscreen ? '' : 'h-[calc(100vh-3.5rem-5.5rem)]'"
   >
     <canvas ref="canvasRef" class="w-full h-full block" />
+
+    <button
+      class="absolute top-3 right-12 text-zinc-500 hover:text-zinc-200 transition-colors z-10"
+      @click="toggleMode"
+      :title="vizMode === 'spiral' ? 'Switch to wave' : 'Switch to spiral'"
+    >
+      <svg v-if="vizMode === 'spiral'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path d="M2 12h4l3-8 4 16 3-8h6" />
+      </svg>
+      <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="3" /><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3" />
+      </svg>
+    </button>
 
     <button
       class="absolute top-3 right-3 text-zinc-500 hover:text-zinc-200 transition-colors z-10"
