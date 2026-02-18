@@ -52,7 +52,7 @@ function formatDuration(seconds) {
         <CoverArt :cover="albumInfo.cover" size="w-48 h-48" />
         <div>
           <div class="text-xs uppercase text-zinc-500 mb-1">Album</div>
-          <h1 class="text-3xl font-bold mb-2">{{ albumInfo.name }}</h1>
+          <h1 class="text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
           <div class="text-zinc-400">
             <template v-for="(artist, ai) in albumInfo.artists" :key="ai">
               <span v-if="ai > 0">, </span>

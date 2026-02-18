@@ -60,7 +60,7 @@ function goToArtist(name) {
     <!-- Recently Played -->
     <section>
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-bold">Recently Played</h2>
+        <h2 class="text-xl font-bold font-display">Recently Played</h2>
         <router-link
           v-if="recentTracks.length > 0"
           to="/recent"
@@ -82,7 +82,7 @@ function goToArtist(name) {
     <!-- Artists -->
     <section>
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-bold">Your Artists</h2>
+        <h2 class="text-xl font-bold font-display">Your Artists</h2>
         <router-link
           v-if="artists.length > 0"
           to="/artists"
@@ -107,7 +107,7 @@ function goToArtist(name) {
           @click="goToArtist(artist.name)"
         >
           <ArtistCover :covers="artist.covers || []" />
-          <div class="font-medium truncate">{{ artist.name }}</div>
+          <div class="font-medium font-display truncate">{{ artist.name }}</div>
           <div class="text-xs text-zinc-500">
             {{ artist.albumCount }} album{{ artist.albumCount !== 1 ? 's' : '' }}
             &middot;

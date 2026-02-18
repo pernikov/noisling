@@ -39,37 +39,37 @@ function formatSize(bytes) {
 
 <template>
   <div class="space-y-10">
-    <h1 class="text-2xl font-bold">Stats</h1>
+    <h1 class="text-2xl font-bold font-display">Stats</h1>
 
     <div v-if="loading" class="text-zinc-500 text-sm">Loading...</div>
 
     <template v-else-if="stats">
       <!-- Library Overview -->
       <section>
-        <h2 class="text-lg font-semibold mb-4">Library Overview</h2>
+        <h2 class="text-lg font-semibold font-display mb-4">Library Overview</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <div class="bg-zinc-900 rounded-lg p-4">
-            <div class="text-2xl font-bold">{{ stats.totalTracks.toLocaleString() }}</div>
+            <div class="text-2xl font-bold font-display">{{ stats.totalTracks.toLocaleString() }}</div>
             <div class="text-xs text-zinc-400 mt-1">Tracks</div>
           </div>
           <div class="bg-zinc-900 rounded-lg p-4">
-            <div class="text-2xl font-bold">{{ stats.totalArtists.toLocaleString() }}</div>
+            <div class="text-2xl font-bold font-display">{{ stats.totalArtists.toLocaleString() }}</div>
             <div class="text-xs text-zinc-400 mt-1">Artists</div>
           </div>
           <div class="bg-zinc-900 rounded-lg p-4">
-            <div class="text-2xl font-bold">{{ stats.totalAlbums.toLocaleString() }}</div>
+            <div class="text-2xl font-bold font-display">{{ stats.totalAlbums.toLocaleString() }}</div>
             <div class="text-xs text-zinc-400 mt-1">Albums</div>
           </div>
           <div class="bg-zinc-900 rounded-lg p-4">
-            <div class="text-2xl font-bold">{{ formatDuration(stats.totalDuration) }}</div>
+            <div class="text-2xl font-bold font-display">{{ formatDuration(stats.totalDuration) }}</div>
             <div class="text-xs text-zinc-400 mt-1">Total Duration</div>
           </div>
           <div class="bg-zinc-900 rounded-lg p-4">
-            <div class="text-2xl font-bold">{{ formatSize(stats.totalFileSize) }}</div>
+            <div class="text-2xl font-bold font-display">{{ formatSize(stats.totalFileSize) }}</div>
             <div class="text-xs text-zinc-400 mt-1">Library Size</div>
           </div>
           <div class="bg-zinc-900 rounded-lg p-4">
-            <div class="text-2xl font-bold">{{ stats.totalPlays.toLocaleString() }}</div>
+            <div class="text-2xl font-bold font-display">{{ stats.totalPlays.toLocaleString() }}</div>
             <div class="text-xs text-zinc-400 mt-1">Total Plays</div>
           </div>
         </div>
@@ -77,7 +77,7 @@ function formatSize(bytes) {
 
       <!-- Format Breakdown -->
       <section v-if="stats.formats.length > 0">
-        <h2 class="text-lg font-semibold mb-4">Formats</h2>
+        <h2 class="text-lg font-semibold font-display mb-4">Formats</h2>
         <div class="space-y-2 max-w-md">
           <div v-for="f in stats.formats" :key="f.format" class="flex items-center gap-3">
             <span class="text-sm text-zinc-300 w-14 text-right uppercase">{{ f.format || '?' }}</span>
@@ -94,13 +94,13 @@ function formatSize(bytes) {
 
       <!-- Most Played Tracks -->
       <section v-if="stats.topTracks.length > 0">
-        <h2 class="text-lg font-semibold mb-4">Most Played Tracks</h2>
+        <h2 class="text-lg font-semibold font-display mb-4">Most Played Tracks</h2>
         <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays />
       </section>
 
       <!-- Top Artists -->
       <section v-if="stats.topArtists.length > 0">
-        <h2 class="text-lg font-semibold mb-4">Top Artists</h2>
+        <h2 class="text-lg font-semibold font-display mb-4">Top Artists</h2>
         <div class="space-y-2">
           <router-link
             v-for="(artist, i) in stats.topArtists"
@@ -120,7 +120,7 @@ function formatSize(bytes) {
 
       <!-- Top Albums -->
       <section v-if="stats.topAlbums.length > 0">
-        <h2 class="text-lg font-semibold mb-4">Top Albums</h2>
+        <h2 class="text-lg font-semibold font-display mb-4">Top Albums</h2>
         <div class="space-y-2">
           <router-link
             v-for="(album, i) in stats.topAlbums"

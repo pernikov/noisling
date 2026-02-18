@@ -85,7 +85,7 @@ function goToArtist(name) {
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">Artists</h1>
+      <h1 class="text-2xl font-bold font-display">Artists</h1>
       <div class="relative flex items-center h-8">
         <input
           ref="searchInput"
@@ -120,7 +120,7 @@ function goToArtist(name) {
           @click="goToArtist(artist.name)"
         >
           <ArtistCover :covers="artist.covers || []" />
-          <div class="font-medium truncate">{{ artist.name }}</div>
+          <div class="font-medium font-display truncate">{{ artist.name }}</div>
           <div class="text-xs text-zinc-500">
             {{ artist.albumCount }} album{{ artist.albumCount !== 1 ? 's' : '' }}
             &middot;

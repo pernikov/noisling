@@ -62,7 +62,7 @@ function formatDuration(seconds) {
     </button>
 
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">{{ artistName }}</h1>
+      <h1 class="text-2xl font-bold font-display">{{ artistName }}</h1>
       <div class="flex items-center gap-2">
         <button
           class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
@@ -95,7 +95,7 @@ function formatDuration(seconds) {
         @click="goToAlbum(album)"
       >
         <CoverArt :cover="album.cover" size="w-full aspect-square mb-3" />
-        <div class="font-medium truncate">{{ album.name }}</div>
+        <div class="font-medium font-display truncate">{{ album.name }}</div>
         <div class="text-xs text-zinc-500">
           {{ album.year || '' }}
           {{ album.year ? '·' : '' }}

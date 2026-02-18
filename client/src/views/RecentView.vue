@@ -29,7 +29,7 @@ watch(() => playerState.currentTrack?._id, (newId, oldId) => {
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-6">Recently Played</h1>
+    <h1 class="text-2xl font-bold font-display mb-6">Recently Played</h1>
 
     <div v-if="loading" class="text-zinc-500">Loading...</div>
 
