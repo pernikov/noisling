@@ -10,12 +10,16 @@ import scanRoutes from './routes/scan.js';
 import streamRoutes from './routes/stream.js';
 import eventsRoutes from './routes/events.js';
 import { startWatcher } from './services/watcher.js';
+import { createLogger, requestLogger } from './logger.js';
+
+const log = createLogger('server', 'magenta');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(requestLogger());
 
 app.use('/api', libraryRoutes);
 app.use('/api', scanRoutes);
@@ -35,11 +39,11 @@ async function start() {
   await connectDB();
   startWatcher();
   app.listen(config.port, () => {
-    console.log(`Noisling server running on http://localhost:${config.port}`);
+    log.success(`Noisling server running on http://localhost:${config.port}`);
   });
 }
 
 start().catch((err) => {
-  console.error('Failed to start server:', err);
+  log.error('Failed to start server:', err);
   process.exit(1);
 });

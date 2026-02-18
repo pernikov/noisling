@@ -5,6 +5,10 @@ import { parseFile } from 'music-metadata';
 import Track from '../models/Track.js';
 import config from '../config.js';
 import { broadcast } from './events.js';
+import { createLogger } from '../logger.js';
+
+const log = createLogger('scanner', 'yellow');
+const wlog = createLogger('watcher', 'cyan');
 
 const AUDIO_EXTENSIONS = new Set([
   '.mp3', '.flac', '.ogg', '.m4a', '.aac',
@@ -14,6 +18,8 @@ const AUDIO_EXTENSIONS = new Set([
 const BATCH_SIZE = 5;
 
 function isAudioFile(filePath) {
+  const name = basename(filePath);
+  if (name.startsWith('._')) return false;
   return AUDIO_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
 
@@ -186,14 +192,14 @@ async function cleanupOrphanedCovers() {
         await unlink(join(config.coversDir, file));
         removed++;
       } catch (err) {
-        console.error(`Error removing orphaned cover ${file}:`, err.message);
+        log.error(`Error removing orphaned cover ${file}:`, err.message);
         errors++;
       }
     }
   }
 
   if (removed > 0) {
-    console.log(`Cleaned up ${removed} orphaned cover(s)`);
+    log.log(`Cleaned up ${removed} orphaned cover(s)`);
   }
   return { removed, errors };
 }
@@ -213,12 +219,12 @@ export async function scanLibrary() {
     throw new Error('MUSIC_DIR is not set in .env');
   }
 
-  console.log(`Scanning: ${config.musicDir}`);
+  log.info(`Scanning: ${config.musicDir}`);
   broadcast('scan-progress', { phase: 'walking', message: 'Discovering files...' });
 
   const files = await walkDir(config.musicDir);
   const total = files.length;
-  console.log(`Found ${total} audio files`);
+  log.log(`Found ${total} audio files`);
 
   // Build a map of existing tracks keyed by path
   const existingTracks = await Track.find({}, { path: 1, fileMtime: 1 }).lean();
@@ -242,7 +248,7 @@ export async function scanLibrary() {
   }
 
   const needProcessing = toProcess.length;
-  console.log(`Processing ${needProcessing} files (${stats.skipped} unchanged)`);
+  log.log(`Processing ${needProcessing} files (${stats.skipped} unchanged)`);
   broadcast('scan-progress', { phase: 'processing', total, toProcess: needProcessing, skipped: stats.skipped });
 
   // Process in batches
@@ -265,7 +271,7 @@ export async function scanLibrary() {
         if (batch[j].isNew) stats.added++;
         else stats.updated++;
       } else {
-        console.error(`Error processing ${result.path}:`, result.error);
+        log.error(`Error processing ${result.path}:`, result.error);
         stats.errors++;
       }
     }
@@ -296,7 +302,7 @@ export async function scanLibrary() {
   const coverStats = await cleanupOrphanedCovers();
   stats.coversRemoved = coverStats.removed;
 
-  console.log('Scan complete:', stats);
+  log.success('Scan complete:', stats);
   broadcast('scan-progress', { phase: 'complete', stats });
   return stats;
 }
@@ -305,16 +311,16 @@ export async function scanLibrary() {
 export async function handleFileAdd(filePath) {
   if (!isAudioFile(filePath)) return;
   try {
-    console.log(`[watcher] Adding/updating: ${filePath}`);
+    wlog.log(`Adding/updating: ${filePath}`);
     await upsertFile(filePath);
   } catch (err) {
-    console.error(`[watcher] Error processing ${filePath}:`, err.message);
+    wlog.error(`Error processing ${filePath}:`, err.message);
   }
 }
 
 export async function handleFileRemove(filePath) {
   if (!isAudioFile(filePath)) return;
-  console.log(`[watcher] Removing: ${filePath}`);
+  wlog.log(`Removing: ${filePath}`);
 
   const track = await Track.findOneAndDelete({ path: filePath });
 
@@ -324,7 +330,7 @@ export async function handleFileRemove(filePath) {
     if (!stillUsed) {
       try {
         await unlink(join(config.coversDir, track.cover));
-        console.log(`[watcher] Removed orphaned cover: ${track.cover}`);
+        wlog.log(`Removed orphaned cover: ${track.cover}`);
       } catch {
         // cover file may already be gone
       }
@@ -368,9 +374,9 @@ export async function handleImageAdd(imagePath) {
       }
     }
 
-    console.log(`[watcher] Updated cover for ${tracks.length} track(s) in ${dir}`);
+    wlog.success(`Updated cover for ${tracks.length} track(s) in ${dir}`);
   } catch (err) {
-    console.error(`[watcher] Error processing cover image ${imagePath}:`, err.message);
+    wlog.error(`Error processing cover image ${imagePath}:`, err.message);
   }
 }
 
@@ -415,5 +421,5 @@ export async function handleImageRemove(imagePath) {
     }
   }
 
-  console.log(`[watcher] ${altCover ? 'Replaced' : 'Cleared'} cover for ${tracks.length} track(s) in ${dir}`);
+  wlog.log(`${altCover ? 'Replaced' : 'Cleared'} cover for ${tracks.length} track(s) in ${dir}`);
 }

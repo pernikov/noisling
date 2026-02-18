@@ -2,11 +2,11 @@ services:
   app:
     build: .
     ports:
-      - "3000:3000"
+      - "1994:1994"
     environment:
       - MONGODB_URI=mongodb://mongo:27017/noisling
       - MUSIC_DIR=/music
-      - PORT=3000
+      - PORT=1994
     volumes:
       - /mnt/data/music:/music:ro
       - covers:/app/server/covers

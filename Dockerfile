@@ -19,6 +19,6 @@ RUN pnpm install --frozen-lockfile --prod
 COPY server/ server/
 COPY --from=client-build /app/client/dist client/dist
 
-EXPOSE 3000
+EXPOSE 1994
 
 CMD ["node", "server/index.js"]

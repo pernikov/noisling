@@ -2,6 +2,9 @@ import chokidar from 'chokidar';
 import config from '../config.js';
 import { handleFileAdd, handleFileRemove, handleImageAdd, handleImageRemove } from './scanner.js';
 import { broadcast } from './events.js';
+import { createLogger } from '../logger.js';
+
+const log = createLogger('watcher', 'cyan');
 
 let watcher = null;
 let broadcastTimer = null;
@@ -27,7 +30,7 @@ async function onRemove(filePath) {
 
 export function startWatcher() {
   if (!config.musicDir) {
-    console.warn('[watcher] MUSIC_DIR not set, skipping file watcher');
+    log.warn('MUSIC_DIR not set, skipping file watcher');
     return;
   }
 
@@ -40,21 +43,21 @@ export function startWatcher() {
     .on('add', onAdd)
     .on('change', onAdd)
     .on('unlink', onRemove)
-    .on('error', (err) => console.error('[watcher] Error:', err.message))
-    .on('ready', () => console.log(`[watcher] Watching ${config.musicDir}`));
+    .on('error', (err) => log.error('Error:', err.message))
+    .on('ready', () => log.success(`Watching ${config.musicDir}`));
 }
 
 export function pauseWatcher() {
   if (watcher) {
     watcher.unwatch(config.musicDir);
-    console.log('[watcher] Paused during scan');
+    log.log('Paused during scan');
   }
 }
 
 export function resumeWatcher() {
   if (watcher) {
     watcher.add(config.musicDir);
-    console.log('[watcher] Resumed after scan');
+    log.log('Resumed after scan');
   }
 }
 

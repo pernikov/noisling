@@ -29,7 +29,7 @@ cp .env.example .env
 docker compose up
 ```
 
-The app will be available at `http://localhost:3000`.
+The app will be available at `http://localhost:1994`.
 
 ## Running locally
 
@@ -40,7 +40,7 @@ pnpm install
 pnpm dev
 ```
 
-Client dev server runs on `http://localhost:5173`, API on port 3000.
+Client dev server runs on `http://localhost:5173`, API on port 1994.
 
 ## Environment variables
 
@@ -48,4 +48,4 @@ Client dev server runs on `http://localhost:5173`, API on port 3000.
 |---|---|---|
 | `MUSIC_DIR` | — | Path to your music directory (required) |
 | `MONGODB_URI` | `mongodb://localhost:27017/noisling` | MongoDB connection string |
-| `PORT` | `3000` | Server port |
+| `PORT` | `1994` | Server port |
