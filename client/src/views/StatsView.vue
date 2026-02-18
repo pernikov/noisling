@@ -1,9 +1,11 @@
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
 
+const router = useRouter();
 const api = useApi();
 const stats = ref(null);
 const loading = ref(true);
@@ -101,42 +103,64 @@ function formatSize(bytes) {
       <!-- Top Artists -->
       <section v-if="stats.topArtists.length > 0">
         <h2 class="text-lg font-semibold font-display mb-4">Top Artists</h2>
-        <div class="space-y-2">
-          <router-link
-            v-for="(artist, i) in stats.topArtists"
-            :key="artist.name"
-            :to="{ name: 'artist', params: { name: artist.name } }"
-            class="flex items-center gap-4 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors"
-          >
-            <span class="text-sm text-zinc-500 w-6 text-right">{{ i + 1 }}</span>
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate">{{ artist.name }}</div>
-              <div class="text-xs text-zinc-500">{{ artist.trackCount }} track{{ artist.trackCount !== 1 ? 's' : '' }}</div>
-            </div>
-            <span class="text-sm text-zinc-400">{{ artist.plays }} play{{ artist.plays !== 1 ? 's' : '' }}</span>
-          </router-link>
-        </div>
+        <table class="w-full text-sm border-separate border-spacing-0">
+          <thead>
+            <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
+              <th class="text-left py-2 px-3 w-10">#</th>
+              <th class="text-left py-2 px-3">Artist</th>
+              <th class="text-right py-2 px-3 w-16">Plays</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(artist, i) in stats.topArtists"
+              :key="artist.name"
+              class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
+              @click="router.push({ name: 'artist', params: { name: artist.name } })"
+            >
+              <td class="py-2 px-3 text-zinc-500">{{ i + 1 }}</td>
+              <td class="py-2 px-3">
+                <div class="font-medium truncate">{{ artist.name }}</div>
+                <div class="text-xs text-zinc-500">{{ artist.trackCount }} track{{ artist.trackCount !== 1 ? 's' : '' }}</div>
+              </td>
+              <td class="py-2 px-3 text-right text-zinc-500">{{ artist.plays }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- Top Albums -->
       <section v-if="stats.topAlbums.length > 0">
         <h2 class="text-lg font-semibold font-display mb-4">Top Albums</h2>
-        <div class="space-y-2">
-          <router-link
-            v-for="(album, i) in stats.topAlbums"
-            :key="album.name"
-            :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
-            class="flex items-center gap-4 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors"
-          >
-            <span class="text-sm text-zinc-500 w-6 text-right">{{ i + 1 }}</span>
-            <CoverArt :cover="album.cover" size="w-10 h-10" />
-            <div class="flex-1 min-w-0">
-              <div class="text-sm font-medium truncate">{{ album.name }}</div>
-              <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
-            </div>
-            <span class="text-sm text-zinc-400">{{ album.plays }} play{{ album.plays !== 1 ? 's' : '' }}</span>
-          </router-link>
-        </div>
+        <table class="w-full text-sm border-separate border-spacing-0">
+          <thead>
+            <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
+              <th class="text-left py-2 px-3 w-10">#</th>
+              <th class="text-left py-2 px-3">Album</th>
+              <th class="text-right py-2 px-3 w-16">Plays</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="(album, i) in stats.topAlbums"
+              :key="album.name"
+              class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
+              @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
+            >
+              <td class="py-2 px-3 text-zinc-500">{{ i + 1 }}</td>
+              <td class="py-2 px-3">
+                <div class="flex items-center gap-2">
+                  <CoverArt :cover="album.cover" size="w-8 h-8" />
+                  <div class="min-w-0">
+                    <div class="font-medium truncate">{{ album.name }}</div>
+                    <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="py-2 px-3 text-right text-zinc-500">{{ album.plays }}</td>
+            </tr>
+          </tbody>
+        </table>
       </section>
 
       <!-- Empty state for listening stats -->

@@ -90,9 +90,9 @@ function isCurrentTrack(track) {
       </button>
     </div>
 
-    <table class="w-full text-sm">
+    <table class="w-full text-sm border-separate border-spacing-0">
       <thead>
-        <tr class="text-zinc-500 border-b border-zinc-800">
+        <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
           <th class="text-left py-2 px-3 w-10">#</th>
           <th class="text-left py-2 px-3">Title</th>
           <th v-if="showArtist" class="text-left py-2 px-3 hidden sm:table-cell">Artist</th>
@@ -106,7 +106,7 @@ function isCurrentTrack(track) {
         <tr
           v-for="(track, i) in tracks"
           :key="track._id"
-          class="hover:bg-zinc-800/50 cursor-pointer transition-colors"
+          class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
           :class="{ 'text-emerald-400': isCurrentTrack(track) }"
           @click="playTrack(i)"
         >
