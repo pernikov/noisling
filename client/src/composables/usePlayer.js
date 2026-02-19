@@ -111,6 +111,10 @@ if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('seekto', (details) => {
     if (details.seekTime != null) seek(details.seekTime);
   });
+  // iOS always renders ±10s icons for these slots in web media UI (can't change icons),
+  // but we can at least make them behave as track skip.
+  navigator.mediaSession.setActionHandler('seekbackward', () => prev());
+  navigator.mediaSession.setActionHandler('seekforward', () => next());
 }
 
 function play(track) {
