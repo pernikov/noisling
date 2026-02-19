@@ -5,6 +5,7 @@ const api = useApi();
 
 // Detect which formats this browser can't play natively.
 // Checked once at module load — canPlayType returns '' for unsupported formats.
+// Treat 'maybe' as unsupported too — it's not a confident yes.
 const _probe = new Audio();
 const UNSUPPORTED_FORMATS = new Set(
   Object.entries({
@@ -13,9 +14,11 @@ const UNSUPPORTED_FORMATS = new Set(
     opus: 'audio/ogg; codecs=opus',
     wma:  'audio/x-ms-wma',
   })
-    .filter(([, mime]) => _probe.canPlayType(mime) === '')
+    .filter(([, mime]) => _probe.canPlayType(mime) !== 'probably')
     .map(([fmt]) => fmt)
 );
+
+console.log('[player] UNSUPPORTED_FORMATS:', [...UNSUPPORTED_FORMATS]);
 
 function needsTranscode(track) {
   return UNSUPPORTED_FORMATS.has((track.format || '').toLowerCase());
@@ -115,7 +118,10 @@ function play(track) {
   audio.pause();
   state.currentTrack = track;
   playReported = false;
-  audio.src = api.streamUrl(track._id, needsTranscode(track));
+  const transcode = needsTranscode(track);
+  const src = api.streamUrl(track._id, transcode);
+  console.log('[player] play', track.title, '| format:', track.format, '| transcode:', transcode, '| url:', src);
+  audio.src = src;
   audio.load(); // Explicit load gives mobile browsers a clean slate
 
   // iOS: AudioContext starts suspended and must be resumed on user gesture
