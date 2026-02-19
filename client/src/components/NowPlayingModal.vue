@@ -50,17 +50,57 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function progressPercent() {
+// --- Progress scrubbing ---
+// scrubPercent tracks where the finger/cursor actually is during a drag so the
+// bar follows it exactly. Displaying state.currentTime directly would cause
+// visible jumps because the browser snaps seeks to keyframe boundaries.
+const isScrubbing = ref(false);
+const scrubPercent = ref(0);
+
+const displayPercent = computed(() => {
+  if (isScrubbing.value) return scrubPercent.value;
   if (!state.duration || !isFinite(state.duration)) return 0;
   return (state.currentTime / state.duration) * 100;
+});
+
+const displayTime = computed(() => {
+  if (isScrubbing.value && state.duration) return scrubPercent.value / 100 * state.duration;
+  return state.currentTime;
+});
+
+// Cached bounding rect for the duration of a drag (avoids repeated layout reads).
+let progressRect = null;
+
+function clampPercent(clientX) {
+  if (!progressRect) return 0;
+  return Math.max(0, Math.min(100, (clientX - progressRect.left) / progressRect.width * 100));
 }
 
-function onProgressClick(e) {
-  const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
-  seek(ratio * state.duration);
+// Mouse drag (desktop / iPadOS with pointer)
+function onProgressMouseDown(e) {
+  if (!state.duration) return;
+  progressRect = e.currentTarget.getBoundingClientRect();
+  isScrubbing.value = true;
+  scrubPercent.value = clampPercent(e.clientX);
+  seek(scrubPercent.value / 100 * state.duration);
+
+  const onMove = (ev) => {
+    scrubPercent.value = clampPercent(ev.clientX);
+    seek(scrubPercent.value / 100 * state.duration);
+  };
+  const onUp = (ev) => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    scrubPercent.value = clampPercent(ev.clientX);
+    seek(scrubPercent.value / 100 * state.duration);
+    isScrubbing.value = false;
+    progressRect = null;
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
+// Touch drag (mobile)
 let progressTouchStartX = 0;
 let progressTouchStartY = 0;
 let isProgressScrubbing = false;
@@ -69,27 +109,30 @@ function onProgressTouchStart(e) {
   progressTouchStartX = e.touches[0].clientX;
   progressTouchStartY = e.touches[0].clientY;
   isProgressScrubbing = false;
-  // Seek immediately so the scrubber feels responsive
-  const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
-  seek(ratio * state.duration);
+  progressRect = e.currentTarget.getBoundingClientRect();
+  isScrubbing.value = true;
+  scrubPercent.value = clampPercent(e.touches[0].clientX);
+  seek(scrubPercent.value / 100 * state.duration);
 }
 
 function onProgressTouchMove(e) {
   const deltaX = Math.abs(e.touches[0].clientX - progressTouchStartX);
   const deltaY = Math.abs(e.touches[0].clientY - progressTouchStartY);
-  // Ignore the move if the gesture is primarily vertical (e.g. swiping to close
-  // the modal), otherwise the finger sliding left off the bar clamps to ratio 0
-  // and seek(0) is called, restarting the song.
-  if (!isProgressScrubbing && deltaY > deltaX * 0.8) return;
+  // If gesture is primarily vertical (swipe to close), abort the scrub.
+  if (!isProgressScrubbing && deltaY > deltaX * 0.8) {
+    isScrubbing.value = false;
+    return;
+  }
   isProgressScrubbing = true;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
-  seek(ratio * state.duration);
+  e.preventDefault(); // stop page scroll during horizontal scrub
+  scrubPercent.value = clampPercent(e.touches[0].clientX);
+  seek(scrubPercent.value / 100 * state.duration);
 }
 
 function onProgressTouchEnd() {
   isProgressScrubbing = false;
+  isScrubbing.value = false;
+  progressRect = null;
 }
 
 // Swipe-down to close
@@ -256,25 +299,30 @@ onUnmounted(() => {
 
             <!-- Progress scrubber -->
             <div>
+              <!-- Tall hit area so finger has plenty of room; visual bar stays slim -->
               <div
-                class="relative h-1.5 bg-white/20 rounded-full cursor-pointer group"
-                @click="onProgressClick"
+                class="relative flex items-center h-8 select-none"
+                :class="isScrubbing ? 'cursor-grabbing' : 'cursor-grab'"
+                @mousedown.prevent="onProgressMouseDown"
                 @touchstart.passive="onProgressTouchStart"
-                @touchmove.passive="onProgressTouchMove"
+                @touchmove="onProgressTouchMove"
                 @touchend="onProgressTouchEnd"
               >
-                <div
-                  class="h-full bg-white rounded-full transition-colors"
-                  :class="`group-hover:bg-${accentColor}-400`"
-                  :style="{ width: progressPercent() + '%' }"
-                />
-                <div
-                  class="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2 pointer-events-none"
-                  :style="{ left: progressPercent() + '%' }"
-                />
+                <div class="relative w-full h-1.5 bg-white/20 rounded-full">
+                  <div
+                    class="h-full rounded-full transition-colors"
+                    :class="isScrubbing ? `bg-${accentColor}-400` : 'bg-white'"
+                    :style="{ width: displayPercent + '%' }"
+                  />
+                  <div
+                    class="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white rounded-full shadow-lg -translate-x-1/2 pointer-events-none transition-transform"
+                    :class="isScrubbing ? 'scale-100' : 'scale-50'"
+                    :style="{ left: displayPercent + '%' }"
+                  />
+                </div>
               </div>
-              <div class="flex justify-between text-xs text-zinc-400 mt-1.5 tabular-nums">
-                <span>{{ formatTime(state.currentTime) }}</span>
+              <div class="flex justify-between text-xs text-zinc-400 tabular-nums">
+                <span>{{ formatTime(displayTime) }}</span>
                 <span>{{ formatTime(state.duration) }}</span>
               </div>
             </div>

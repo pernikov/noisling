@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { usePlayer } from "../composables/usePlayer.js";
 import { useAccentColor } from "../composables/useAccentColor.js";
 import { useTheme } from "../composables/useTheme.js";
@@ -55,19 +55,50 @@ function formatTime(seconds) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function onProgressClick(e) {
+// --- Progress scrubbing ---
+// Track a separate visual position during drag so the bar follows the cursor
+// exactly, regardless of where the audio element actually seeks to (browsers
+// snap seeks to the nearest keyframe, which can be ±several seconds off).
+const isScrubbing = ref(false);
+const scrubPercent = ref(0);
+
+const displayPercent = computed(() => {
+  if (isScrubbing.value) return scrubPercent.value;
+  if (!state.duration) return 0;
+  return (state.currentTime / state.duration) * 100;
+});
+
+const displayTime = computed(() => {
+  if (isScrubbing.value && state.duration) return scrubPercent.value / 100 * state.duration;
+  return state.currentTime;
+});
+
+function onProgressMouseDown(e) {
+  if (!state.duration) return;
   const rect = e.currentTarget.getBoundingClientRect();
-  const ratio = (e.clientX - rect.left) / rect.width;
-  seek(ratio * state.duration);
+  const clamp = (x) => Math.max(0, Math.min(100, (x - rect.left) / rect.width * 100));
+
+  isScrubbing.value = true;
+  scrubPercent.value = clamp(e.clientX);
+  seek(scrubPercent.value / 100 * state.duration);
+
+  const onMove = (ev) => {
+    scrubPercent.value = clamp(ev.clientX);
+    seek(scrubPercent.value / 100 * state.duration);
+  };
+  const onUp = (ev) => {
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    scrubPercent.value = clamp(ev.clientX);
+    seek(scrubPercent.value / 100 * state.duration);
+    isScrubbing.value = false;
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
 }
 
 function onVolumeInput(e) {
   setVolume(parseFloat(e.target.value));
-}
-
-function progressPercent() {
-  if (!state.duration) return 0;
-  return (state.currentTime / state.duration) * 100;
 }
 </script>
 
@@ -207,19 +238,26 @@ function progressPercent() {
       </div>
 
       <!-- Progress bar -->
-      <div class="w-full flex items-center gap-2 text-xs text-zinc-500">
-        <span class="w-10 text-right tabular-nums">{{
-          formatTime(state.currentTime)
-        }}</span>
+      <div class="w-full flex items-center gap-2 text-xs text-zinc-500 select-none">
+        <span class="w-10 text-right tabular-nums">{{ formatTime(displayTime) }}</span>
+        <!-- Tall hit area so the bar is easy to grab; visual bar stays h-1 -->
         <div
-          class="flex-1 h-1 bg-zinc-700 rounded cursor-pointer group"
-          @click="onProgressClick"
+          class="flex-1 py-2 -my-2 group"
+          :class="isScrubbing ? 'cursor-grabbing' : 'cursor-grab'"
+          @mousedown.prevent="onProgressMouseDown"
         >
-          <div
-            class="h-full bg-zinc-100 rounded transition-colors"
-            :class="`group-hover:bg-${accentColor}-400`"
-            :style="{ width: progressPercent() + '%' }"
-          />
+          <div class="relative h-1 bg-zinc-700 rounded">
+            <div
+              class="h-full rounded"
+              :class="isScrubbing ? `bg-${accentColor}-400` : `bg-zinc-100 group-hover:bg-${accentColor}-400`"
+              :style="{ width: displayPercent + '%' }"
+            />
+            <div
+              class="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-white rounded-full shadow -translate-x-1/2 pointer-events-none transition-opacity"
+              :class="isScrubbing ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+              :style="{ left: displayPercent + '%' }"
+            />
+          </div>
         </div>
         <span class="w-10 tabular-nums">{{ formatTime(state.duration) }}</span>
       </div>
