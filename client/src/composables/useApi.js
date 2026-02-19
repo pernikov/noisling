@@ -46,6 +46,7 @@ export function useApi() {
     }),
     reportPlay: (id) => request(`/tracks/${id}/play`, { method: 'POST' }),
     streamUrl: (id, transcode = false) => `${BASE}/stream/${id}${transcode ? '?transcode=1' : ''}`,
+    warmTranscode: (id) => fetch(`${BASE}/stream/${id}/warm`).catch(() => {}),
     coverUrl: (filename) => filename ? `${BASE}/covers/${filename}` : '/placeholder.svg',
   };
 }

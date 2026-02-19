@@ -54,6 +54,65 @@ async function serveCachedTranscode(id, req, res) {
   return true;
 }
 
+// GET /api/stream/:id/warm — pre-transcode to cache without streaming.
+// Called by the client while the current track is playing so the next track's
+// cache is ready before playback starts (eliminates the stall/gap on first play).
+router.get('/stream/:id/warm', async (req, res) => {
+  const track = await Track.findById(req.params.id).lean();
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+
+  const id = req.params.id;
+
+  // Already done or in progress — nothing to do.
+  if (transcodeReady.has(id)) return res.json({ status: 'ready' });
+  if (transcodeInProgress.has(id)) return res.json({ status: 'in_progress' });
+
+  // Check if the file is already on disk from a previous server run.
+  try {
+    await statAsync(tempPath(id));
+    transcodeReady.add(id);
+    return res.json({ status: 'ready' });
+  } catch { /* not on disk */ }
+
+  // Start ffmpeg writing directly to the temp file (no piping to response).
+  const ff = spawn('ffmpeg', [
+    '-i', track.path,
+    '-vn',
+    '-c:a', 'aac',
+    '-b:a', '320k',
+    '-f', 'adts',
+    tempPath(id),
+  ], { stdio: 'ignore' });
+
+  let resolveTranscode, rejectTranscode;
+  const transcodePromise = new Promise((res, rej) => {
+    resolveTranscode = res;
+    rejectTranscode = rej;
+  });
+  transcodeInProgress.set(id, transcodePromise);
+
+  ff.on('close', (code) => {
+    transcodeInProgress.delete(id);
+    if (code === 0) {
+      transcodeReady.add(id);
+      resolveTranscode();
+    } else {
+      unlinkAsync(tempPath(id)).catch(() => {});
+      rejectTranscode(new Error(`ffmpeg warm exit ${code}`));
+    }
+  });
+
+  ff.on('error', (err) => {
+    console.error('[transcode] warm ffmpeg spawn error:', err);
+    transcodeInProgress.delete(id);
+    unlinkAsync(tempPath(id)).catch(() => {});
+    rejectTranscode(err);
+  });
+
+  // Return immediately — transcoding runs in the background.
+  res.json({ status: 'started' });
+});
+
 // GET /api/stream/:id — stream audio with range support
 router.get('/stream/:id', async (req, res) => {
   const track = await Track.findById(req.params.id).lean();

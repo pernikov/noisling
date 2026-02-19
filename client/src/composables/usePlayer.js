@@ -241,6 +241,14 @@ function play(track) {
 
   audio.play().catch(err => console.error('[player] play() failed:', err));
   updateMediaSession(track);
+
+  // Pre-warm the transcode cache for the next queued track so it gets a
+  // seekable cached response from the very first request (no stall/gap).
+  const nextIdx = state.queueIndex + 1;
+  if (nextIdx < state.queue.length) {
+    const nextTrack = state.queue[nextIdx];
+    if (needsTranscode(nextTrack)) api.warmTranscode(nextTrack._id);
+  }
 }
 
 function shuffleArray(arr) {
