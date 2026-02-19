@@ -32,7 +32,8 @@ const barStyle = computed(() => {
 const queueOpen = ref(false);
 
 function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0:00';
+  if (seconds == null || isNaN(seconds)) return '0:00';
+  if (!isFinite(seconds)) return '--:--';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
@@ -55,9 +56,51 @@ function progressPercent() {
 </script>
 
 <template>
+  <!-- Mobile mini-player -->
   <div
     v-if="state.currentTrack"
-    class="fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 py-3 flex items-center justify-between gap-4 z-40"
+    class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex items-center gap-3 px-4 py-2 cursor-pointer active:bg-white/5"
+    :style="barStyle"
+    @click="toggleNowPlaying"
+  >
+    <CoverArt :cover="state.currentTrack.cover" size="w-10 h-10" />
+    <div class="flex-1 min-w-0">
+      <div class="text-sm font-medium truncate">{{ state.currentTrack.title }}</div>
+      <span class="text-xs text-zinc-400 truncate block">
+        <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
+          <span v-if="ai > 0">, </span>{{ artist }}
+        </template>
+      </span>
+    </div>
+    <div class="flex items-center gap-1 flex-shrink-0">
+      <button
+        :disabled="!hasPrev"
+        class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
+        @click.stop="prev"
+      >
+        <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
+      </button>
+      <button
+        class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center"
+        @click.stop="toggle"
+      >
+        <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" />
+        <Icon v-else :path="mdiPlay" class="w-4 h-4" />
+      </button>
+      <button
+        :disabled="!hasNext"
+        class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
+        @click.stop="next"
+      >
+        <Icon :path="mdiSkipNext" class="w-5 h-5" />
+      </button>
+    </div>
+  </div>
+
+  <!-- Desktop full player bar -->
+  <div
+    v-if="state.currentTrack"
+    class="hidden sm:flex fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 py-3 items-center justify-between gap-4 z-40"
     :style="barStyle"
   >
     <!-- Track info -->

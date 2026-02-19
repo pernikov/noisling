@@ -1,5 +1,5 @@
 <script setup>
-import { computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { useApi } from '../composables/useApi.js';
@@ -41,14 +41,15 @@ const accentOverlay = computed(() => {
 });
 
 function formatTime(seconds) {
-  if (!seconds || isNaN(seconds)) return '0:00';
+  if (seconds == null || isNaN(seconds)) return '0:00';
+  if (!isFinite(seconds)) return '--:--';
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function progressPercent() {
-  if (!state.duration) return 0;
+  if (!state.duration || !isFinite(state.duration)) return 0;
   return (state.currentTime / state.duration) * 100;
 }
 
@@ -63,6 +64,47 @@ function onProgressTouch(e) {
   const ratio = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
   seek(ratio * state.duration);
 }
+
+// Swipe-down to close
+const dragY = ref(0);
+const isDragging = ref(false);
+let touchStartY = 0;
+let touchStartX = 0;
+let swipeActive = false;
+
+function onTouchStart(e) {
+  if (e.target.closest('[data-no-swipe]')) { swipeActive = false; return; }
+  touchStartY = e.touches[0].clientY;
+  touchStartX = e.touches[0].clientX;
+  swipeActive = true;
+  isDragging.value = true;
+  dragY.value = 0;
+}
+
+function onTouchMove(e) {
+  if (!swipeActive) return;
+  const deltaY = e.touches[0].clientY - touchStartY;
+  const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+  if (deltaY > 0 && deltaY > deltaX * 0.5) dragY.value = deltaY;
+}
+
+function onTouchEnd() {
+  if (!swipeActive) return;
+  swipeActive = false;
+  isDragging.value = false;
+  if (dragY.value > 80) {
+    dragY.value = 0;
+    toggleNowPlaying();
+  } else {
+    dragY.value = 0;
+  }
+}
+
+const dragStyle = computed(() =>
+  dragY.value > 0
+    ? { transform: `translateY(${dragY.value}px)`, transition: 'none' }
+    : {}
+);
 
 watch(
   () => state.showNowPlaying,
@@ -96,10 +138,13 @@ onUnmounted(() => {
       <div
         v-if="state.showNowPlaying && state.currentTrack"
         class="fixed inset-0 flex flex-col overflow-hidden"
-        style="z-index: 60"
+        :style="[{ zIndex: 60 }, dragStyle]"
         role="dialog"
         aria-modal="true"
         aria-label="Now Playing"
+        @touchstart.passive="onTouchStart"
+        @touchmove.passive="onTouchMove"
+        @touchend="onTouchEnd"
       >
         <!-- Layer 1: Blurred album art — the actual background -->
         <div class="absolute inset-0 overflow-hidden bg-zinc-900">
@@ -123,8 +168,13 @@ onUnmounted(() => {
         <!-- Content -->
         <div class="relative z-10 flex flex-col h-full px-6">
 
+          <!-- Drag pill -->
+          <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
+            <div class="w-10 h-1 bg-white/30 rounded-full" />
+          </div>
+
           <!-- Top bar -->
-          <div class="flex items-center justify-between py-4 flex-shrink-0">
+          <div class="flex items-center justify-between py-3 flex-shrink-0">
             <button
               class="text-zinc-300 hover:text-white transition-colors p-1 -ml-1 rounded-full hover:bg-white/10"
               @click="toggleNowPlaying"
@@ -158,7 +208,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Bottom section -->
-          <div class="flex flex-col gap-4 pb-10 flex-shrink-0">
+          <div class="flex flex-col gap-4 pb-10 flex-shrink-0" data-no-swipe>
 
             <!-- Track info -->
             <div>

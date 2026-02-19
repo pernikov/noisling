@@ -102,7 +102,7 @@ function prevPage() {
           class="absolute right-0 text-zinc-400 hover:text-zinc-100 h-8 w-8 flex items-center justify-center"
           @click="expandSearch"
         >
-          <Icon :path="mdiMagnify" class="w-4 h-4" />
+          <Icon :path="mdiMagnify" class="w-5 h-5" />
         </button>
       </div>
     </div>
