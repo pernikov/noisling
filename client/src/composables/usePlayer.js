@@ -3,6 +3,24 @@ import { useApi } from './useApi.js';
 
 const api = useApi();
 
+// Detect which formats this browser can't play natively.
+// Checked once at module load — canPlayType returns '' for unsupported formats.
+const _probe = new Audio();
+const UNSUPPORTED_FORMATS = new Set(
+  Object.entries({
+    flac: 'audio/flac',
+    ogg:  'audio/ogg',
+    opus: 'audio/ogg; codecs=opus',
+    wma:  'audio/x-ms-wma',
+  })
+    .filter(([, mime]) => _probe.canPlayType(mime) === '')
+    .map(([fmt]) => fmt)
+);
+
+function needsTranscode(track) {
+  return UNSUPPORTED_FORMATS.has((track.format || '').toLowerCase());
+}
+
 const audio = new Audio();
 audio.volume = 1;
 
@@ -97,7 +115,7 @@ function play(track) {
   audio.pause();
   state.currentTrack = track;
   playReported = false;
-  audio.src = api.streamUrl(track._id);
+  audio.src = api.streamUrl(track._id, needsTranscode(track));
   audio.load(); // Explicit load gives mobile browsers a clean slate
 
   // iOS: AudioContext starts suspended and must be resumed on user gesture

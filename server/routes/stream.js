@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { stat, createReadStream } from 'fs';
 import { promisify } from 'util';
+import { spawn } from 'child_process';
 import mime from 'mime-types';
 import Track from '../models/Track.js';
 import config from '../config.js';
@@ -23,6 +24,31 @@ router.get('/stream/:id', async (req, res) => {
 
   const fileSize = fileStat.size;
   const contentType = mime.lookup(track.path) || 'application/octet-stream';
+
+  // On-the-fly transcode for browsers that can't play the native format (e.g. FLAC on iOS)
+  if (req.query.transcode) {
+    const ff = spawn('ffmpeg', [
+      '-i', track.path,
+      '-vn',          // skip cover art / video streams
+      '-c:a', 'aac',
+      '-b:a', '320k',
+      '-f', 'adts',   // ADTS container — streamable AAC, no seeking needed
+      'pipe:1',
+    ], { stdio: ['ignore', 'pipe', 'ignore'] });
+
+    res.setHeader('Content-Type', 'audio/aac');
+    res.setHeader('Cache-Control', 'no-cache');
+    ff.stdout.pipe(res);
+
+    ff.on('error', (err) => {
+      console.error('[transcode] ffmpeg spawn error:', err);
+      if (!res.headersSent) res.status(500).json({ error: 'Transcoding failed' });
+    });
+
+    // Kill ffmpeg if the client disconnects mid-stream
+    req.on('close', () => ff.kill());
+    return;
+  }
 
   const range = req.headers.range;
   if (range) {

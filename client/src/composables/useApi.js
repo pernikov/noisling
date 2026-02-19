@@ -39,7 +39,7 @@ export function useApi() {
     deleteLibrary: () => request('/library', { method: 'DELETE' }),
     getStats: () => request('/stats'),
     reportPlay: (id) => request(`/tracks/${id}/play`, { method: 'POST' }),
-    streamUrl: (id) => `${BASE}/stream/${id}`,
+    streamUrl: (id, transcode = false) => `${BASE}/stream/${id}${transcode ? '?transcode=1' : ''}`,
     coverUrl: (filename) => filename ? `${BASE}/covers/${filename}` : '/placeholder.svg',
   };
 }

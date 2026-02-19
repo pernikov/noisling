@@ -11,6 +11,7 @@ RUN pnpm --filter client build
 
 # Stage 2: Production server
 FROM node:20-alpine
+RUN apk add --no-cache ffmpeg
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
