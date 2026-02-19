@@ -84,7 +84,12 @@ audio.addEventListener('timeupdate', () => {
 });
 
 audio.addEventListener('loadedmetadata', () => {
-  state.duration = isFinite(audio.duration) ? audio.duration : (state.currentTrack?.duration ?? 0);
+  const audioDuration = isFinite(audio.duration) ? audio.duration : 0;
+  const trackDuration = state.currentTrack?.duration ?? 0;
+  // Use the larger of the two. For transcoded tracks, iOS may receive only a
+  // partial ADTS buffer and report a short audio.duration (2-3 s) even though
+  // the full track is much longer. The DB-backed trackDuration is the truth.
+  state.duration = Math.max(audioDuration, trackDuration) || 0;
   updateMediaSessionPositionState();
 });
 
@@ -112,9 +117,17 @@ audio.addEventListener('ended', () => {
   // the check below would never pass.  state.currentTime is updated by
   // timeupdate events during actual playback and therefore holds the real last
   // playback position, which is what we need for the stall-recovery seek.
-  const knownDuration = (isFinite(audio.duration) && audio.duration > 0)
-    ? audio.duration
-    : state.duration;
+  //
+  // For knownDuration, take the maximum of audio.duration, state.duration, and
+  // the DB-backed track duration.  On a live ADTS pipe iOS may only buffer 2-3 s
+  // and report audio.duration as 2-3 s, which would make the condition below
+  // always false and skip straight to next().  The DB value is the ground truth.
+  const trackDuration = state.currentTrack?.duration ?? 0;
+  const knownDuration = Math.max(
+    (isFinite(audio.duration) && audio.duration > 0) ? audio.duration : 0,
+    state.duration,
+    trackDuration,
+  );
   const resumeAt = state.currentTime; // last real position from timeupdate
   if (knownDuration > 5 && resumeAt < knownDuration - 3 && state.currentTrack) {
     const track = state.currentTrack;
