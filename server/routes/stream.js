@@ -29,15 +29,24 @@ router.get('/stream/:id', async (req, res) => {
   if (req.query.transcode) {
     const ff = spawn('ffmpeg', [
       '-i', track.path,
-      '-vn',          // skip cover art / video streams
+      '-vn',                    // skip cover art / video streams
       '-c:a', 'aac',
-      '-b:a', '320k',
-      '-f', 'adts',   // ADTS container — streamable AAC, no seeking needed
+      '-b:a', '192k',
+      '-f', 'mp4',
+      // Fragmented MP4: iOS handles this far better than raw ADTS.
+      // empty_moov lets playback start before the file is complete;
+      // frag_keyframe+default_base_moof produce self-contained fragments.
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
-    res.setHeader('Content-Type', 'audio/aac');
+    res.setHeader('Content-Type', 'audio/mp4');
     res.setHeader('Cache-Control', 'no-cache');
+    // Tell iOS not to attempt range requests — this is a live pipe that always
+    // starts from byte 0. Without this header iOS retries with a Range request
+    // when its buffer stalls, gets the full stream again from the beginning,
+    // and the song appears to restart in a tightening loop.
+    res.setHeader('Accept-Ranges', 'none');
     ff.stdout.pipe(res);
 
     ff.on('error', (err) => {

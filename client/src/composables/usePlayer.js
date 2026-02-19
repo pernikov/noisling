@@ -43,11 +43,15 @@ const state = reactive({
 });
 
 let playReported = false;
-// Guard against iOS Safari firing a spurious 'ended' event when audio.load()
-// is called during a track transition. Without this, the ended handler calls
-// next() again while play() is still setting up the new source, causing an
-// infinite restart loop on the same song.
+// Guard against iOS Safari firing a spurious 'ended' event immediately after
+// audio.src is reassigned (src change aborts the previous stream, which can
+// dispatch 'ended' on some iOS versions). The flag expires after 500 ms so it
+// can never accidentally suppress the legitimate 'ended' of the new track.
 let ignoreNextEnded = false;
+let ignoreEndedTimer = null;
+
+// Throttle MediaSession position updates to once per second (called from timeupdate).
+let positionStateTimer = null;
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -60,6 +64,15 @@ audio.addEventListener('timeupdate', () => {
       api.reportPlay(state.currentTrack._id).catch(() => {});
     }
   }
+
+  // Keep the OS lock-screen scrubber in sync. iOS stops firing action handler
+  // events (next/prev/seek) if position state goes stale.
+  if (!positionStateTimer) {
+    positionStateTimer = setTimeout(() => {
+      updateMediaSessionPositionState();
+      positionStateTimer = null;
+    }, 1000);
+  }
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -70,6 +83,7 @@ audio.addEventListener('loadedmetadata', () => {
 audio.addEventListener('ended', () => {
   if (ignoreNextEnded) {
     ignoreNextEnded = false;
+    clearTimeout(ignoreEndedTimer);
     return;
   }
   if (state.repeat === 'one') {
@@ -83,10 +97,14 @@ audio.addEventListener('ended', () => {
 
 audio.addEventListener('play', () => {
   state.isPlaying = true;
+  // iOS requires playbackState = 'playing' to keep lock-screen controls active
+  // and to continue invoking action handlers (next/prev/seek) from the background.
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 });
 
 audio.addEventListener('pause', () => {
   state.isPlaying = false;
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
 
 function updateMediaSession(track) {
@@ -132,7 +150,12 @@ function play(track) {
   // Without this, changing audio.src mid-play causes an AbortError on iOS that
   // leaves the element in a broken state for all subsequent plays.
   audio.pause();
-  ignoreNextEnded = true; // src change can fire a spurious 'ended' on iOS
+  // Arm the spurious-ended guard for 500 ms. If iOS fires 'ended' as a side
+  // effect of the src reassignment it will be swallowed; the real 'ended' that
+  // fires at the end of the new track (seconds/minutes later) will not be.
+  ignoreNextEnded = true;
+  clearTimeout(ignoreEndedTimer);
+  ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
   state.currentTrack = track;
   playReported = false;
   // Setting audio.src already invokes the media element load algorithm per the
