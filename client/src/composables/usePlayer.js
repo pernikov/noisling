@@ -44,7 +44,7 @@ audio.addEventListener('ended', () => {
   if (state.repeat === 'one') {
     audio.currentTime = 0;
     playReported = false;
-    audio.play();
+    audio.play().catch(err => console.error('[player] repeat play() failed:', err));
   } else {
     next();
   }
@@ -94,7 +94,13 @@ function play(track) {
   state.currentTrack = track;
   playReported = false;
   audio.src = api.streamUrl(track._id);
-  audio.play();
+
+  // iOS: AudioContext starts suspended and must be resumed on user gesture
+  if (audio._vizCtx?.ctx?.state === 'suspended') {
+    audio._vizCtx.ctx.resume();
+  }
+
+  audio.play().catch(err => console.error('[player] play() failed:', err));
   updateMediaSession(track);
 }
 
@@ -144,7 +150,10 @@ function pause() {
 }
 
 function resume() {
-  audio.play();
+  if (audio._vizCtx?.ctx?.state === 'suspended') {
+    audio._vizCtx.ctx.resume();
+  }
+  audio.play().catch(err => console.error('[player] resume() failed:', err));
 }
 
 function toggle() {

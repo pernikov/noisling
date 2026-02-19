@@ -48,17 +48,46 @@ function playTrack(index) {
   }
 }
 
-async function playAll() {
-  const tracks = props.getAllTracks ? await props.getAllTracks() : props.tracks;
-  if (tracks.length) playAlbum(tracks, 0);
+function playAll() {
+  // Start playback synchronously so iOS autoplay policy is satisfied.
+  // If getAllTracks is provided, extend the queue after the fetch.
+  if (!props.tracks.length) return;
+  playAlbum(props.tracks, 0);
+
+  if (props.getAllTracks) {
+    props.getAllTracks().then(allTracks => {
+      if (allTracks.length > props.tracks.length) {
+        const currentId = state.currentTrack?._id;
+        const idx = allTracks.findIndex(t => t._id === currentId);
+        state.queue = allTracks;
+        state.originalQueue = [...allTracks];
+        state.queueIndex = idx >= 0 ? idx : 0;
+      }
+    });
+  }
 }
 
-async function playShuffle() {
-  const tracks = props.getAllTracks ? await props.getAllTracks() : props.tracks;
-  if (!tracks.length) return;
-  const randomIndex = Math.floor(Math.random() * tracks.length);
+function playShuffle() {
+  if (!props.tracks.length) return;
+  const randomIndex = Math.floor(Math.random() * props.tracks.length);
   state.shuffle = true;
-  playAlbum(tracks, randomIndex);
+  playAlbum(props.tracks, randomIndex);
+
+  if (props.getAllTracks) {
+    props.getAllTracks().then(allTracks => {
+      if (allTracks.length > props.tracks.length) {
+        const current = state.currentTrack;
+        const rest = allTracks.filter(t => t._id !== current?._id);
+        for (let i = rest.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [rest[i], rest[j]] = [rest[j], rest[i]];
+        }
+        state.queue = current ? [current, ...rest] : rest;
+        state.originalQueue = [...allTracks];
+        state.queueIndex = 0;
+      }
+    });
+  }
 }
 
 function isCurrentTrack(track) {
