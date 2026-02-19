@@ -1,5 +1,7 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
+import { mdiClose, mdiDrag, mdiPlay } from '@mdi/js';
+import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import CoverArt from './CoverArt.vue';
 
@@ -121,9 +123,7 @@ function formatDuration(seconds) {
       <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
         <h2 class="font-semibold">Queue <span class="text-zinc-500 text-sm font-normal">{{ state.queue.length }} tracks</span></h2>
         <button class="text-zinc-400 hover:text-zinc-100" @click="emit('close')">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-          </svg>
+          <Icon :path="mdiClose" class="w-5 h-5" />
         </button>
       </div>
 
@@ -164,17 +164,13 @@ function formatDuration(seconds) {
             >
               <!-- Drag handle -->
               <div class="text-zinc-600 flex-shrink-0">
-                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M3 15h18v-2H3v2zm0 4h18v-2H3v2zm0-8h18V9H3v2zm0-6v2h18V5H3z"/>
-                </svg>
+                <Icon :path="mdiDrag" class="w-4 h-4" />
               </div>
 
               <div class="relative flex-shrink-0 group/cover" @click.stop="playFromQueue(i)">
                 <CoverArt :cover="track.cover" size="w-8 h-8" />
                 <div class="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
-                  <svg class="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                  </svg>
+                  <Icon :path="mdiPlay" class="w-4 h-4 text-white" />
                 </div>
               </div>
 

@@ -106,7 +106,7 @@ function formatSize(bytes) {
         <table class="w-full text-sm border-separate border-spacing-0">
           <thead>
             <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
-              <th class="text-left py-2 px-3 w-10">#</th>
+              <th class="text-center py-2 px-1 w-8">#</th>
               <th class="text-left py-2 px-3">Artist</th>
               <th class="text-right py-2 px-3 w-16">Plays</th>
             </tr>
@@ -118,8 +118,8 @@ function formatSize(bytes) {
               class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
               @click="router.push({ name: 'artist', params: { name: artist.name } })"
             >
-              <td class="py-2 px-3 text-zinc-500">{{ i + 1 }}</td>
-              <td class="py-2 px-3">
+              <td class="py-2 px-1 text-zinc-500 text-center">{{ i + 1 }}</td>
+              <td class="py-2 px-3 max-w-0 overflow-hidden">
                 <div class="font-medium truncate">{{ artist.name }}</div>
                 <div class="text-xs text-zinc-500">{{ artist.trackCount }} track{{ artist.trackCount !== 1 ? 's' : '' }}</div>
               </td>
@@ -135,7 +135,7 @@ function formatSize(bytes) {
         <table class="w-full text-sm border-separate border-spacing-0">
           <thead>
             <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
-              <th class="text-left py-2 px-3 w-10">#</th>
+              <th class="text-center py-2 px-1 w-8">#</th>
               <th class="text-left py-2 px-3">Album</th>
               <th class="text-right py-2 px-3 w-16">Plays</th>
             </tr>
@@ -147,10 +147,10 @@ function formatSize(bytes) {
               class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
               @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
             >
-              <td class="py-2 px-3 text-zinc-500">{{ i + 1 }}</td>
-              <td class="py-2 px-3">
+              <td class="py-2 px-1 text-zinc-500 text-center">{{ i + 1 }}</td>
+              <td class="py-2 px-3 max-w-0 overflow-hidden">
                 <div class="flex items-center gap-2">
-                  <CoverArt :cover="album.cover" size="w-8 h-8" />
+                  <CoverArt :cover="album.cover" size="w-8 h-8 shrink-0" />
                   <div class="min-w-0">
                     <div class="font-medium truncate">{{ album.name }}</div>
                     <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>

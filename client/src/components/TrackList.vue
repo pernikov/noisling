@@ -1,5 +1,7 @@
 <script setup>
 import { useRouter } from 'vue-router';
+import { mdiPlay, mdiShuffle } from '@mdi/js';
+import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import CoverArt from './CoverArt.vue';
 
@@ -103,31 +105,27 @@ function isCurrentTrack(track) {
         class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
         @click="playAll"
       >
-        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
+        <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
         Play All
       </button>
       <button
         class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
         @click="playShuffle"
       >
-        <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-        </svg>
+        <Icon :path="mdiShuffle" class="w-3.5 h-3.5" />
         Shuffle
       </button>
     </div>
 
-    <table class="w-full text-sm border-separate border-spacing-0">
+    <table class="w-full table-fixed text-sm border-separate border-spacing-0">
       <thead>
         <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
-          <th class="text-left py-2 px-3 w-10">#</th>
+          <th class="text-center py-2 px-1 w-8">#</th>
           <th class="text-left py-2 px-3">Title</th>
-          <th v-if="showArtist" class="text-left py-2 px-3 hidden sm:table-cell">Artist</th>
-          <th v-if="showAlbum" class="text-left py-2 px-3 hidden md:table-cell">Album</th>
+          <th v-if="showArtist" class="text-left py-2 px-3 w-1/4 hidden sm:table-cell">Artist</th>
+          <th v-if="showAlbum" class="text-left py-2 px-3 w-1/4 hidden md:table-cell">Album</th>
           <th v-if="showPlays" class="text-right py-2 px-3 w-16 hidden sm:table-cell">Plays</th>
-          <th v-if="showLastPlayed" class="text-right py-2 px-3 hidden sm:table-cell">Played</th>
+          <th v-if="showLastPlayed" class="text-right py-2 px-3 w-24 hidden sm:table-cell">Played</th>
           <th class="text-right py-2 px-3 w-16">Time</th>
         </tr>
       </thead>
@@ -139,30 +137,34 @@ function isCurrentTrack(track) {
           :class="{ 'text-emerald-400': isCurrentTrack(track) }"
           @click="playTrack(i)"
         >
-          <td class="py-2 px-3 text-zinc-500">
-            <span v-if="isCurrentTrack(track) && state.isPlaying" class="text-emerald-400">&#9654;</span>
+          <td class="py-2 px-1 text-zinc-500 text-center">
+            <span v-if="isCurrentTrack(track) && state.isPlaying" class="text-emerald-400 flex items-center justify-center">
+              <Icon :path="mdiPlay" class="w-3 h-3" />
+            </span>
             <span v-else>{{ startIndex + i + 1 }}</span>
           </td>
-          <td class="py-2 px-3 font-medium truncate max-w-[200px] sm:max-w-none">
-            <div class="flex items-center gap-2">
-              <CoverArt v-if="showCover" :cover="track.cover" size="w-8 h-8" />
+          <td class="py-2 px-3 font-medium overflow-hidden">
+            <div class="flex items-center gap-2 min-w-0">
+              <CoverArt v-if="showCover" :cover="track.cover" size="w-8 h-8 shrink-0" />
               <span class="truncate">{{ track.title }}</span>
             </div>
           </td>
-          <td v-if="showArtist" class="py-2 px-3 text-zinc-400 hidden sm:table-cell">
-            <template v-for="(artist, ai) in track.artists" :key="ai">
-              <span v-if="ai > 0">, </span>
-              <router-link
-                :to="{ name: 'artist', params: { name: artist } }"
-                class="hover:text-zinc-100 hover:underline"
-                @click.stop
-              >{{ artist }}</router-link>
-            </template>
+          <td v-if="showArtist" class="py-2 px-3 text-zinc-400 hidden sm:table-cell overflow-hidden">
+            <div class="truncate">
+              <template v-for="(artist, ai) in track.artists" :key="ai">
+                <span v-if="ai > 0">, </span>
+                <router-link
+                  :to="{ name: 'artist', params: { name: artist } }"
+                  class="hover:text-zinc-100 hover:underline"
+                  @click.stop
+                >{{ artist }}</router-link>
+              </template>
+            </div>
           </td>
-          <td v-if="showAlbum" class="py-2 px-3 text-zinc-400 hidden md:table-cell">
+          <td v-if="showAlbum" class="py-2 px-3 text-zinc-400 hidden md:table-cell overflow-hidden">
             <router-link
               :to="{ name: 'album', params: { artist: track.artists[0], album: track.album } }"
-              class="hover:text-zinc-100 hover:underline"
+              class="hover:text-zinc-100 hover:underline truncate block"
               @click.stop
             >{{ track.album }}</router-link>
           </td>

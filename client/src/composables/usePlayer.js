@@ -18,7 +18,6 @@ const UNSUPPORTED_FORMATS = new Set(
     .map(([fmt]) => fmt)
 );
 
-console.log('[player] UNSUPPORTED_FORMATS:', [...UNSUPPORTED_FORMATS]);
 
 function needsTranscode(track) {
   return UNSUPPORTED_FORMATS.has((track.format || '').toLowerCase());
@@ -39,6 +38,7 @@ const state = reactive({
   repeat: 'off', // 'off' | 'all' | 'one'
   originalQueue: [], // pre-shuffle order
   showVisualizer: false,
+  showNowPlaying: false,
 });
 
 let playReported = false;
@@ -118,10 +118,7 @@ function play(track) {
   audio.pause();
   state.currentTrack = track;
   playReported = false;
-  const transcode = needsTranscode(track);
-  const src = api.streamUrl(track._id, transcode);
-  console.log('[player] play', track.title, '| format:', track.format, '| transcode:', transcode, '| url:', src);
-  audio.src = src;
+  audio.src = api.streamUrl(track._id, needsTranscode(track));
   audio.load(); // Explicit load gives mobile browsers a clean slate
 
   // iOS: AudioContext starts suspended and must be resumed on user gesture
@@ -203,6 +200,10 @@ let volumeBeforeMute = 1;
 
 function toggleVisualizer() {
   state.showVisualizer = !state.showVisualizer;
+}
+
+function toggleNowPlaying() {
+  state.showNowPlaying = !state.showNowPlaying;
 }
 
 function toggleMute() {
@@ -293,6 +294,7 @@ export function usePlayer() {
     toggleShuffle,
     toggleMute,
     toggleVisualizer,
+    toggleNowPlaying,
     cycleRepeat,
     audio,
     moveTrack,

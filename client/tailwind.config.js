@@ -8,6 +8,9 @@ export default {
         sans: ['Inter', 'sans-serif'],
         display: ['Space Grotesk', 'sans-serif'],
       },
+      zIndex: {
+        60: '60',
+      },
     },
   },
   plugins: [],

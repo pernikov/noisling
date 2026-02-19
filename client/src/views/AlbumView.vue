@@ -48,11 +48,11 @@ function formatDuration(seconds) {
 
     <template v-else-if="albumInfo">
       <!-- Album header -->
-      <div class="flex items-end gap-6 mb-8">
-        <CoverArt :cover="albumInfo.cover" size="w-48 h-48" />
+      <div class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 mb-8">
+        <CoverArt :cover="albumInfo.cover" size="w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto" />
         <div>
           <div class="text-xs uppercase text-zinc-500 mb-1">Album</div>
-          <h1 class="text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
+          <h1 class="text-2xl sm:text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
           <div class="text-zinc-400">
             <template v-for="(artist, ai) in albumInfo.artists" :key="ai">
               <span v-if="ai > 0">, </span>

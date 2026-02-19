@@ -1,5 +1,15 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue';
+import {
+  mdiFolderOpen,
+  mdiMagnify,
+  mdiLoading,
+  mdiCheck,
+  mdiAlertCircle,
+  mdiTrashCan,
+  mdiImage,
+} from '@mdi/js';
+import Icon from '../components/Icon.vue';
 import { useApi } from '../composables/useApi.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
 
@@ -100,9 +110,7 @@ async function deleteLibrary() {
     <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
       <div>
         <div class="flex items-center gap-2 mb-1">
-          <svg class="w-5 h-5 text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-          </svg>
+          <Icon :path="mdiFolderOpen" class="w-5 h-5 text-zinc-400" />
           <h2 class="text-lg font-semibold text-zinc-100">Library</h2>
         </div>
         <p class="text-sm text-zinc-500">Scan your music directory for new tracks or manage your library.</p>
@@ -121,12 +129,8 @@ async function deleteLibrary() {
             :disabled="scanning"
             class="text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
           >
-            <svg v-if="!scanning" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-            </svg>
-            <svg v-else class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-            </svg>
+            <Icon v-if="!scanning" :path="mdiMagnify" class="w-4 h-4" />
+            <Icon v-else :path="mdiLoading" class="w-4 h-4 animate-spin" />
             {{ scanning ? 'Scanning...' : 'Scan Library' }}
           </button>
         </div>
@@ -135,9 +139,7 @@ async function deleteLibrary() {
         <div v-if="scanning" class="bg-zinc-800/50 rounded-lg p-4 space-y-3">
           <!-- Walking phase -->
           <div v-if="scanPhase === 'walking'" class="flex items-center gap-2 text-sm text-zinc-300">
-            <svg class="w-4 h-4 animate-spin text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-            </svg>
+            <Icon :path="mdiLoading" class="w-4 h-4 animate-spin text-zinc-400" />
             Discovering files...
           </div>
 
@@ -168,9 +170,7 @@ async function deleteLibrary() {
           class="bg-emerald-500/10 rounded-lg px-4 py-3 space-y-1"
         >
           <div class="flex items-center gap-2 text-sm text-emerald-400">
-            <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M20 6 9 17l-5-5"/>
-            </svg>
+            <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
             Scan complete
           </div>
           <div class="flex items-center gap-4 text-xs text-zinc-400 pl-6">
@@ -186,9 +186,7 @@ async function deleteLibrary() {
         <div v-if="scanResult?.error"
           class="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3"
         >
-          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
-          </svg>
+          <Icon :path="mdiAlertCircle" class="w-4 h-4 shrink-0" />
           {{ scanResult.error }}
         </div>
       </div>
@@ -207,9 +205,7 @@ async function deleteLibrary() {
         <div v-else-if="missingCoverAlbums.length === 0"
           class="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-3"
         >
-          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 6 9 17l-5-5"/>
-          </svg>
+          <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
           All albums have artwork
         </div>
 
@@ -224,9 +220,7 @@ async function deleteLibrary() {
             class="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-zinc-700/50 transition-colors"
           >
             <div class="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center flex-shrink-0">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4 text-zinc-500">
-                <path fill-rule="evenodd" d="M1 5.25A2.25 2.25 0 0 1 3.25 3h13.5A2.25 2.25 0 0 1 19 5.25v9.5A2.25 2.25 0 0 1 16.75 17H3.25A2.25 2.25 0 0 1 1 14.75v-9.5Zm1.5 5.81v3.69c0 .414.336.75.75.75h13.5a.75.75 0 0 0 .75-.75v-2.69l-2.22-2.219a.75.75 0 0 0-1.06 0l-1.91 1.909-4.72-4.719a.75.75 0 0 0-1.06 0L2.5 11.06Zm6-3.31a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z" clip-rule="evenodd" />
-              </svg>
+              <Icon :path="mdiImage" class="w-4 h-4 text-zinc-500" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium truncate">{{ album.name }}</div>
@@ -250,12 +244,8 @@ async function deleteLibrary() {
             :disabled="deleting"
             class="text-sm px-4 py-2 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600/20 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
           >
-            <svg v-if="!deleting" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
-            </svg>
-            <svg v-else class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-            </svg>
+            <Icon v-if="!deleting" :path="mdiTrashCan" class="w-4 h-4" />
+            <Icon v-else :path="mdiLoading" class="w-4 h-4 animate-spin" />
             {{ deleting ? 'Deleting...' : 'Delete Library' }}
           </button>
         </div>
@@ -264,9 +254,7 @@ async function deleteLibrary() {
         <div v-if="deleteResult && !deleteResult.error"
           class="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-3"
         >
-          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20 6 9 17l-5-5"/>
-          </svg>
+          <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
           Library deleted — {{ deleteResult.deletedTracks }} track{{ deleteResult.deletedTracks === 1 ? '' : 's' }} removed.
         </div>
 
@@ -274,9 +262,7 @@ async function deleteLibrary() {
         <div v-if="deleteResult?.error"
           class="flex items-center gap-2 text-sm text-red-400 bg-red-500/10 rounded-lg px-4 py-3"
         >
-          <svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
-          </svg>
+          <Icon :path="mdiAlertCircle" class="w-4 h-4 shrink-0" />
           {{ deleteResult.error }}
         </div>
       </div>

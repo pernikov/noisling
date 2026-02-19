@@ -60,7 +60,7 @@ function goToArtist(name) {
     <!-- Recently Played -->
     <section>
       <div class="flex items-center justify-between mb-4">
-        <h2 class="text-xl font-bold font-display">Recently Played</h2>
+        <h2 class="text-2xl font-bold font-display">Recently Played</h2>
         <router-link
           v-if="recentTracks.length > 0"
           to="/recent"
@@ -99,11 +99,11 @@ function goToArtist(name) {
         <router-link to="/settings" class="text-zinc-300 hover:text-zinc-100 underline">Settings</router-link>.
       </div>
 
-      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
         <div
           v-for="artist in artists"
           :key="artist.name"
-          class="rounded-lg p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
+          class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
           @click="goToArtist(artist.name)"
         >
           <ArtistCover :covers="artist.covers || []" />

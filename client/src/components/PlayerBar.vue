@@ -4,8 +4,22 @@ import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import CoverArt from './CoverArt.vue';
 import QueueDrawer from './QueueDrawer.vue';
+import {
+  mdiSkipPrevious,
+  mdiSkipNext,
+  mdiPlay,
+  mdiPause,
+  mdiVolumeHigh,
+  mdiVolumeOff,
+  mdiRepeat,
+  mdiRepeatOnce,
+  mdiShuffle,
+  mdiPlaylistMusic,
+  mdiEqualizer,
+} from '@mdi/js';
+import Icon from './Icon.vue';
 
-const { state, toggle, next, prev, seek, setVolume, toggleMute, toggleShuffle, toggleVisualizer, cycleRepeat, hasNext, hasPrev } = usePlayer();
+const { state, toggle, next, prev, seek, setVolume, toggleMute, toggleShuffle, toggleVisualizer, toggleNowPlaying, cycleRepeat, hasNext, hasPrev } = usePlayer();
 const { accentColor } = useAccentColor();
 
 const barStyle = computed(() => {
@@ -47,10 +61,12 @@ function progressPercent() {
     :style="barStyle"
   >
     <!-- Track info -->
-    <div class="flex items-center gap-3 min-w-0 w-56 flex-shrink-0">
-      <CoverArt :cover="state.currentTrack.cover" size="w-10 h-10" />
+    <div class="flex items-center gap-2 min-w-0 flex-none w-32 sm:w-56">
+      <button class="flex-shrink-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400" @click="toggleNowPlaying" aria-label="Open Now Playing">
+        <CoverArt :cover="state.currentTrack.cover" size="w-9 h-9 sm:w-10 sm:h-10" />
+      </button>
       <div class="min-w-0">
-        <div class="text-sm font-medium truncate">{{ state.currentTrack.title }}</div>
+        <div class="text-sm font-medium truncate cursor-pointer hover:text-zinc-300 transition-colors" @click="toggleNowPlaying">{{ state.currentTrack.title }}</div>
         <span class="text-xs text-zinc-400 truncate block">
           <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
             <span v-if="ai > 0">, </span>
@@ -64,28 +80,31 @@ function progressPercent() {
     </div>
 
     <!-- Controls + progress -->
-    <div class="flex-1 flex flex-col items-center gap-1 max-w-xl">
-      <div class="flex items-center gap-4">
+    <div class="flex-1 flex flex-col items-center gap-1 max-w-xl min-w-0">
+      <div class="flex items-center gap-2 sm:gap-4">
+        <!-- Mobile-only: shuffle -->
+        <button
+          class="sm:hidden transition-colors"
+          :class="state.shuffle ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+          @click="toggleShuffle"
+        >
+          <Icon :path="mdiShuffle" class="w-4 h-4" />
+        </button>
+
         <button
           :disabled="!hasPrev"
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
           @click="prev"
         >
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/>
-          </svg>
+          <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
         </button>
 
         <button
           class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center hover:scale-105 transition-transform"
           @click="toggle"
         >
-          <svg v-if="state.isPlaying" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 4h4v16H6zM14 4h4v16h-4z"/>
-          </svg>
-          <svg v-else class="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z"/>
-          </svg>
+          <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" />
+          <Icon v-else :path="mdiPlay" class="w-4 h-4" />
         </button>
 
         <button
@@ -93,15 +112,22 @@ function progressPercent() {
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
           @click="next"
         >
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-          </svg>
+          <Icon :path="mdiSkipNext" class="w-5 h-5" />
+        </button>
+
+        <!-- Mobile-only: queue -->
+        <button
+          class="sm:hidden transition-colors"
+          :class="queueOpen ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+          @click="queueOpen = !queueOpen"
+        >
+          <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
         </button>
       </div>
 
       <!-- Progress bar -->
       <div class="w-full flex items-center gap-2 text-xs text-zinc-500">
-        <span class="w-10 text-right">{{ formatTime(state.currentTime) }}</span>
+        <span class="w-10 text-right tabular-nums">{{ formatTime(state.currentTime) }}</span>
         <div
           class="flex-1 h-1 bg-zinc-700 rounded cursor-pointer group"
           @click="onProgressClick"
@@ -111,7 +137,7 @@ function progressPercent() {
             :style="{ width: progressPercent() + '%' }"
           />
         </div>
-        <span class="w-10">{{ formatTime(state.duration) }}</span>
+        <span class="w-10 tabular-nums">{{ formatTime(state.duration) }}</span>
       </div>
     </div>
 
@@ -124,25 +150,18 @@ function progressPercent() {
         @click="toggleVisualizer"
         title="Toggle visualizer"
       >
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M3 18h2v-6H3v6zm4 0h2V6H7v12zm4 0h2v-8h-2v8zm4 0h2v-4h-2v4zm4 0h2V9h-2v9z"/>
-        </svg>
+        <Icon :path="mdiEqualizer" class="w-4 h-4" />
       </button>
 
       <!-- Repeat -->
       <button
-        class="transition-colors relative"
+        class="transition-colors"
         :class="state.repeat !== 'off' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
         @click="cycleRepeat"
         :title="'Repeat: ' + state.repeat"
       >
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/>
-        </svg>
-        <span
-          v-if="state.repeat === 'one'"
-          class="absolute -top-1 -right-1 text-[8px] font-bold leading-none"
-        >1</span>
+        <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-4 h-4" />
+        <Icon v-else :path="mdiRepeat" class="w-4 h-4" />
       </button>
 
       <!-- Shuffle -->
@@ -151,9 +170,7 @@ function progressPercent() {
         :class="state.shuffle ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
         @click="toggleShuffle"
       >
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z"/>
-        </svg>
+        <Icon :path="mdiShuffle" class="w-4 h-4" />
       </button>
 
       <!-- Queue toggle -->
@@ -162,26 +179,14 @@ function progressPercent() {
         :class="queueOpen ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
         @click="queueOpen = !queueOpen"
       >
-        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/>
-        </svg>
+        <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
       </button>
 
       <!-- Volume -->
       <div class="flex items-center gap-1.5 flex-1">
         <button class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0" @click="toggleMute">
-          <!-- Muted -->
-          <svg v-if="state.volume === 0" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
-          </svg>
-          <!-- Low volume -->
-          <svg v-else-if="state.volume < 0.5" class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M18.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM5 9v6h4l5 5V4L9 9H5z"/>
-          </svg>
-          <!-- High volume -->
-          <svg v-else class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
-          </svg>
+          <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
+          <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
         </button>
         <input
           type="range"

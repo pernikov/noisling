@@ -4,6 +4,8 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import ArtistCover from '../components/ArtistCover.vue';
+import { mdiMagnify } from '@mdi/js';
+import Icon from '../components/Icon.vue';
 
 const api = useApi();
 const route = useRoute();
@@ -92,7 +94,7 @@ function goToArtist(name) {
           v-model="search"
           type="text"
           placeholder="Search artists..."
-          class="bg-zinc-800 border border-zinc-700 rounded pr-8 py-1.5 text-sm outline-none focus:border-zinc-500 transition-all duration-200 ease-in-out"
+          class="bg-zinc-800 border border-transparent rounded pr-8 py-1.5 text-sm outline-none focus:border-zinc-700 transition-all duration-200 ease-in-out"
           :class="searchExpanded ? 'w-64 pl-3 opacity-100' : 'w-0 pl-0 opacity-0 border-transparent'"
           @blur="onSearchBlur"
         />
@@ -100,7 +102,7 @@ function goToArtist(name) {
           class="absolute right-0 text-zinc-400 hover:text-zinc-100 h-8 w-8 flex items-center justify-center"
           @click="expandSearch"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+          <Icon :path="mdiMagnify" class="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -112,11 +114,11 @@ function goToArtist(name) {
     </div>
 
     <template v-else>
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
         <div
           v-for="artist in artists"
           :key="artist.name"
-          class="rounded-lg p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
+          class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
           @click="goToArtist(artist.name)"
         >
           <ArtistCover :covers="artist.covers || []" />
