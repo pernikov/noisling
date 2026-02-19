@@ -91,9 +91,14 @@ if ('mediaSession' in navigator) {
 }
 
 function play(track) {
+  // Pause first so any pending play() promise is settled before we swap the src.
+  // Without this, changing audio.src mid-play causes an AbortError on iOS that
+  // leaves the element in a broken state for all subsequent plays.
+  audio.pause();
   state.currentTrack = track;
   playReported = false;
   audio.src = api.streamUrl(track._id);
+  audio.load(); // Explicit load gives mobile browsers a clean slate
 
   // iOS: AudioContext starts suspended and must be resumed on user gesture
   if (audio._vizCtx?.ctx?.state === 'suspended') {
