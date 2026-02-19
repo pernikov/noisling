@@ -86,6 +86,35 @@ audio.addEventListener('ended', () => {
     clearTimeout(ignoreEndedTimer);
     return;
   }
+
+  // Detect premature 'ended' caused by iOS exhausting its audio buffer before
+  // the track is actually over.  This happens on the first play of a transcoded
+  // track: ffmpeg finishes fast, the HTTP connection closes, and iOS can only
+  // hold a limited amount of audio in RAM.  When the buffer empties mid-song,
+  // iOS fires 'ended' even though there is still audio left to play.
+  //
+  // The server simultaneously writes the transcoded output to a temp file, so
+  // by the time iOS stalls (seconds/minutes into the song) the cache is ready.
+  // Re-requesting the same URL now returns a seekable, range-capable response,
+  // letting us jump back to exactly where iOS gave up.
+  const knownDuration = isFinite(audio.duration) ? audio.duration : state.duration;
+  const resumeAt = audio.currentTime;
+  if (knownDuration > 10 && resumeAt < knownDuration - 5 && state.currentTrack) {
+    const track = state.currentTrack;
+    ignoreNextEnded = true;
+    clearTimeout(ignoreEndedTimer);
+    ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
+    audio.src = api.streamUrl(track._id, needsTranscode(track));
+    audio.addEventListener('loadedmetadata', () => {
+      // If the cached response supports seeking, jump back to the stall point.
+      if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+        audio.currentTime = resumeAt;
+      }
+      audio.play().catch(err => console.error('[player] resume after stall:', err));
+    }, { once: true });
+    return;
+  }
+
   if (state.repeat === 'one') {
     audio.currentTime = 0;
     playReported = false;
