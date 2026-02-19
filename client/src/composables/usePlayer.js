@@ -109,9 +109,9 @@ if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('seekto', (details) => {
     if (details.seekTime != null) seek(details.seekTime);
   });
-  // Override iOS default ±10s skip buttons to do track prev/next instead
-  navigator.mediaSession.setActionHandler('seekbackward', () => prev());
-  navigator.mediaSession.setActionHandler('seekforward', () => next());
+  // Remove ±10s seek buttons so iOS Control Center shows ⏮⏭ track icons instead
+  navigator.mediaSession.setActionHandler('seekbackward', null);
+  navigator.mediaSession.setActionHandler('seekforward', null);
 }
 
 function play(track) {
