@@ -105,9 +105,18 @@ audio.addEventListener('ended', () => {
   // by the time iOS stalls (seconds/minutes into the song) the cache is ready.
   // Re-requesting the same URL now returns a seekable, range-capable response,
   // letting us jump back to exactly where iOS gave up.
-  const knownDuration = isFinite(audio.duration) ? audio.duration : state.duration;
-  const resumeAt = audio.currentTime;
-  if (knownDuration > 10 && resumeAt < knownDuration - 5 && state.currentTrack) {
+  //
+  // IMPORTANT: the HTML spec requires audio.currentTime to equal audio.duration
+  // the moment 'ended' fires (even for a premature/spurious ended), so
+  // audio.currentTime is useless here — it would always be ~= knownDuration and
+  // the check below would never pass.  state.currentTime is updated by
+  // timeupdate events during actual playback and therefore holds the real last
+  // playback position, which is what we need for the stall-recovery seek.
+  const knownDuration = (isFinite(audio.duration) && audio.duration > 0)
+    ? audio.duration
+    : state.duration;
+  const resumeAt = state.currentTime; // last real position from timeupdate
+  if (knownDuration > 5 && resumeAt < knownDuration - 3 && state.currentTrack) {
     const track = state.currentTrack;
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
@@ -202,6 +211,9 @@ function play(track) {
   clearTimeout(ignoreEndedTimer);
   ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
   state.currentTrack = track;
+  // Reset position immediately so the UI shows 0 on track change and so that
+  // state.currentTime is correct (= 0) if 'ended' fires before any timeupdate.
+  state.currentTime = 0;
   playReported = false;
   // Setting audio.src already invokes the media element load algorithm per the
   // HTML spec — calling audio.load() explicitly after this is redundant and on
