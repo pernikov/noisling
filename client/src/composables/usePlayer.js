@@ -92,11 +92,13 @@ function updateMediaSession(track) {
 }
 
 function updateMediaSessionPositionState() {
-  if (!('mediaSession' in navigator) || !audio.duration) return;
+  if (!('mediaSession' in navigator)) return;
+  const duration = state.duration;
+  if (!duration || !isFinite(duration)) return;
   navigator.mediaSession.setPositionState({
-    duration: audio.duration,
+    duration,
     playbackRate: audio.playbackRate,
-    position: audio.currentTime,
+    position: Math.min(audio.currentTime, duration),
   });
 }
 
@@ -109,9 +111,6 @@ if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('seekto', (details) => {
     if (details.seekTime != null) seek(details.seekTime);
   });
-  // Remove ±10s seek buttons so iOS Control Center shows ⏮⏭ track icons instead
-  navigator.mediaSession.setActionHandler('seekbackward', null);
-  navigator.mediaSession.setActionHandler('seekforward', null);
 }
 
 function play(track) {
