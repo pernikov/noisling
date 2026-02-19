@@ -104,7 +104,7 @@ router.get('/stream/:id', async (req, res) => {
       '-i', track.path,
       '-vn',
       '-c:a', 'aac',
-      '-b:a', '192k',
+      '-b:a', '320k',
       '-f', 'adts',
       'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'ignore'] });

@@ -50,6 +50,14 @@ let playReported = false;
 let ignoreNextEnded = false;
 let ignoreEndedTimer = null;
 
+// Monotonic counter used to cancel stale stall-recovery loadedmetadata callbacks.
+// Both play() and the stall recovery increment this; the loadedmetadata handler
+// captures the value at registration time and no-ops if it no longer matches.
+// Without this, pressing next/prev while a stall recovery is pending causes the
+// callback to fire for the NEW track, seeking it to the wrong position and calling
+// audio.play() a second time — leaving the audio element in a broken state.
+let stallRecoverySeq = 0;
+
 // Throttle MediaSession position updates to once per second (called from timeupdate).
 let positionStateTimer = null;
 
@@ -104,8 +112,13 @@ audio.addEventListener('ended', () => {
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
+    // Capture the current sequence number. If play() is called before this
+    // loadedmetadata fires (e.g. user presses next), stallRecoverySeq is
+    // incremented by play() and the handler below becomes a no-op.
+    const seq = ++stallRecoverySeq;
     audio.src = api.streamUrl(track._id, needsTranscode(track));
     audio.addEventListener('loadedmetadata', () => {
+      if (stallRecoverySeq !== seq) return; // superseded by a newer play/recovery
       // If the cached response supports seeking, jump back to the stall point.
       if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
         audio.currentTime = resumeAt;
@@ -179,6 +192,9 @@ function play(track) {
   // Without this, changing audio.src mid-play causes an AbortError on iOS that
   // leaves the element in a broken state for all subsequent plays.
   audio.pause();
+  // Invalidate any pending stall-recovery loadedmetadata callback so it
+  // cannot interfere with the new track (wrong seek position, double play call).
+  stallRecoverySeq++;
   // Arm the spurious-ended guard for 500 ms. If iOS fires 'ended' as a side
   // effect of the src reassignment it will be swallowed; the real 'ended' that
   // fires at the end of the new track (seconds/minutes later) will not be.
