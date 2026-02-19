@@ -132,11 +132,14 @@ function play(track) {
   // Without this, changing audio.src mid-play causes an AbortError on iOS that
   // leaves the element in a broken state for all subsequent plays.
   audio.pause();
-  ignoreNextEnded = true; // audio.load() can fire a spurious 'ended' on iOS
+  ignoreNextEnded = true; // src change can fire a spurious 'ended' on iOS
   state.currentTrack = track;
   playReported = false;
+  // Setting audio.src already invokes the media element load algorithm per the
+  // HTML spec — calling audio.load() explicitly after this is redundant and on
+  // iOS progressively degrades the audio buffer state on every track change,
+  // causing 'ended' to fire earlier and earlier (the "faster and faster restart" bug).
   audio.src = api.streamUrl(track._id, needsTranscode(track));
-  audio.load(); // Explicit load gives mobile browsers a clean slate
 
   // iOS: AudioContext starts suspended and must be resumed on user gesture
   if (audio._vizCtx?.ctx?.state === 'suspended') {

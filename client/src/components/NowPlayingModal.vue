@@ -61,10 +61,35 @@ function onProgressClick(e) {
   seek(ratio * state.duration);
 }
 
-function onProgressTouch(e) {
+let progressTouchStartX = 0;
+let progressTouchStartY = 0;
+let isProgressScrubbing = false;
+
+function onProgressTouchStart(e) {
+  progressTouchStartX = e.touches[0].clientX;
+  progressTouchStartY = e.touches[0].clientY;
+  isProgressScrubbing = false;
+  // Seek immediately so the scrubber feels responsive
   const rect = e.currentTarget.getBoundingClientRect();
   const ratio = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
   seek(ratio * state.duration);
+}
+
+function onProgressTouchMove(e) {
+  const deltaX = Math.abs(e.touches[0].clientX - progressTouchStartX);
+  const deltaY = Math.abs(e.touches[0].clientY - progressTouchStartY);
+  // Ignore the move if the gesture is primarily vertical (e.g. swiping to close
+  // the modal), otherwise the finger sliding left off the bar clamps to ratio 0
+  // and seek(0) is called, restarting the song.
+  if (!isProgressScrubbing && deltaY > deltaX * 0.8) return;
+  isProgressScrubbing = true;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = Math.max(0, Math.min(1, (e.touches[0].clientX - rect.left) / rect.width));
+  seek(ratio * state.duration);
+}
+
+function onProgressTouchEnd() {
+  isProgressScrubbing = false;
 }
 
 // Swipe-down to close
@@ -234,8 +259,9 @@ onUnmounted(() => {
               <div
                 class="relative h-1.5 bg-white/20 rounded-full cursor-pointer group"
                 @click="onProgressClick"
-                @touchstart.passive="onProgressTouch"
-                @touchmove.passive="onProgressTouch"
+                @touchstart.passive="onProgressTouchStart"
+                @touchmove.passive="onProgressTouchMove"
+                @touchend="onProgressTouchEnd"
               >
                 <div
                   class="h-full bg-white rounded-full transition-colors"
