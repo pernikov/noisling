@@ -43,6 +43,11 @@ const state = reactive({
 });
 
 let playReported = false;
+// Guard against iOS Safari firing a spurious 'ended' event when audio.load()
+// is called during a track transition. Without this, the ended handler calls
+// next() again while play() is still setting up the new source, causing an
+// infinite restart loop on the same song.
+let ignoreNextEnded = false;
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -63,6 +68,10 @@ audio.addEventListener('loadedmetadata', () => {
 });
 
 audio.addEventListener('ended', () => {
+  if (ignoreNextEnded) {
+    ignoreNextEnded = false;
+    return;
+  }
   if (state.repeat === 'one') {
     audio.currentTime = 0;
     playReported = false;
@@ -123,6 +132,7 @@ function play(track) {
   // Without this, changing audio.src mid-play causes an AbortError on iOS that
   // leaves the element in a broken state for all subsequent plays.
   audio.pause();
+  ignoreNextEnded = true; // audio.load() can fire a spurious 'ended' on iOS
   state.currentTrack = track;
   playReported = false;
   audio.src = api.streamUrl(track._id, needsTranscode(track));
