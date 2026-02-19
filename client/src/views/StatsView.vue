@@ -2,11 +2,13 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
+import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
 
 const router = useRouter();
 const api = useApi();
+const { accentRgb } = useTheme();
 const stats = ref(null);
 const loading = ref(true);
 
@@ -85,8 +87,8 @@ function formatSize(bytes) {
             <span class="text-sm text-zinc-300 w-14 text-right uppercase">{{ f.format || '?' }}</span>
             <div class="flex-1 h-2 bg-zinc-800 rounded overflow-hidden">
               <div
-                class="h-full bg-emerald-500/60 rounded"
-                :style="{ width: (f.count / stats.totalTracks * 100) + '%' }"
+                class="h-full rounded"
+                :style="{ width: (f.count / stats.totalTracks * 100) + '%', backgroundColor: `rgba(${accentRgb}, 0.6)` }"
               />
             </div>
             <span class="text-xs text-zinc-500 w-12">{{ f.count }}</span>

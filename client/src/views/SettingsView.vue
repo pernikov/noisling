@@ -11,9 +11,12 @@ import {
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import { useApi } from '../composables/useApi.js';
+import { useTheme } from '../composables/useTheme.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
 
 const api = useApi();
+const { accentColor, accentRgb, VALID_COLORS, setAccentColor } = useTheme();
+
 const scanning = ref(false);
 const scanPhase = ref(null);
 const scanPercent = ref(null);
@@ -107,6 +110,23 @@ async function deleteLibrary() {
   <div>
     <h1 class="text-2xl font-bold mb-8">Settings</h1>
 
+    <!-- Appearance -->
+    <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 mb-6">
+      <h2 class="text-lg font-semibold text-zinc-100 mb-1">Appearance</h2>
+      <p class="text-sm text-zinc-500 mb-4">Choose an accent color for the interface.</p>
+      <div class="flex items-center gap-3 flex-wrap">
+        <button
+          v-for="color in VALID_COLORS"
+          :key="color"
+          @click="setAccentColor(color)"
+          class="w-8 h-8 rounded-full transition-all ring-offset-2 ring-offset-zinc-900"
+          :class="[`bg-${color}-500`, accentColor === color ? `ring-2 ring-${color}-400` : 'hover:scale-110']"
+          :aria-label="`${color} accent`"
+          :aria-pressed="accentColor === color"
+        />
+      </div>
+    </section>
+
     <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
       <div>
         <div class="flex items-center gap-2 mb-1">
@@ -158,7 +178,7 @@ async function deleteLibrary() {
             </div>
             <div class="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">
               <div
-                class="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                :class="`h-full bg-${accentColor}-500 rounded-full transition-all duration-300`"
                 :style="{ width: scanPercent + '%' }"
               />
             </div>
@@ -167,9 +187,10 @@ async function deleteLibrary() {
 
         <!-- Scan result: success -->
         <div v-if="scanResult && !scanResult.error"
-          class="bg-emerald-500/10 rounded-lg px-4 py-3 space-y-1"
+          class="rounded-lg px-4 py-3 space-y-1"
+          :style="{ backgroundColor: `rgba(${accentRgb}, 0.1)` }"
         >
-          <div class="flex items-center gap-2 text-sm text-emerald-400">
+          <div class="flex items-center gap-2 text-sm" :class="`text-${accentColor}-400`">
             <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
             Scan complete
           </div>
@@ -203,7 +224,9 @@ async function deleteLibrary() {
         <div v-if="loadingCovers" class="text-xs text-zinc-500">Loading...</div>
 
         <div v-else-if="missingCoverAlbums.length === 0"
-          class="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-3"
+          class="flex items-center gap-2 text-sm rounded-lg px-4 py-3"
+          :class="`text-${accentColor}-400`"
+          :style="{ backgroundColor: `rgba(${accentRgb}, 0.1)` }"
         >
           <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
           All albums have artwork
@@ -252,7 +275,9 @@ async function deleteLibrary() {
 
         <!-- Delete result: success -->
         <div v-if="deleteResult && !deleteResult.error"
-          class="flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-lg px-4 py-3"
+          class="flex items-center gap-2 text-sm rounded-lg px-4 py-3"
+          :class="`text-${accentColor}-400`"
+          :style="{ backgroundColor: `rgba(${accentRgb}, 0.1)` }"
         >
           <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
           Library deleted — {{ deleteResult.deletedTracks }} track{{ deleteResult.deletedTracks === 1 ? '' : 's' }} removed.

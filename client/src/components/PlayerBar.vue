@@ -1,9 +1,10 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { usePlayer } from '../composables/usePlayer.js';
-import { useAccentColor } from '../composables/useAccentColor.js';
-import CoverArt from './CoverArt.vue';
-import QueueDrawer from './QueueDrawer.vue';
+import { computed } from "vue";
+import { usePlayer } from "../composables/usePlayer.js";
+import { useAccentColor } from "../composables/useAccentColor.js";
+import { useTheme } from "../composables/useTheme.js";
+import CoverArt from "./CoverArt.vue";
+import QueueDrawer from "./QueueDrawer.vue";
 import {
   mdiSkipPrevious,
   mdiSkipNext,
@@ -16,27 +17,42 @@ import {
   mdiShuffle,
   mdiPlaylistMusic,
   mdiEqualizer,
-} from '@mdi/js';
-import Icon from './Icon.vue';
+} from "@mdi/js";
+import Icon from "./Icon.vue";
 
-const { state, toggle, next, prev, seek, setVolume, toggleMute, toggleShuffle, toggleVisualizer, toggleNowPlaying, cycleRepeat, hasNext, hasPrev } = usePlayer();
-const { accentColor } = useAccentColor();
+const {
+  state,
+  toggle,
+  next,
+  prev,
+  seek,
+  setVolume,
+  toggleMute,
+  toggleShuffle,
+  toggleVisualizer,
+  toggleNowPlaying,
+  toggleQueue,
+  cycleRepeat,
+  hasNext,
+  hasPrev,
+} = usePlayer();
+const { accentColor: albumAccentColor } = useAccentColor();
+const { accentColor } = useTheme();
 
 const barStyle = computed(() => {
-  if (!accentColor.value) return {};
+  if (!albumAccentColor.value) return {};
   return {
-    background: `linear-gradient(to right, rgba(${accentColor.value}, 0.25), rgba(${accentColor.value}, 0.1) 60%, transparent)`,
+    background: `linear-gradient(to right, rgba(${albumAccentColor.value}, 0.25), rgba(${albumAccentColor.value}, 0.1) 60%, transparent)`,
   };
 });
 
-const queueOpen = ref(false);
 
 function formatTime(seconds) {
-  if (seconds == null || isNaN(seconds)) return '0:00';
-  if (!isFinite(seconds)) return '--:--';
+  if (seconds == null || isNaN(seconds)) return "0:00";
+  if (!isFinite(seconds)) return "--:--";
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 function onProgressClick(e) {
@@ -65,7 +81,9 @@ function progressPercent() {
   >
     <CoverArt :cover="state.currentTrack.cover" size="w-10 h-10" />
     <div class="flex-1 min-w-0">
-      <div class="text-sm font-medium truncate">{{ state.currentTrack.title }}</div>
+      <div class="text-sm font-medium truncate">
+        {{ state.currentTrack.title }}
+      </div>
       <span class="text-xs text-zinc-400 truncate block">
         <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
           <span v-if="ai > 0">, </span>{{ artist }}
@@ -105,18 +123,35 @@ function progressPercent() {
   >
     <!-- Track info -->
     <div class="flex items-center gap-2 min-w-0 flex-none w-32 sm:w-56">
-      <button class="flex-shrink-0 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400" @click="toggleNowPlaying" aria-label="Open Now Playing">
-        <CoverArt :cover="state.currentTrack.cover" size="w-9 h-9 sm:w-10 sm:h-10" />
+      <button
+        class="flex-shrink-0 rounded focus:outline-none focus-visible:ring-2"
+        :class="`focus-visible:ring-${accentColor}-400`"
+        @click="toggleNowPlaying"
+        aria-label="Open Now Playing"
+      >
+        <CoverArt
+          :cover="state.currentTrack.cover"
+          size="w-9 h-9 sm:w-10 sm:h-10"
+        />
       </button>
       <div class="min-w-0">
-        <div class="text-sm font-medium truncate cursor-pointer hover:text-zinc-300 transition-colors" @click="toggleNowPlaying">{{ state.currentTrack.title }}</div>
+        <div
+          class="text-sm font-medium truncate cursor-pointer hover:text-zinc-300 transition-colors"
+          @click="toggleNowPlaying"
+        >
+          {{ state.currentTrack.title }}
+        </div>
         <span class="text-xs text-zinc-400 truncate block">
-          <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
+          <template
+            v-for="(artist, ai) in state.currentTrack.artists"
+            :key="ai"
+          >
             <span v-if="ai > 0">, </span>
             <router-link
               :to="{ name: 'artist', params: { name: artist } }"
               class="hover:text-zinc-100 hover:underline"
-            >{{ artist }}</router-link>
+              >{{ artist }}</router-link
+            >
           </template>
         </span>
       </div>
@@ -128,7 +163,7 @@ function progressPercent() {
         <!-- Mobile-only: shuffle -->
         <button
           class="sm:hidden transition-colors"
-          :class="state.shuffle ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+          :class="state.shuffle ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
           @click="toggleShuffle"
         >
           <Icon :path="mdiShuffle" class="w-4 h-4" />
@@ -137,6 +172,7 @@ function progressPercent() {
         <button
           :disabled="!hasPrev"
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
+          title="(P) Previous song"
           @click="prev"
         >
           <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
@@ -145,6 +181,7 @@ function progressPercent() {
         <button
           class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center hover:scale-105 transition-transform"
           @click="toggle"
+          :title="'(Space) ' + (state.isPlaying ? 'Pause' : 'Play')"
         >
           <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" />
           <Icon v-else :path="mdiPlay" class="w-4 h-4" />
@@ -153,6 +190,7 @@ function progressPercent() {
         <button
           :disabled="!hasNext"
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
+          title="(N) Next song"
           @click="next"
         >
           <Icon :path="mdiSkipNext" class="w-5 h-5" />
@@ -161,8 +199,8 @@ function progressPercent() {
         <!-- Mobile-only: queue -->
         <button
           class="sm:hidden transition-colors"
-          :class="queueOpen ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
-          @click="queueOpen = !queueOpen"
+          :class="state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+          @click="toggleQueue"
         >
           <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
         </button>
@@ -170,13 +208,16 @@ function progressPercent() {
 
       <!-- Progress bar -->
       <div class="w-full flex items-center gap-2 text-xs text-zinc-500">
-        <span class="w-10 text-right tabular-nums">{{ formatTime(state.currentTime) }}</span>
+        <span class="w-10 text-right tabular-nums">{{
+          formatTime(state.currentTime)
+        }}</span>
         <div
           class="flex-1 h-1 bg-zinc-700 rounded cursor-pointer group"
           @click="onProgressClick"
         >
           <div
-            class="h-full bg-zinc-100 rounded group-hover:bg-emerald-400 transition-colors"
+            class="h-full bg-zinc-100 rounded transition-colors"
+            :class="`group-hover:bg-${accentColor}-400`"
             :style="{ width: progressPercent() + '%' }"
           />
         </div>
@@ -185,13 +226,17 @@ function progressPercent() {
     </div>
 
     <!-- Right group: shuffle, queue, volume -->
-    <div class="hidden sm:flex items-center gap-3 w-56 flex-shrink-0 justify-end">
+    <div
+      class="hidden sm:flex items-center gap-3 w-56 flex-shrink-0 justify-end"
+    >
       <!-- Visualizer -->
       <button
         class="transition-colors"
-        :class="state.showVisualizer ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+        :class="
+          state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
+        "
         @click="toggleVisualizer"
-        title="Toggle visualizer"
+        title="(V) Toggle visualizer"
       >
         <Icon :path="mdiEqualizer" class="w-4 h-4" />
       </button>
@@ -199,19 +244,28 @@ function progressPercent() {
       <!-- Repeat -->
       <button
         class="transition-colors"
-        :class="state.repeat !== 'off' ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+        :class="
+          state.repeat !== 'off' ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
+        "
         @click="cycleRepeat"
-        :title="'Repeat: ' + state.repeat"
+        :title="'(R) Repeat: ' + state.repeat"
       >
-        <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-4 h-4" />
+        <Icon
+          v-if="state.repeat === 'one'"
+          :path="mdiRepeatOnce"
+          class="w-4 h-4"
+        />
         <Icon v-else :path="mdiRepeat" class="w-4 h-4" />
       </button>
 
       <!-- Shuffle -->
       <button
         class="transition-colors"
-        :class="state.shuffle ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
+        :class="
+          state.shuffle ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
+        "
         @click="toggleShuffle"
+        :title="'(S) Shuffle: ' + (state.shuffle ? 'on' : 'off')"
       >
         <Icon :path="mdiShuffle" class="w-4 h-4" />
       </button>
@@ -219,16 +273,27 @@ function progressPercent() {
       <!-- Queue toggle -->
       <button
         class="transition-colors"
-        :class="queueOpen ? 'text-emerald-400' : 'text-zinc-400 hover:text-zinc-100'"
-        @click="queueOpen = !queueOpen"
+        :class="
+          state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
+        "
+        @click="toggleQueue"
+        :title="'(Q) Queue (' + state.queue.length + ' tracks)'"
       >
         <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
       </button>
 
       <!-- Volume -->
       <div class="flex items-center gap-1.5 flex-1">
-        <button class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0" @click="toggleMute">
-          <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
+        <button
+          class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0"
+          @click="toggleMute"
+          :title="'(M) ' + (state.volume === 0 ? 'Unmute' : 'Mute')"
+        >
+          <Icon
+            v-if="state.volume === 0"
+            :path="mdiVolumeOff"
+            class="w-4 h-4"
+          />
           <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
         </button>
         <input
@@ -245,5 +310,5 @@ function progressPercent() {
   </div>
 
   <!-- Queue drawer -->
-  <QueueDrawer :open="queueOpen" @close="queueOpen = false" />
+  <QueueDrawer :open="state.showQueue" @close="toggleQueue" />
 </template>

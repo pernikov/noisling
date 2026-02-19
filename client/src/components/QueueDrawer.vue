@@ -3,6 +3,7 @@ import { ref, computed, watch, nextTick } from 'vue';
 import { mdiClose, mdiDrag, mdiPlay } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
+import { useTheme } from '../composables/useTheme.js';
 import CoverArt from './CoverArt.vue';
 
 const props = defineProps({
@@ -11,6 +12,7 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const { state, moveTrack, playFromQueue } = usePlayer();
+const { accentColor } = useTheme();
 
 const ITEM_HEIGHT = 52; // px per row
 const OVERSCAN = 10; // extra items rendered above/below viewport
@@ -152,7 +154,7 @@ function formatDuration(seconds) {
               :style="{ height: ITEM_HEIGHT + 'px' }"
               :class="{
                 'bg-zinc-800/80': i === state.queueIndex,
-                'border-t-2 border-emerald-400': dragOverIndex === i && dragIndex !== i,
+                [`border-t-2 border-${accentColor}-400`]: dragOverIndex === i && dragIndex !== i,
                 'opacity-40': dragIndex === i,
               }"
               draggable="true"
@@ -177,7 +179,7 @@ function formatDuration(seconds) {
               <div class="flex-1 min-w-0">
                 <div
                   class="text-sm truncate"
-                  :class="i === state.queueIndex ? 'text-emerald-400 font-medium' : ''"
+                  :class="i === state.queueIndex ? `text-${accentColor}-400 font-medium` : ''"
                 >
                   {{ track.title }}
                 </div>

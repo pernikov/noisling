@@ -3,6 +3,7 @@ import { useRouter } from 'vue-router';
 import { mdiPlay, mdiShuffle } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
+import { useTheme } from '../composables/useTheme.js';
 import CoverArt from './CoverArt.vue';
 
 const router = useRouter();
@@ -19,6 +20,7 @@ const props = defineProps({
 });
 
 const { state, playAlbum, playFromQueue, queueMatches } = usePlayer();
+const { accentColor } = useTheme();
 
 function timeAgo(date) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -134,11 +136,11 @@ function isCurrentTrack(track) {
           v-for="(track, i) in tracks"
           :key="track._id"
           class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
-          :class="{ 'text-emerald-400': isCurrentTrack(track) }"
+          :class="{ [`text-${accentColor}-400`]: isCurrentTrack(track) }"
           @click="playTrack(i)"
         >
           <td class="py-2 px-1 text-zinc-500 text-center">
-            <span v-if="isCurrentTrack(track) && state.isPlaying" class="text-emerald-400 flex items-center justify-center">
+            <span v-if="isCurrentTrack(track) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
               <Icon :path="mdiPlay" class="w-3 h-3" />
             </span>
             <span v-else>{{ startIndex + i + 1 }}</span>

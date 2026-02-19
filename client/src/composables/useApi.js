@@ -38,6 +38,12 @@ export function useApi() {
     scanLibrary: () => request('/scan', { method: 'POST' }),
     deleteLibrary: () => request('/library', { method: 'DELETE' }),
     getStats: () => request('/stats'),
+    getSettings: () => request('/settings'),
+    saveSettings: (body) => request('/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
     reportPlay: (id) => request(`/tracks/${id}/play`, { method: 'POST' }),
     streamUrl: (id, transcode = false) => `${BASE}/stream/${id}${transcode ? '?transcode=1' : ''}`,
     coverUrl: (filename) => filename ? `${BASE}/covers/${filename}` : '/placeholder.svg',

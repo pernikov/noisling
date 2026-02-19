@@ -9,6 +9,7 @@ import libraryRoutes from './routes/library.js';
 import scanRoutes from './routes/scan.js';
 import streamRoutes from './routes/stream.js';
 import eventsRoutes from './routes/events.js';
+import settingsRoutes from './routes/settings.js';
 import { startWatcher } from './services/watcher.js';
 import { createLogger, requestLogger } from './logger.js';
 
@@ -25,6 +26,7 @@ app.use('/api', libraryRoutes);
 app.use('/api', scanRoutes);
 app.use('/api', streamRoutes);
 app.use('/api', eventsRoutes);
+app.use('/api', settingsRoutes);
 
 // Serve built client in production
 const clientDist = resolve(__dirname, '..', 'client', 'dist');

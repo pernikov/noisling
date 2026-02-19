@@ -9,6 +9,10 @@ import SpectrogramVisualizer from './components/SpectrogramVisualizer.vue';
 import { usePlayer } from './composables/usePlayer.js';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
 import { useAccentColor } from './composables/useAccentColor.js';
+import { useTheme } from './composables/useTheme.js';
+
+const { loadTheme } = useTheme();
+loadTheme();
 
 const route = useRoute();
 const { state: playerState } = usePlayer();

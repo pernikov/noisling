@@ -14,4 +14,12 @@ export default {
     },
   },
   plugins: [],
+  safelist: [
+    { pattern: /^text-(violet|sky|rose|amber|emerald|indigo)-400$/ },
+    { pattern: /^bg-(violet|sky|rose|amber|emerald|indigo)-500$/ },
+    { pattern: /^border-(violet|sky|rose|amber|emerald|indigo)-400$/ },
+    { pattern: /^ring-(violet|sky|rose|amber|emerald|indigo)-400$/ },
+    { pattern: /^bg-(violet|sky|rose|amber|emerald|indigo)-400$/, variants: ['group-hover'] },
+    { pattern: /^ring-(violet|sky|rose|amber|emerald|indigo)-400$/, variants: ['focus-visible'] },
+  ],
 };

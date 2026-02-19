@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
+import { useTheme } from '../composables/useTheme.js';
 import { useApi } from '../composables/useApi.js';
 import Icon from './Icon.vue';
 import {
@@ -28,7 +29,8 @@ const {
   hasPrev,
 } = usePlayer();
 
-const { accentColor } = useAccentColor();
+const { accentColor: albumAccentColor } = useAccentColor();
+const { accentColor } = useTheme();
 const api = useApi();
 
 const coverUrl = computed(() =>
@@ -36,8 +38,8 @@ const coverUrl = computed(() =>
 );
 
 const accentOverlay = computed(() => {
-  if (!accentColor.value) return 'transparent';
-  return `linear-gradient(to top, rgba(${accentColor.value}, 0.5), rgba(${accentColor.value}, 0.15) 60%, transparent)`;
+  if (!albumAccentColor.value) return 'transparent';
+  return `linear-gradient(to top, rgba(${albumAccentColor.value}, 0.5), rgba(${albumAccentColor.value}, 0.15) 60%, transparent)`;
 });
 
 function formatTime(seconds) {
@@ -236,7 +238,8 @@ onUnmounted(() => {
                 @touchmove.passive="onProgressTouch"
               >
                 <div
-                  class="h-full bg-white rounded-full group-hover:bg-emerald-400 transition-colors"
+                  class="h-full bg-white rounded-full transition-colors"
+                  :class="`group-hover:bg-${accentColor}-400`"
                   :style="{ width: progressPercent() + '%' }"
                 />
                 <div
@@ -254,7 +257,7 @@ onUnmounted(() => {
             <div class="flex items-center justify-between">
               <button
                 class="transition-colors p-2 rounded-full hover:bg-white/10"
-                :class="state.shuffle ? 'text-emerald-400' : 'text-white/60 hover:text-white'"
+                :class="state.shuffle ? `text-${accentColor}-400` : 'text-white/60 hover:text-white'"
                 @click="toggleShuffle"
                 aria-label="Shuffle"
               >
@@ -290,7 +293,7 @@ onUnmounted(() => {
 
               <button
                 class="transition-colors p-2 rounded-full hover:bg-white/10"
-                :class="state.repeat !== 'off' ? 'text-emerald-400' : 'text-white/60 hover:text-white'"
+                :class="state.repeat !== 'off' ? `text-${accentColor}-400` : 'text-white/60 hover:text-white'"
                 @click="cycleRepeat"
                 :aria-label="'Repeat: ' + state.repeat"
               >
