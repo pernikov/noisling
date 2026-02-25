@@ -11,7 +11,7 @@ const loading = ref(true);
 
 async function loadRecent() {
   try {
-    tracks.value = await api.getRecentTracks(30);
+    tracks.value = await api.getRecentTracks(100);
   } catch (err) {
     console.error('Failed to load recent tracks:', err);
   } finally {
@@ -21,9 +21,9 @@ async function loadRecent() {
 
 onMounted(loadRecent);
 
-// Refresh when a new track starts playing (covers the play-report)
-watch(() => playerState.currentTrack?._id, (newId, oldId) => {
-  if (oldId && newId !== oldId) loadRecent();
+// Refresh when a play is recorded in the DB
+watch(() => playerState.playReportCount, (count) => {
+  if (count > 0) loadRecent();
 });
 </script>
 

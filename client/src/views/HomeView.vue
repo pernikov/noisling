@@ -105,8 +105,8 @@ useLibraryEvents(() => {
   loadArtists();
 });
 
-watch(() => playerState.currentTrack?._id, (newId, oldId) => {
-  if (oldId && newId !== oldId) loadRecent();
+watch(() => playerState.playReportCount, (count) => {
+  if (count > 0) loadRecent();
 });
 
 function goToArtist(name) {

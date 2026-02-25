@@ -5,6 +5,7 @@ import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import CoverArt from '../components/CoverArt.vue';
 import TrackList from '../components/TrackList.vue';
+import NotFoundPage from '../components/NotFoundPage.vue';
 
 const api = useApi();
 const route = useRoute();
@@ -12,17 +13,21 @@ const router = useRouter();
 const albumInfo = ref(null);
 const tracks = ref([]);
 const loading = ref(true);
+const notFound = ref(false);
+const albumName = ref('');
 
 async function load() {
   loading.value = true;
+  notFound.value = false;
   try {
     const artist = decodeURIComponent(route.params.artist);
     const album = decodeURIComponent(route.params.album);
+    albumName.value = album;
     const data = await api.getAlbum(artist, album);
     albumInfo.value = data.album;
     tracks.value = data.tracks;
   } catch (err) {
-    console.error('Failed to load album:', err);
+    notFound.value = true;
   } finally {
     loading.value = false;
   }
@@ -40,6 +45,9 @@ function formatDuration(seconds) {
 
 <template>
   <div>
+    <NotFoundPage v-if="!loading && notFound" type="album" :name="albumName" />
+
+    <template v-else>
     <button class="text-zinc-500 hover:text-zinc-300 mb-4 text-sm" @click="router.back()">
       &larr; Back
     </button>
@@ -90,6 +98,7 @@ function formatDuration(seconds) {
       </div>
 
       <TrackList :tracks="tracks" />
+    </template>
     </template>
   </div>
 </template>

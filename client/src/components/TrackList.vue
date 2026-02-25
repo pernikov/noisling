@@ -218,10 +218,15 @@ defineExpose({ playAll, playShuffle });
       <tbody>
         <tr
           v-for="(track, i) in tracks"
-          :key="track._id"
-          class="group cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
-          :class="{ [`text-${accentColor}-400`]: isCurrentTrack(track) }"
-          @click="playTrack(i)"
+          :key="track.historyId ?? track._id"
+          class="group [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
+          :class="[
+            track.deleted
+              ? 'cursor-default opacity-40'
+              : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
+            { [`text-${accentColor}-400`]: isCurrentTrack(track) },
+          ]"
+          @click="!track.deleted && playTrack(i)"
         >
           <td class="py-2 px-1 text-zinc-500 text-center">
             <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
@@ -234,7 +239,7 @@ defineExpose({ playAll, playShuffle });
           </td>
           <td class="py-2 px-3 font-medium overflow-hidden">
             <div class="flex items-center gap-2 min-w-0">
-              <CoverArt v-if="showCover" :cover="track.cover" size="w-8 h-8 shrink-0" />
+              <CoverArt v-if="showCover" :cover="track.deleted ? '' : track.cover" size="w-8 h-8 shrink-0" />
               <span class="truncate">{{ track.title }}</span>
             </div>
           </td>
@@ -258,9 +263,10 @@ defineExpose({ playAll, playShuffle });
             >{{ track.album }}</router-link>
           </td>
           <td v-if="showPlays" class="py-2 px-3 text-center text-zinc-500 hidden sm:table-cell">{{ track.playCount || 0 }}</td>
-          <td v-if="showLastPlayed" class="py-2 px-3 text-center text-zinc-500 hidden sm:table-cell">{{ track.lastPlayedAt ? timeAgo(track.lastPlayedAt) : '' }}</td>
+          <td v-if="showLastPlayed" class="py-2 px-3 text-center text-zinc-500 hidden sm:table-cell">{{ (track.playedAt ?? track.lastPlayedAt) ? timeAgo(track.playedAt ?? track.lastPlayedAt) : '' }}</td>
           <td class="py-2 px-1 align-middle">
             <button
+              v-if="!track.deleted"
               class="flex items-center justify-center w-full transition-opacity"
               :class="lovedIds.has(String(track._id))
                 ? 'text-rose-400'
@@ -272,6 +278,7 @@ defineExpose({ playAll, playShuffle });
           </td>
           <td class="py-2 px-1 align-middle">
             <button
+              v-if="!track.deleted"
               class="flex items-center justify-center w-full opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-300"
               @click.stop="openMenu($event, i, track)"
             >

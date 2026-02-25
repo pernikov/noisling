@@ -57,6 +57,7 @@ const state = reactive({
   showVisualizer: false,
   showNowPlaying: false,
   showQueue: false,
+  playReportCount: 0,
 });
 
 // Apply saved volume to the audio element immediately.
@@ -111,7 +112,9 @@ audio.addEventListener('timeupdate', () => {
     const threshold = Math.min(audio.duration * 0.5, 30);
     if (audio.currentTime >= threshold) {
       playReported = true;
-      api.reportPlay(state.currentTrack._id).catch(() => {});
+      api.reportPlay(state.currentTrack._id)
+        .then(() => { state.playReportCount++; })
+        .catch(() => {});
     }
   }
 

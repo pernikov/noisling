@@ -9,6 +9,7 @@ const routes = [
   { path: '/recent', name: 'recent', component: () => import('./views/RecentView.vue') },
   { path: '/stats', redirect: { name: 'settings', query: { tab: 'stats' } } },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
+  { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('./views/NotFoundView.vue') },
 ];
 
 export default createRouter({

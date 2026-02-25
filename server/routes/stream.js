@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 import mime from 'mime-types';
 import Track from '../models/Track.js';
+import PlayHistory from '../models/PlayHistory.js';
 import config from '../config.js';
 import { join } from 'path';
 
@@ -246,14 +247,28 @@ router.get('/stream/:id', async (req, res) => {
   }
 });
 
-// POST /api/tracks/:id/play — increment play count
+// POST /api/tracks/:id/play — increment play count and record history
 router.post('/tracks/:id/play', async (req, res) => {
+  const now = new Date();
   const track = await Track.findByIdAndUpdate(
     req.params.id,
-    { $inc: { playCount: 1 }, lastPlayedAt: new Date() },
+    { $inc: { playCount: 1 }, lastPlayedAt: now },
     { new: true },
   ).lean();
   if (!track) return res.status(404).json({ error: 'Track not found' });
+
+  PlayHistory.create({
+    trackId: track._id,
+    playedAt: now,
+    title: track.title,
+    artists: track.artists,
+    album: track.album,
+    cover: track.cover,
+    duration: track.duration,
+    format: track.format,
+    path: track.path,
+  }).catch(() => {});
+
   res.json({ playCount: track.playCount });
 });
 
