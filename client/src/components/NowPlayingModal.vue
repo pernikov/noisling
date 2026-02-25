@@ -258,23 +258,27 @@ onUnmounted(() => {
 
           <!-- Album art -->
           <div class="flex-1 flex items-center justify-center py-2 min-h-0">
-            <img
-              v-if="coverUrl"
-              :src="coverUrl"
-              alt="Album art"
-              class="aspect-square object-cover rounded-xl w-full"
-              style="max-width: min(100%, 60vh, 400px);  box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
-              loading="eager"
-            />
-            <div
-              v-else
-              class="aspect-square rounded-xl bg-zinc-800 flex items-center justify-center w-full"
-              style="max-width: min(100%, 60vh, 400px);"
-            >
-              <svg class="w-24 h-24 text-zinc-700" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-              </svg>
-            </div>
+            <Transition name="cover-fade" mode="out-in">
+              <img
+                v-if="coverUrl"
+                :key="coverUrl"
+                :src="coverUrl"
+                alt="Album art"
+                class="aspect-square object-cover rounded-xl w-full"
+                style="max-width: min(100%, 60vh, 400px);  box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
+                loading="eager"
+              />
+              <div
+                v-else
+                key="placeholder"
+                class="aspect-square rounded-xl bg-zinc-800 flex items-center justify-center w-full"
+                style="max-width: min(100%, 60vh, 400px);"
+              >
+                <svg class="w-24 h-24 text-zinc-700" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                </svg>
+              </div>
+            </Transition>
           </div>
 
           <!-- Bottom section -->
@@ -352,8 +356,10 @@ onUnmounted(() => {
                 @click="toggle"
                 :aria-label="state.isPlaying ? 'Pause' : 'Play'"
               >
-                <Icon v-if="state.isPlaying" :path="mdiPause" class="w-8 h-8" />
-                <Icon v-else :path="mdiPlay" class="w-8 h-8" />
+                <Transition name="icon-swap" mode="out-in">
+                  <Icon v-if="state.isPlaying" :path="mdiPause" class="w-8 h-8" :key="'pause'" />
+                  <Icon v-else :path="mdiPlay" class="w-8 h-8" :key="'play'" />
+                </Transition>
               </button>
 
               <button
@@ -371,8 +377,10 @@ onUnmounted(() => {
                 @click="cycleRepeat"
                 :aria-label="'Repeat: ' + state.repeat"
               >
-                <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-5 h-5" />
-                <Icon v-else :path="mdiRepeat" class="w-5 h-5" />
+                <Transition name="icon-swap" mode="out-in">
+                  <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-5 h-5" :key="'repeat-one'" />
+                  <Icon v-else :path="mdiRepeat" class="w-5 h-5" :key="'repeat'" />
+                </Transition>
               </button>
             </div>
 
@@ -392,6 +400,26 @@ onUnmounted(() => {
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translateY(100%);
+}
+
+/* Album art crossfade on track change */
+.cover-fade-enter-active,
+.cover-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.cover-fade-enter-from,
+.cover-fade-leave-to {
+  opacity: 0;
+}
+
+/* Play/pause and repeat icon swaps */
+.icon-swap-enter-active,
+.icon-swap-leave-active {
+  transition: opacity 0.1s ease;
+}
+.icon-swap-enter-from,
+.icon-swap-leave-to {
+  opacity: 0;
 }
 
 </style>

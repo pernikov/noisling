@@ -104,6 +104,7 @@ function onVolumeInput(e) {
 
 <template>
   <!-- Mobile mini-player -->
+  <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
     class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex items-center gap-3 px-4 py-2 cursor-pointer active:bg-white/5"
@@ -133,8 +134,10 @@ function onVolumeInput(e) {
         class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center"
         @click.stop="toggle"
       >
-        <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" />
-        <Icon v-else :path="mdiPlay" class="w-4 h-4" />
+        <Transition name="icon-swap" mode="out-in">
+          <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-mobile'" />
+          <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-mobile'" />
+        </Transition>
       </button>
       <button
         :disabled="!hasNext"
@@ -145,8 +148,10 @@ function onVolumeInput(e) {
       </button>
     </div>
   </div>
+  </Transition>
 
   <!-- Desktop full player bar -->
+  <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
     class="hidden sm:flex fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 py-3 items-center justify-between gap-4 z-40"
@@ -165,7 +170,8 @@ function onVolumeInput(e) {
           size="w-9 h-9 sm:w-10 sm:h-10"
         />
       </button>
-      <div class="min-w-0">
+      <Transition name="track-fade" mode="out-in">
+      <div class="min-w-0" :key="state.currentTrack._id">
         <div
           class="text-sm font-medium truncate cursor-pointer hover:text-zinc-300 transition-colors"
           @click="toggleNowPlaying"
@@ -186,6 +192,7 @@ function onVolumeInput(e) {
           </template>
         </span>
       </div>
+      </Transition>
     </div>
 
     <!-- Controls + progress -->
@@ -214,8 +221,10 @@ function onVolumeInput(e) {
           @click="toggle"
           :title="'(Space) ' + (state.isPlaying ? 'Pause' : 'Play')"
         >
-          <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" />
-          <Icon v-else :path="mdiPlay" class="w-4 h-4" />
+          <Transition name="icon-swap" mode="out-in">
+            <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-desktop'" />
+            <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-desktop'" />
+          </Transition>
         </button>
 
         <button
@@ -327,11 +336,7 @@ function onVolumeInput(e) {
           @click="toggleMute"
           :title="'(M) ' + (state.volume === 0 ? 'Unmute' : 'Mute')"
         >
-          <Icon
-            v-if="state.volume === 0"
-            :path="mdiVolumeOff"
-            class="w-4 h-4"
-          />
+          <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
           <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
         </button>
         <input
@@ -346,7 +351,43 @@ function onVolumeInput(e) {
       </div>
     </div>
   </div>
+  </Transition>
 
   <!-- Queue drawer -->
   <QueueDrawer :open="state.showQueue" @close="toggleQueue" />
 </template>
+
+<style scoped>
+/* Player bar slides up from the bottom on first appearance */
+.slide-up-bar-enter-active {
+  transition: transform 0.3s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.3s ease;
+}
+.slide-up-bar-leave-active {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.slide-up-bar-enter-from,
+.slide-up-bar-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+/* Track title/artist fades between tracks */
+.track-fade-enter-active,
+.track-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.track-fade-enter-from,
+.track-fade-leave-to {
+  opacity: 0;
+}
+
+/* Play/pause and volume icon swaps */
+.icon-swap-enter-active,
+.icon-swap-leave-active {
+  transition: opacity 0.1s ease;
+}
+.icon-swap-enter-from,
+.icon-swap-leave-to {
+  opacity: 0;
+}
+</style>

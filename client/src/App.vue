@@ -79,13 +79,17 @@ useKeyboardShortcuts();
       </div>
     </nav>
 
-    <!-- Main content -->
-    <main v-if="!playerState.showVisualizer" class="w-full max-w-6xl mx-auto px-4 py-6">
-      <router-view />
-    </main>
-
-    <!-- Spectrogram visualizer -->
-    <SpectrogramVisualizer v-else class="flex-1" />
+    <!-- Main content / Spectrogram visualizer -->
+    <Transition name="vis-fade" mode="out-in">
+      <main v-if="!playerState.showVisualizer" key="main" class="w-full max-w-6xl mx-auto px-4 py-6">
+        <RouterView v-slot="{ Component }">
+          <Transition name="page" mode="out-in">
+            <component :is="Component" />
+          </Transition>
+        </RouterView>
+      </main>
+      <SpectrogramVisualizer v-else key="vis" class="flex-1" />
+    </Transition>
 
     <!-- Player bar -->
     <PlayerBar />
@@ -94,3 +98,29 @@ useKeyboardShortcuts();
     <NowPlayingModal />
   </div>
 </template>
+
+<style scoped>
+/* Route page transitions */
+.page-enter-active,
+.page-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.page-enter-from {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.page-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Visualizer toggle */
+.vis-fade-enter-active,
+.vis-fade-leave-active {
+  transition: opacity 0.25s ease;
+}
+.vis-fade-enter-from,
+.vis-fade-leave-to {
+  opacity: 0;
+}
+</style>

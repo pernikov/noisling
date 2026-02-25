@@ -63,6 +63,8 @@ const state = reactive({
 // Apply saved volume to the audio element immediately.
 audio.volume = state.volume;
 
+let playReported = false;
+
 // Restore queue from the previous session.
 let _pendingRestoreTime = null;
 if (_savedQueue?.queue?.length > 0) {
@@ -76,10 +78,15 @@ if (_savedQueue?.queue?.length > 0) {
   audio.src = api.streamUrl(queue[idx]._id, needsTranscode(queue[idx]));
   if (typeof currentTime === 'number' && currentTime > 5) {
     _pendingRestoreTime = currentTime;
+    // If the restored position is already past the report threshold, don't report again
+    const restoredTrack = queue[idx];
+    if (restoredTrack?.duration > 0) {
+      const threshold = Math.min(restoredTrack.duration * 0.5, 30);
+      if (currentTime >= threshold) playReported = true;
+    }
   }
 }
 
-let playReported = false;
 // Guard against iOS Safari firing a spurious 'ended' event immediately after
 // audio.src is reassigned (src change aborts the previous stream, which can
 // dispatch 'ended' on some iOS versions). The flag expires after 500 ms so it
