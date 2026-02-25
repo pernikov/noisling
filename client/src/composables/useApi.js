@@ -34,6 +34,8 @@ export function useApi() {
       return request(`/tracks/all${qs ? `?${qs}` : ''}`);
     },
     getRecentTracks: (limit = 20) => request(`/tracks/recent?limit=${limit}`),
+    getLovedTracks: () => request('/tracks/loved'),
+    toggleLove: (id) => request(`/tracks/${id}/love`, { method: 'PATCH' }),
     getTrack: (id) => request(`/tracks/${id}`),
     scanLibrary: () => request('/scan', { method: 'POST' }),
     deleteLibrary: () => request('/library', { method: 'DELETE' }),

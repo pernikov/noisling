@@ -267,6 +267,7 @@ router.get('/stats', async (req, res) => {
               totalDuration: { $sum: '$duration' },
               totalPlays: { $sum: '$playCount' },
               totalFileSize: { $sum: '$fileSize' },
+              totalLoved: { $sum: { $cond: ['$isLoved', 1, 0] } },
               artists: { $addToSet: { $arrayElemAt: ['$artistsNorm', 0] } },
               albums: { $addToSet: '$album' },
             },
@@ -278,6 +279,7 @@ router.get('/stats', async (req, res) => {
               totalDuration: 1,
               totalPlays: 1,
               totalFileSize: 1,
+              totalLoved: 1,
               totalArtists: { $size: '$artists' },
               totalAlbums: { $size: '$albums' },
             },
@@ -328,7 +330,7 @@ router.get('/stats', async (req, res) => {
 
   const overview = result.overview[0] || {
     totalTracks: 0, totalArtists: 0, totalAlbums: 0,
-    totalDuration: 0, totalPlays: 0, totalFileSize: 0,
+    totalDuration: 0, totalPlays: 0, totalFileSize: 0, totalLoved: 0,
   };
 
   res.json({
@@ -338,6 +340,23 @@ router.get('/stats', async (req, res) => {
     topArtists: result.topArtists,
     topAlbums: result.topAlbums,
   });
+});
+
+// GET /api/tracks/loved — all loved tracks
+router.get('/tracks/loved', async (req, res) => {
+  const tracks = await Track.find({ isLoved: true })
+    .sort({ artistsNorm: 1, album: 1, disc: 1, trackNumber: 1 })
+    .lean();
+  res.json(tracks);
+});
+
+// PATCH /api/tracks/:id/love — toggle loved status
+router.patch('/tracks/:id/love', async (req, res) => {
+  const track = await Track.findById(req.params.id);
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+  track.isLoved = !track.isLoved;
+  await track.save();
+  res.json({ isLoved: track.isLoved });
 });
 
 // GET /api/tracks/:id — single track

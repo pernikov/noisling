@@ -1,12 +1,15 @@
 <script setup>
+import { ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiPlay, mdiShuffle } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { useApi } from '../composables/useApi.js';
 import CoverArt from './CoverArt.vue';
 
 const router = useRouter();
+const api = useApi();
 
 const props = defineProps({
   tracks: { type: Array, required: true },
@@ -17,10 +20,18 @@ const props = defineProps({
   showLastPlayed: { type: Boolean, default: false },
   startIndex: { type: Number, default: 0 },
   getAllTracks: { type: Function, default: null }, // () => Promise<Track[]> for full library play/shuffle
+  hideControls: { type: Boolean, default: false },
 });
+
+const emit = defineEmits(['love-toggled']);
 
 const { state, playAlbum, playFromQueue, queueMatches } = usePlayer();
 const { accentColor } = useTheme();
+
+const lovedIds = ref(new Set(props.tracks.filter(t => t.isLoved).map(t => String(t._id))));
+watch(() => props.tracks, (tracks) => {
+  lovedIds.value = new Set(tracks.filter(t => t.isLoved).map(t => String(t._id)));
+});
 
 function timeAgo(date) {
   const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
@@ -94,15 +105,33 @@ function playShuffle() {
   }
 }
 
+async function toggleLove(track) {
+  const id = String(track._id);
+  const wasLoved = lovedIds.value.has(id);
+  const next = new Set(lovedIds.value);
+  if (wasLoved) next.delete(id); else next.add(id);
+  lovedIds.value = next;
+  try {
+    await api.toggleLove(id);
+    emit('love-toggled', { id, isLoved: !wasLoved });
+  } catch {
+    const revert = new Set(lovedIds.value);
+    if (wasLoved) revert.add(id); else revert.delete(id);
+    lovedIds.value = revert;
+  }
+}
+
 function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;
 }
+
+defineExpose({ playAll, playShuffle });
 </script>
 
 <template>
   <div class="w-full">
     <!-- Play all / Shuffle buttons -->
-    <div class="flex items-center gap-2 mb-3 justify-end">
+    <div v-if="!hideControls" class="flex items-center gap-2 mb-3 justify-end">
       <button
         class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
         @click="playAll"
@@ -126,8 +155,9 @@ function isCurrentTrack(track) {
           <th class="text-left py-2 px-3">Title</th>
           <th v-if="showArtist" class="text-left py-2 px-3 w-1/4 hidden sm:table-cell">Artist</th>
           <th v-if="showAlbum" class="text-left py-2 px-3 w-1/4 hidden md:table-cell">Album</th>
-          <th v-if="showPlays" class="text-right py-2 px-3 w-16 hidden sm:table-cell">Plays</th>
-          <th v-if="showLastPlayed" class="text-right py-2 px-3 w-24 hidden sm:table-cell">Played</th>
+          <th v-if="showPlays" class="text-center py-2 px-3 w-16 hidden sm:table-cell">Plays</th>
+          <th v-if="showLastPlayed" class="text-center py-2 px-3 w-24 hidden sm:table-cell">Played</th>
+          <th class="w-8"></th>
           <th class="text-right py-2 px-3 w-16">Time</th>
         </tr>
       </thead>
@@ -135,7 +165,7 @@ function isCurrentTrack(track) {
         <tr
           v-for="(track, i) in tracks"
           :key="track._id"
-          class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
+          class="group cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
           :class="{ [`text-${accentColor}-400`]: isCurrentTrack(track) }"
           @click="playTrack(i)"
         >
@@ -170,8 +200,19 @@ function isCurrentTrack(track) {
               @click.stop
             >{{ track.album }}</router-link>
           </td>
-          <td v-if="showPlays" class="py-2 px-3 text-right text-zinc-500 hidden sm:table-cell">{{ track.playCount || 0 }}</td>
-          <td v-if="showLastPlayed" class="py-2 px-3 text-right text-zinc-500 hidden sm:table-cell">{{ track.lastPlayedAt ? timeAgo(track.lastPlayedAt) : '' }}</td>
+          <td v-if="showPlays" class="py-2 px-3 text-center text-zinc-500 hidden sm:table-cell">{{ track.playCount || 0 }}</td>
+          <td v-if="showLastPlayed" class="py-2 px-3 text-center text-zinc-500 hidden sm:table-cell">{{ track.lastPlayedAt ? timeAgo(track.lastPlayedAt) : '' }}</td>
+          <td class="py-2 px-1 align-middle">
+            <button
+              class="flex items-center justify-center w-full transition-opacity"
+              :class="lovedIds.has(String(track._id))
+                ? 'text-rose-400'
+                : 'opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-zinc-400'"
+              @click.stop="toggleLove(track)"
+            >
+              <Icon :path="lovedIds.has(String(track._id)) ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />
+            </button>
+          </td>
           <td class="py-2 px-3 text-right text-zinc-500">{{ formatDuration(track.duration) }}</td>
         </tr>
       </tbody>

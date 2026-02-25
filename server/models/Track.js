@@ -20,6 +20,7 @@ const trackSchema = new mongoose.Schema({
   fileMtime: { type: Number, default: 0 }, // file modification time in ms
   playCount: { type: Number, default: 0 },
   lastPlayedAt: { type: Date, default: null },
+  isLoved: { type: Boolean, default: false },
   scannedAt: { type: Date, default: Date.now },
 });
 

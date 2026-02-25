@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiShuffle, mdiFire } from '@mdi/js';
+import { mdiShuffle, mdiFire, mdiHeart } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
@@ -13,6 +13,7 @@ const api = useApi();
 const router = useRouter();
 const { state: playerState, playAlbum, toggleShuffle } = usePlayer();
 
+const lovedTracks = ref([]);
 const recentTracks = ref([]);
 const artists = ref([]);
 const loadingRecent = ref(true);
@@ -60,6 +61,19 @@ async function playTopTracks() {
   }
 }
 
+async function loadLoved() {
+  try {
+    lovedTracks.value = await api.getLovedTracks();
+  } catch (err) {
+    console.error('Failed to load loved tracks:', err);
+  }
+}
+
+function playLovedSongs() {
+  if (!lovedTracks.value.length) return;
+  playAlbum(lovedTracks.value, 0);
+}
+
 async function loadRecent() {
   try {
     recentTracks.value = await api.getRecentTracks(10);
@@ -81,6 +95,7 @@ async function loadArtists() {
 }
 
 onMounted(() => {
+  loadLoved();
   loadRecent();
   loadArtists();
 });
@@ -106,7 +121,7 @@ function goToArtist(name) {
     <!-- Quick Actions -->
     <section>
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Quick Play</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <!-- Shuffle All -->
         <button
           @click="playShuffleAll"
@@ -137,24 +152,26 @@ function goToArtist(name) {
             </svg>
           </div>
           <Icon :path="mdiFire" class="w-8 h-8 mb-3 text-white/90" />
-          <div class="text-lg font-bold font-display text-white">Top Tracks</div>
+          <div class="text-lg font-bold font-display text-white">Top Songs</div>
           <div class="text-sm text-white/70 mt-0.5">Your 50 most listened-to songs</div>
+        </button>
+
+        <!-- Loved Songs -->
+        <button
+          v-if="lovedTracks.length > 0"
+          @click="playLovedSongs"
+          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-lg"
+        >
+          <Icon :path="mdiHeart" class="w-8 h-8 mb-3 text-white/90" />
+          <div class="text-lg font-bold font-display text-white">Loved Songs</div>
+          <div class="text-sm text-white/70 mt-0.5">{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</div>
         </button>
       </div>
     </section>
 
     <!-- Recently Played -->
     <section>
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Recently Played</h2>
-        <router-link
-          v-if="recentTracks.length > 0"
-          to="/recent"
-          class="text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
-        >
-          View all
-        </router-link>
-      </div>
+      <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Recently Played</h2>
 
       <div v-if="loadingRecent" class="space-y-1 animate-pulse">
         <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
@@ -173,7 +190,7 @@ function goToArtist(name) {
         No recently played tracks yet. Start listening!
       </div>
 
-      <TrackList v-else :tracks="recentTracks" show-cover show-artist show-album show-last-played />
+      <TrackList v-else :tracks="recentTracks" show-cover show-artist show-album show-last-played hide-controls @love-toggled="loadLoved" />
     </section>
 
     <!-- Artists -->
@@ -183,7 +200,7 @@ function goToArtist(name) {
         <router-link
           v-if="artists.length > 0"
           to="/artists"
-          class="text-sm text-zinc-400 hover:text-zinc-100 transition-colors"
+          class="text-xs px-3 py-1.5 rounded border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-100 transition-colors"
         >
           View all
         </router-link>

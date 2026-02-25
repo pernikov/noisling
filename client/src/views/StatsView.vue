@@ -49,8 +49,8 @@ function formatSize(bytes) {
       <!-- Library Overview -->
       <section>
         <div class="h-3 bg-zinc-800 rounded w-36 mb-3"></div>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div v-for="i in 6" :key="i" class="bg-zinc-900 rounded-lg p-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-4">
+          <div v-for="i in 7" :key="i" class="bg-zinc-900 rounded-lg p-4">
             <div class="h-7 bg-zinc-800 rounded w-16 mb-2"></div>
             <div class="h-2.5 bg-zinc-800/60 rounded w-12"></div>
           </div>
@@ -117,7 +117,11 @@ function formatSize(bytes) {
       <!-- Library Overview -->
       <section>
         <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Library Overview</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-4">
+          <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="text-2xl font-bold font-display text-rose-400">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
+            <div class="text-xs text-zinc-400 mt-1">Loved</div>
+          </div>
           <div class="bg-zinc-900 rounded-lg p-4">
             <div class="text-2xl font-bold font-display">{{ stats.totalTracks.toLocaleString() }}</div>
             <div class="text-xs text-zinc-400 mt-1">Tracks</div>
@@ -165,7 +169,7 @@ function formatSize(bytes) {
       <!-- Most Played Tracks -->
       <section v-if="stats.topTracks.length > 0">
         <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Most Played Tracks</h2>
-        <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays />
+        <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays hide-controls />
       </section>
 
       <!-- Top Artists -->
