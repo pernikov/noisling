@@ -1,10 +1,11 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { useAccentColor } from '../composables/useAccentColor.js';
 import { useApi } from '../composables/useApi.js';
 import CoverArt from './CoverArt.vue';
 
@@ -25,8 +26,60 @@ const props = defineProps({
 
 const emit = defineEmits(['love-toggled']);
 
-const { state, playAlbum, playFromQueue, queueMatches } = usePlayer();
+const { state, playAlbum, playFromQueue, queueMatches, addToQueue, playNext } = usePlayer();
+
+const menuTrack = ref(null);
+const menuRowIndex = ref(null);
+const menuStyle = ref({});
+
+function openMenu(event, index, track) {
+  event.stopPropagation();
+  if (menuRowIndex.value === index) {
+    closeMenu();
+    return;
+  }
+  const rect = event.currentTarget.getBoundingClientRect();
+  menuRowIndex.value = index;
+  menuTrack.value = track;
+  menuStyle.value = {
+    top: `${rect.bottom + 4}px`,
+    left: `${Math.min(rect.left, window.innerWidth - 176)}px`,
+  };
+}
+
+function closeMenu() {
+  menuTrack.value = null;
+  menuRowIndex.value = null;
+}
+
+function handleClickOutside() {
+  if (menuTrack.value) closeMenu();
+}
+
+onMounted(() => document.addEventListener('click', handleClickOutside));
+onBeforeUnmount(() => {
+  document.removeEventListener('click', handleClickOutside);
+  clearTimeout(toastTimer);
+});
+
+const toastMessage = ref('');
+const toastVisible = ref(false);
+let toastTimer = null;
+
+function showToast(message) {
+  toastMessage.value = message;
+  toastVisible.value = true;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
+}
 const { accentColor } = useTheme();
+const { accentColor: albumAccentColor } = useAccentColor();
+const toastStyle = computed(() => {
+  if (!albumAccentColor.value) return {};
+  return {
+    background: `linear-gradient(to right, rgba(${albumAccentColor.value}, 0.35), rgba(${albumAccentColor.value}, 0.15) 60%, transparent)`,
+  };
+});
 
 const lovedIds = ref(new Set(props.tracks.filter(t => t.isLoved).map(t => String(t._id))));
 watch(() => props.tracks, (tracks) => {
@@ -158,6 +211,7 @@ defineExpose({ playAll, playShuffle });
           <th v-if="showPlays" class="text-center py-2 px-3 w-16 hidden sm:table-cell">Plays</th>
           <th v-if="showLastPlayed" class="text-center py-2 px-3 w-24 hidden sm:table-cell">Played</th>
           <th class="w-8"></th>
+          <th class="w-8"></th>
           <th class="text-right py-2 px-3 w-16">Time</th>
         </tr>
       </thead>
@@ -213,9 +267,68 @@ defineExpose({ playAll, playShuffle });
               <Icon :path="lovedIds.has(String(track._id)) ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />
             </button>
           </td>
+          <td class="py-2 px-1 align-middle">
+            <button
+              class="flex items-center justify-center w-full opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-300"
+              @click.stop="openMenu($event, i, track)"
+            >
+              <Icon :path="mdiDotsVertical" class="w-3.5 h-3.5" />
+            </button>
+          </td>
           <td class="py-2 px-3 text-right text-zinc-500">{{ formatDuration(track.duration) }}</td>
         </tr>
       </tbody>
     </table>
   </div>
+
+  <Teleport to="body">
+    <template v-if="menuTrack">
+      <div class="fixed inset-0 z-40" @click="closeMenu" />
+      <div
+        class="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
+        :style="menuStyle"
+      >
+        <button
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          @click="playNext(menuTrack); showToast('Playing next'); closeMenu()"
+        >
+          <Icon :path="mdiPlaylistPlay" class="w-4 h-4 text-zinc-400" />
+          Play next
+        </button>
+        <button
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          @click="addToQueue(menuTrack); showToast('Added to queue'); closeMenu()"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
+          Add to queue
+        </button>
+      </div>
+
+    </template>
+
+    <Transition name="toast">
+      <div
+        v-if="toastVisible"
+        class="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full text-sm shadow-lg whitespace-nowrap"
+        :style="toastStyle"
+      >
+        <Icon :path="mdiCheck" class="w-4 h-4 text-green-400 shrink-0" />
+        {{ toastMessage }}
+      </div>
+    </Transition>
+  </Teleport>
 </template>
+
+<style scoped>
+.toast-enter-active, .toast-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-enter-from, .toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
+}
+.toast-enter-to, .toast-leave-from {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+</style>

@@ -375,6 +375,15 @@ function prev() {
   }
 }
 
+function addToQueue(track) {
+  state.queue.push(track);
+}
+
+function playNext(track) {
+  const insertAt = Math.max(state.queueIndex + 1, 0);
+  state.queue.splice(insertAt, 0, track);
+}
+
 function moveTrack(fromIndex, toIndex) {
   if (fromIndex === toIndex) return;
   const [moved] = state.queue.splice(fromIndex, 1);
@@ -426,6 +435,8 @@ export function usePlayer() {
     moveTrack,
     playFromQueue,
     queueMatches,
+    addToQueue,
+    playNext,
     hasNext,
     hasPrev,
   };
