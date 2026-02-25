@@ -151,9 +151,7 @@ audio.addEventListener('ended', () => {
   }
 
   if (state.repeat === 'one') {
-    audio.currentTime = 0;
-    playReported = false;
-    audio.play().catch(err => console.error('[player] repeat play() failed:', err));
+    play(state.currentTrack);
   } else {
     next();
   }
@@ -345,6 +343,10 @@ function next() {
     state.isPlaying = false;
     return;
   }
+  if (state.repeat === 'one') {
+    play(state.currentTrack);
+    return;
+  }
   const nextIndex = state.queueIndex + 1;
   if (nextIndex < state.queue.length) {
     state.queueIndex = nextIndex;
@@ -369,8 +371,15 @@ function prev() {
     audio.currentTime = 0;
     return;
   }
+  if (state.repeat === 'one') {
+    play(state.currentTrack);
+    return;
+  }
   if (state.queueIndex > 0) {
     state.queueIndex--;
+    play(state.queue[state.queueIndex]);
+  } else if (state.repeat === 'all') {
+    state.queueIndex = state.queue.length - 1;
     play(state.queue[state.queueIndex]);
   }
 }
@@ -410,8 +419,8 @@ function queueMatches(tracks) {
   return source.every((t, i) => t._id === tracks[i]._id);
 }
 
-const hasNext = computed(() => state.queueIndex < state.queue.length - 1);
-const hasPrev = computed(() => state.queueIndex > 0 || audio.currentTime > 3);
+const hasNext = computed(() => state.queueIndex < state.queue.length - 1 || state.repeat !== 'off');
+const hasPrev = computed(() => state.queueIndex > 0 || audio.currentTime > 3 || state.repeat !== 'off');
 
 export function usePlayer() {
   return {

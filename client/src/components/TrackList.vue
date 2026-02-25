@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck, mdiRepeatOnce } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -224,7 +224,10 @@ defineExpose({ playAll, playShuffle });
           @click="playTrack(i)"
         >
           <td class="py-2 px-1 text-zinc-500 text-center">
-            <span v-if="isCurrentTrack(track) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
+            <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
+              <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
+            </span>
+            <span v-else-if="isCurrentTrack(track) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
               <Icon :path="mdiPlay" class="w-3 h-3" />
             </span>
             <span v-else>{{ startIndex + i + 1 }}</span>

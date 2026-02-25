@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
-import { mdiClose, mdiDrag, mdiPlay } from '@mdi/js';
+import { mdiClose, mdiDrag, mdiPlay, mdiRepeatOnce } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -195,6 +195,12 @@ function formatDuration(seconds) {
                 </span>
               </div>
 
+              <Icon
+                v-if="i === state.queueIndex && state.repeat === 'one'"
+                :path="mdiRepeatOnce"
+                class="w-3.5 h-3.5 flex-shrink-0 animate-pulse"
+                :class="`text-${accentColor}-400`"
+              />
               <span class="text-xs text-zinc-500 flex-shrink-0">{{ formatDuration(track.duration) }}</span>
             </div>
           </div>
