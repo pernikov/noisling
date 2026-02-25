@@ -16,7 +16,7 @@ import {
   mdiRepeatOnce,
   mdiShuffle,
   mdiPlaylistMusic,
-  mdiEqualizer,
+  mdiWaveform,
 } from "@mdi/js";
 import Icon from "./Icon.vue";
 
@@ -285,7 +285,7 @@ function onVolumeInput(e) {
         @click="toggleVisualizer"
         title="(V) Toggle visualizer"
       >
-        <Icon :path="mdiEqualizer" class="w-4 h-4" />
+        <Icon :path="mdiWaveform" class="w-4 h-4" />
       </button>
 
       <!-- Repeat -->
