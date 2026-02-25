@@ -63,13 +63,6 @@ useKeyboardShortcuts();
           >
             Artists
           </router-link>
-            <router-link
-              to="/stats"
-              class="text-zinc-400 hover:text-zinc-100 transition-colors"
-              active-class="!text-zinc-100"
-            >
-              Stats
-            </router-link>
           </div>
         </div>
 
