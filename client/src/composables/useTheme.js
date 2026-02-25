@@ -1,15 +1,18 @@
 import { ref, computed } from 'vue';
 import { useApi } from './useApi.js';
 
-const VALID_COLORS = ['violet', 'sky', 'rose', 'amber', 'emerald', 'indigo'];
+const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 
 const COLOR_RGB = {
-  violet:  [139, 92,  246],
-  sky:     [14,  165, 233],
   rose:    [244, 63,  94 ],
   amber:   [245, 158, 11 ],
+  yellow:  [250, 204, 21 ],
   emerald: [16,  185, 129],
+  teal:    [45,  212, 191],
+  sky:     [14,  165, 233],
   indigo:  [99,  102, 241],
+  violet:  [139, 92,  246],
+  slate:   [148, 163, 184],
 };
 
 const STORAGE_KEY = 'noisling_accent';

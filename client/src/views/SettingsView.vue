@@ -289,8 +289,8 @@ onUnmounted(() => {
 
           <div v-else-if="missingCoverAlbums.length === 0"
             class="flex items-center gap-2 text-sm rounded-lg px-4 py-3"
-            :class="`text-${accentColor}-400`"
-            :style="{ backgroundColor: `rgba(${accentRgb}, 0.1)` }"
+            :class="`text-emerald-400`"
+            :style="{ backgroundColor: `rgba(16, 185, 129, 0.1)` }"
           >
             <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
             All albums have artwork

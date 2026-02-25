@@ -14,6 +14,9 @@ import { useTheme } from './composables/useTheme.js';
 const { loadTheme } = useTheme();
 loadTheme();
 
+const { loadPlayerPrefs } = usePlayer();
+loadPlayerPrefs();
+
 const route = useRoute();
 const { state: playerState } = usePlayer();
 

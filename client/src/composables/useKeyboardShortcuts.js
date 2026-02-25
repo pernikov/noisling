@@ -11,6 +11,7 @@ export function useKeyboardShortcuts() {
 
   function onKeyDown(e) {
     if (isTyping(e)) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     if (e.code === 'Escape') {
       if (state.showVisualizer) { toggleVisualizer(); return; }

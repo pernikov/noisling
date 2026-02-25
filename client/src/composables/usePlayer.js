@@ -23,8 +23,25 @@ function needsTranscode(track) {
   return UNSUPPORTED_FORMATS.has((track.format || '').toLowerCase());
 }
 
+// ─── Persistence keys ────────────────────────────────────────────────────────
+
+const PREFS_KEY = 'noisling_player';
+const QUEUE_KEY = 'noisling_queue';
+
+// Parse saved prefs synchronously so state initialises from them immediately.
+let _savedPrefs = {};
+try { _savedPrefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (_) {}
+
+// Parse saved queue for restoration after state is ready.
+let _savedQueue = null;
+try {
+  const _raw = localStorage.getItem(QUEUE_KEY);
+  if (_raw) _savedQueue = JSON.parse(_raw);
+} catch (_) {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const audio = new Audio();
-audio.volume = 1;
 
 const state = reactive({
   currentTrack: null,
@@ -33,14 +50,33 @@ const state = reactive({
   isPlaying: false,
   currentTime: 0,
   duration: 0,
-  volume: 1,
-  shuffle: false,
-  repeat: 'off', // 'off' | 'all' | 'one'
-  originalQueue: [], // pre-shuffle order
+  volume:         (typeof _savedPrefs.volume === 'number')  ? Math.max(0, Math.min(1, _savedPrefs.volume)) : 1,
+  shuffle:        (typeof _savedPrefs.shuffle === 'boolean')  ? _savedPrefs.shuffle  : false,
+  repeat:         (['off', 'all', 'one'].includes(_savedPrefs.repeat)) ? _savedPrefs.repeat : 'off',
+  originalQueue: [],
   showVisualizer: false,
   showNowPlaying: false,
   showQueue: false,
 });
+
+// Apply saved volume to the audio element immediately.
+audio.volume = state.volume;
+
+// Restore queue from the previous session.
+let _pendingRestoreTime = null;
+if (_savedQueue?.queue?.length > 0) {
+  const { queue, queueIndex, originalQueue, currentTime } = _savedQueue;
+  const idx = (typeof queueIndex === 'number' && queueIndex >= 0 && queueIndex < queue.length)
+    ? queueIndex : 0;
+  state.queue         = queue;
+  state.queueIndex    = idx;
+  state.originalQueue = Array.isArray(originalQueue) ? originalQueue : [...queue];
+  state.currentTrack  = queue[idx];
+  audio.src = api.streamUrl(queue[idx]._id, needsTranscode(queue[idx]));
+  if (typeof currentTime === 'number' && currentTime > 5) {
+    _pendingRestoreTime = currentTime;
+  }
+}
 
 let playReported = false;
 // Guard against iOS Safari firing a spurious 'ended' event immediately after
@@ -60,6 +96,12 @@ let stallRecoverySeq = 0;
 
 // Throttle MediaSession position updates to once per second (called from timeupdate).
 let positionStateTimer = null;
+
+// Throttle queue saves to once every 5 s during playback.
+let _queueSaveTimer = null;
+
+// Debounce volume server saves.
+let _volumeSaveTimer = null;
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -81,6 +123,11 @@ audio.addEventListener('timeupdate', () => {
       positionStateTimer = null;
     }, 1000);
   }
+
+  // Throttled queue position save.
+  if (!_queueSaveTimer) {
+    _queueSaveTimer = setTimeout(() => { saveQueue(); _queueSaveTimer = null; }, 5000);
+  }
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -91,6 +138,15 @@ audio.addEventListener('loadedmetadata', () => {
   // the full track is much longer. The DB-backed trackDuration is the truth.
   state.duration = Math.max(audioDuration, trackDuration) || 0;
   updateMediaSessionPositionState();
+
+  // One-time seek to restore playback position after a page reload.
+  if (_pendingRestoreTime !== null) {
+    const t = _pendingRestoreTime;
+    _pendingRestoreTime = null;
+    if (audio.seekable.length > 0 && state.duration > 0 && t < state.duration - 3) {
+      audio.currentTime = t;
+    }
+  }
 });
 
 audio.addEventListener('ended', () => {
@@ -207,6 +263,51 @@ if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('seekforward', () => next());
 }
 
+// ─── Persistence helpers ──────────────────────────────────────────────────────
+
+function savePrefs(updates) {
+  let prefs = {};
+  try { prefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (_) {}
+  Object.assign(prefs, updates);
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
+}
+
+function saveQueue() {
+  try {
+    localStorage.setItem(QUEUE_KEY, JSON.stringify({
+      queue:         state.queue,
+      queueIndex:    state.queueIndex,
+      originalQueue: state.originalQueue,
+      currentTime:   state.currentTime,
+    }));
+  } catch (_) {}
+}
+
+async function loadPlayerPrefs() {
+  try {
+    const data = await api.getSettings();
+    const updates = {};
+    if (typeof data.volume === 'number') {
+      state.volume = Math.max(0, Math.min(1, data.volume));
+      audio.volume = state.volume;
+      updates.volume = state.volume;
+    }
+    if (typeof data.shuffle === 'boolean') {
+      state.shuffle = data.shuffle;
+      updates.shuffle = state.shuffle;
+    }
+    if (['off', 'all', 'one'].includes(data.repeatMode)) {
+      state.repeat = data.repeatMode;
+      updates.repeat = state.repeat;
+    }
+    if (Object.keys(updates).length) savePrefs(updates);
+  } catch (_) {
+    // fall back to localStorage values already applied at init
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 function play(track) {
   // Pause first so any pending play() promise is settled before we swap the src.
   // Without this, changing audio.src mid-play causes an AbortError on iOS that
@@ -270,11 +371,16 @@ function playAlbum(tracks, startIndex = 0) {
     state.queueIndex = startIndex;
   }
   play(state.queue[state.queueIndex]);
+  saveQueue();
 }
 
 function toggleShuffle() {
   state.shuffle = !state.shuffle;
-  if (state.queue.length === 0) return;
+  if (state.queue.length === 0) {
+    savePrefs({ shuffle: state.shuffle });
+    api.saveSettings({ shuffle: state.shuffle }).catch(() => {});
+    return;
+  }
 
   const current = state.currentTrack;
   if (state.shuffle) {
@@ -288,6 +394,10 @@ function toggleShuffle() {
     state.queueIndex = state.queue.findIndex((t) => t._id === current._id);
     if (state.queueIndex === -1) state.queueIndex = 0;
   }
+
+  savePrefs({ shuffle: state.shuffle });
+  api.saveSettings({ shuffle: state.shuffle }).catch(() => {});
+  saveQueue();
 }
 
 function pause() {
@@ -313,6 +423,11 @@ function seek(time) {
 function setVolume(v) {
   state.volume = Math.max(0, Math.min(1, v));
   audio.volume = state.volume;
+  savePrefs({ volume: state.volume });
+  clearTimeout(_volumeSaveTimer);
+  _volumeSaveTimer = setTimeout(() => {
+    api.saveSettings({ volume: state.volume }).catch(() => {});
+  }, 500);
 }
 
 let volumeBeforeMute = 1;
@@ -351,9 +466,11 @@ function next() {
   if (nextIndex < state.queue.length) {
     state.queueIndex = nextIndex;
     play(state.queue[nextIndex]);
+    saveQueue();
   } else if (state.repeat === 'all') {
     state.queueIndex = 0;
     play(state.queue[0]);
+    saveQueue();
   } else {
     state.isPlaying = false;
   }
@@ -363,6 +480,8 @@ function cycleRepeat() {
   const modes = ['off', 'all', 'one'];
   const i = modes.indexOf(state.repeat);
   state.repeat = modes[(i + 1) % modes.length];
+  savePrefs({ repeat: state.repeat });
+  api.saveSettings({ repeatMode: state.repeat }).catch(() => {});
 }
 
 function prev() {
@@ -378,19 +497,23 @@ function prev() {
   if (state.queueIndex > 0) {
     state.queueIndex--;
     play(state.queue[state.queueIndex]);
+    saveQueue();
   } else if (state.repeat === 'all') {
     state.queueIndex = state.queue.length - 1;
     play(state.queue[state.queueIndex]);
+    saveQueue();
   }
 }
 
 function addToQueue(track) {
   state.queue.push(track);
+  saveQueue();
 }
 
 function playNext(track) {
   const insertAt = Math.max(state.queueIndex + 1, 0);
   state.queue.splice(insertAt, 0, track);
+  saveQueue();
 }
 
 function moveTrack(fromIndex, toIndex) {
@@ -406,11 +529,13 @@ function moveTrack(fromIndex, toIndex) {
   } else if (fromIndex > state.queueIndex && toIndex <= state.queueIndex) {
     state.queueIndex++;
   }
+  saveQueue();
 }
 
 function playFromQueue(index) {
   state.queueIndex = index;
   play(state.queue[index]);
+  saveQueue();
 }
 
 function queueMatches(tracks) {
@@ -448,5 +573,6 @@ export function usePlayer() {
     playNext,
     hasNext,
     hasPrev,
+    loadPlayerPrefs,
   };
 }
