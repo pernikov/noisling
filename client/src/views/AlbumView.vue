@@ -44,7 +44,27 @@ function formatDuration(seconds) {
       &larr; Back
     </button>
 
-    <div v-if="loading" class="text-zinc-500">Loading...</div>
+    <div v-if="loading" class="animate-pulse">
+      <!-- Album header -->
+      <div class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 mb-8">
+        <div class="w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto bg-zinc-800 rounded-lg shrink-0"></div>
+        <div class="flex-1 space-y-3 py-1">
+          <div class="h-2.5 bg-zinc-800/60 rounded w-10"></div>
+          <div class="h-8 bg-zinc-800 rounded w-3/4"></div>
+          <div class="h-3 bg-zinc-800/60 rounded w-1/3"></div>
+        </div>
+      </div>
+      <!-- Track list -->
+      <div class="space-y-1">
+        <div v-for="i in 10" :key="i" class="flex items-center gap-3 px-1 py-2">
+          <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
+          <div class="flex-1 min-w-0">
+            <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${55 + (i * 13) % 30}%` }"></div>
+          </div>
+          <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
+        </div>
+      </div>
+    </div>
 
     <template v-else-if="albumInfo">
       <!-- Album header -->

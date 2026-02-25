@@ -83,7 +83,13 @@ function formatDuration(seconds) {
       </div>
     </div>
 
-    <div v-if="loading" class="text-zinc-500">Loading...</div>
+    <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 animate-pulse">
+      <div v-for="i in 8" :key="i" class="rounded-lg p-2 sm:p-4">
+        <div class="aspect-square bg-zinc-800 rounded-lg mb-3"></div>
+        <div class="h-3.5 bg-zinc-800 rounded mb-1.5" :style="{ width: `${50 + (i * 11) % 35}%` }"></div>
+        <div class="h-2.5 bg-zinc-800/60 rounded w-2/3"></div>
+      </div>
+    </div>
 
     <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
       <div

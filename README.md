@@ -42,6 +42,10 @@ pnpm dev
 
 Client dev server runs on `http://localhost:5173`, API on port 1994.
 
+## Known issues
+
+- **Mobile playback** — playback on mobile devices has known issues and needs more work. Audio may stall, skip, or behave unexpectedly on iOS and Android browsers.
+
 ## Environment variables
 
 | Variable | Default | Description |

@@ -112,7 +112,7 @@ async function deleteLibrary() {
 
     <!-- Appearance -->
     <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 mb-6">
-      <h2 class="text-lg font-semibold text-zinc-100 mb-1">Appearance</h2>
+      <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Appearance</h2>
       <p class="text-sm text-zinc-500 mb-4">Choose an accent color for the interface.</p>
       <div class="flex items-center gap-3 flex-wrap">
         <button
@@ -131,7 +131,7 @@ async function deleteLibrary() {
       <div>
         <div class="flex items-center gap-2 mb-1">
           <Icon :path="mdiFolderOpen" class="w-5 h-5 text-zinc-400" />
-          <h2 class="text-lg font-semibold text-zinc-100">Library</h2>
+          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Library</h2>
         </div>
         <p class="text-sm text-zinc-500">Scan your music directory for new tracks or manage your library.</p>
       </div>

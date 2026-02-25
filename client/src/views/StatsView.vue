@@ -45,12 +45,78 @@ function formatSize(bytes) {
   <div class="space-y-10">
     <h1 class="text-2xl font-bold font-display">Stats</h1>
 
-    <div v-if="loading" class="text-zinc-500 text-sm">Loading...</div>
+    <div v-if="loading" class="space-y-10 animate-pulse">
+      <!-- Library Overview -->
+      <section>
+        <div class="h-3 bg-zinc-800 rounded w-36 mb-3"></div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <div v-for="i in 6" :key="i" class="bg-zinc-900 rounded-lg p-4">
+            <div class="h-7 bg-zinc-800 rounded w-16 mb-2"></div>
+            <div class="h-2.5 bg-zinc-800/60 rounded w-12"></div>
+          </div>
+        </div>
+      </section>
+      <!-- Formats -->
+      <section>
+        <div class="h-3 bg-zinc-800 rounded w-20 mb-3"></div>
+        <div class="space-y-2 max-w-md">
+          <div v-for="i in 3" :key="i" class="flex items-center gap-3">
+            <div class="h-2.5 bg-zinc-800 rounded w-14"></div>
+            <div class="flex-1 h-2 bg-zinc-800 rounded"></div>
+            <div class="h-2.5 bg-zinc-800 rounded w-8"></div>
+          </div>
+        </div>
+      </section>
+      <!-- Most Played Tracks -->
+      <section>
+        <div class="h-3 bg-zinc-800 rounded w-44 mb-3"></div>
+        <div class="space-y-1">
+          <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
+            <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
+            <div class="w-8 h-8 bg-zinc-800 rounded shrink-0"></div>
+            <div class="flex-1 min-w-0 space-y-1.5">
+              <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${55 + (i * 13) % 30}%` }"></div>
+              <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${30 + (i * 17) % 25}%` }"></div>
+            </div>
+            <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
+          </div>
+        </div>
+      </section>
+      <!-- Top Artists -->
+      <section>
+        <div class="h-3 bg-zinc-800 rounded w-28 mb-3"></div>
+        <div class="space-y-1">
+          <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
+            <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
+            <div class="flex-1 min-w-0 space-y-1.5">
+              <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${40 + (i * 11) % 35}%` }"></div>
+              <div class="h-2.5 bg-zinc-800/60 rounded w-16"></div>
+            </div>
+            <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
+          </div>
+        </div>
+      </section>
+      <!-- Top Albums -->
+      <section>
+        <div class="h-3 bg-zinc-800 rounded w-28 mb-3"></div>
+        <div class="space-y-1">
+          <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
+            <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
+            <div class="w-8 h-8 bg-zinc-800 rounded shrink-0"></div>
+            <div class="flex-1 min-w-0 space-y-1.5">
+              <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${45 + (i * 13) % 35}%` }"></div>
+              <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${25 + (i * 11) % 25}%` }"></div>
+            </div>
+            <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
+          </div>
+        </div>
+      </section>
+    </div>
 
     <template v-else-if="stats">
       <!-- Library Overview -->
       <section>
-        <h2 class="text-lg font-semibold font-display mb-4">Library Overview</h2>
+        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Library Overview</h2>
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
           <div class="bg-zinc-900 rounded-lg p-4">
             <div class="text-2xl font-bold font-display">{{ stats.totalTracks.toLocaleString() }}</div>
@@ -81,7 +147,7 @@ function formatSize(bytes) {
 
       <!-- Format Breakdown -->
       <section v-if="stats.formats.length > 0">
-        <h2 class="text-lg font-semibold font-display mb-4">Formats</h2>
+        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Formats</h2>
         <div class="space-y-2 max-w-md">
           <div v-for="f in stats.formats" :key="f.format" class="flex items-center gap-3">
             <span class="text-sm text-zinc-300 w-14 text-right uppercase">{{ f.format || '?' }}</span>
@@ -98,13 +164,13 @@ function formatSize(bytes) {
 
       <!-- Most Played Tracks -->
       <section v-if="stats.topTracks.length > 0">
-        <h2 class="text-lg font-semibold font-display mb-4">Most Played Tracks</h2>
+        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Most Played Tracks</h2>
         <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays />
       </section>
 
       <!-- Top Artists -->
       <section v-if="stats.topArtists.length > 0">
-        <h2 class="text-lg font-semibold font-display mb-4">Top Artists</h2>
+        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Top Artists</h2>
         <table class="w-full text-sm border-separate border-spacing-0">
           <thead>
             <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
@@ -133,7 +199,7 @@ function formatSize(bytes) {
 
       <!-- Top Albums -->
       <section v-if="stats.topAlbums.length > 0">
-        <h2 class="text-lg font-semibold font-display mb-4">Top Albums</h2>
+        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Top Albums</h2>
         <table class="w-full text-sm border-separate border-spacing-0">
           <thead>
             <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">

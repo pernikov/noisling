@@ -107,7 +107,19 @@ function prevPage() {
       </div>
     </div>
 
-    <div v-if="loading" class="text-zinc-500">Loading...</div>
+    <div v-if="loading" class="space-y-1 animate-pulse">
+      <div v-for="i in 15" :key="i" class="flex items-center gap-3 px-1 py-2">
+        <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
+        <div class="w-8 h-8 bg-zinc-800 rounded shrink-0"></div>
+        <div class="flex-1 min-w-0 space-y-1.5">
+          <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${55 + (i * 13) % 30}%` }"></div>
+          <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${30 + (i * 17) % 25}%` }"></div>
+        </div>
+        <div class="h-2.5 bg-zinc-800 rounded w-20 hidden sm:block"></div>
+        <div class="h-2.5 bg-zinc-800 rounded w-16 hidden md:block"></div>
+        <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
+      </div>
+    </div>
 
     <div v-else-if="allTracks.length === 0" class="text-zinc-500">
       No songs found. Scan your library first.
