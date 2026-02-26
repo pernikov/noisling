@@ -9,6 +9,8 @@ import {
   mdiAlertCircle,
   mdiTrashCan,
   mdiImage,
+  mdiCog,
+  mdiChartBar,
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import { useApi } from '../composables/useApi.js';
@@ -22,8 +24,8 @@ const router = useRouter();
 const api = useApi();
 const { accentColor, accentRgb, VALID_COLORS, setAccentColor } = useTheme();
 
-const TABS = ['settings', 'stats'];
-const activeTab = ref(TABS.includes(route.query.tab) ? route.query.tab : 'settings');
+const VALID_TABS = ['settings', 'stats'];
+const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'settings');
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
@@ -162,18 +164,23 @@ onUnmounted(() => {
   <div>
     <h1 class="text-2xl font-bold mb-6 font-display">Settings</h1>
 
-    <!-- Tabs -->
-    <div class="flex gap-1 mb-8 border-b border-zinc-800">
+    <!-- Segmented Nav -->
+    <div class="inline-flex p-1 mb-8 bg-zinc-900 rounded-xl border border-zinc-800">
       <button
-        v-for="tab in TABS"
-        :key="tab"
-        @click="activeTab = tab"
-        class="px-4 py-2 text-sm font-medium capitalize transition-colors border-b-2 -mb-px"
-        :class="activeTab === tab
-          ? `border-${accentColor}-500 text-zinc-100`
-          : 'border-transparent text-zinc-500 hover:text-zinc-300'"
+        @click="activeTab = 'settings'"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === 'settings' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
       >
-        {{ tab }}
+        <Icon :path="mdiCog" class="w-4 h-4" />
+        Settings
+      </button>
+      <button
+        @click="activeTab = 'stats'"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === 'stats' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+      >
+        <Icon :path="mdiChartBar" class="w-4 h-4" />
+        Stats
       </button>
     </div>
 
@@ -359,21 +366,21 @@ onUnmounted(() => {
     </div>
 
     <!-- Stats tab -->
-    <div v-else-if="activeTab === 'stats'" class="space-y-10">
-      <div v-if="statsLoading" class="space-y-10 animate-pulse">
-        <!-- Library Overview -->
-        <section>
-          <div class="h-3 bg-zinc-800 rounded w-36 mb-3"></div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-4">
-            <div v-for="i in 7" :key="i" class="bg-zinc-900 rounded-lg p-4">
+    <div v-else-if="activeTab === 'stats'" class="space-y-4">
+      <div v-if="statsLoading" class="space-y-4 animate-pulse">
+        <!-- Library Overview skeleton -->
+        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <div class="h-3 bg-zinc-800 rounded w-36 mb-4"></div>
+          <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
+            <div v-for="i in 7" :key="i" class="bg-zinc-800/50 rounded-lg p-4">
               <div class="h-7 bg-zinc-800 rounded w-16 mb-2"></div>
               <div class="h-2.5 bg-zinc-800/60 rounded w-12"></div>
             </div>
           </div>
-        </section>
-        <!-- Formats -->
-        <section>
-          <div class="h-3 bg-zinc-800 rounded w-20 mb-3"></div>
+        </div>
+        <!-- Formats skeleton -->
+        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <div class="h-3 bg-zinc-800 rounded w-20 mb-4"></div>
           <div class="space-y-2 max-w-md">
             <div v-for="i in 3" :key="i" class="flex items-center gap-3">
               <div class="h-2.5 bg-zinc-800 rounded w-14"></div>
@@ -381,10 +388,10 @@ onUnmounted(() => {
               <div class="h-2.5 bg-zinc-800 rounded w-8"></div>
             </div>
           </div>
-        </section>
-        <!-- Most Played Tracks -->
-        <section>
-          <div class="h-3 bg-zinc-800 rounded w-44 mb-3"></div>
+        </div>
+        <!-- Most Played Tracks skeleton -->
+        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <div class="h-3 bg-zinc-800 rounded w-44 mb-4"></div>
           <div class="space-y-1">
             <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
               <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
@@ -396,10 +403,10 @@ onUnmounted(() => {
               <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
             </div>
           </div>
-        </section>
-        <!-- Top Artists -->
-        <section>
-          <div class="h-3 bg-zinc-800 rounded w-28 mb-3"></div>
+        </div>
+        <!-- Top Artists skeleton -->
+        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <div class="h-3 bg-zinc-800 rounded w-28 mb-4"></div>
           <div class="space-y-1">
             <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
               <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
@@ -410,10 +417,10 @@ onUnmounted(() => {
               <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
             </div>
           </div>
-        </section>
-        <!-- Top Albums -->
-        <section>
-          <div class="h-3 bg-zinc-800 rounded w-28 mb-3"></div>
+        </div>
+        <!-- Top Albums skeleton -->
+        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <div class="h-3 bg-zinc-800 rounded w-28 mb-4"></div>
           <div class="space-y-1">
             <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
               <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
@@ -425,39 +432,39 @@ onUnmounted(() => {
               <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
             </div>
           </div>
-        </section>
+        </div>
       </div>
 
       <template v-else-if="stats">
         <!-- Library Overview -->
-        <section>
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Library Overview</h2>
-          <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-4">
-            <div class="bg-zinc-900 rounded-lg p-4">
+        <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Library Overview</h2>
+          <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display text-rose-400">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Loved</div>
             </div>
-            <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display">{{ stats.totalTracks.toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Tracks</div>
             </div>
-            <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display">{{ stats.totalArtists.toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Artists</div>
             </div>
-            <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display">{{ stats.totalAlbums.toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Albums</div>
             </div>
-            <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display">{{ formatDuration(stats.totalDuration) }}</div>
               <div class="text-xs text-zinc-400 mt-1">Total Duration</div>
             </div>
-            <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display">{{ formatSize(stats.totalFileSize) }}</div>
               <div class="text-xs text-zinc-400 mt-1">Library Size</div>
             </div>
-            <div class="bg-zinc-900 rounded-lg p-4">
+            <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display">{{ stats.totalPlays.toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Total Plays</div>
             </div>
@@ -465,8 +472,8 @@ onUnmounted(() => {
         </section>
 
         <!-- Format Breakdown -->
-        <section v-if="stats.formats.length > 0">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Formats</h2>
+        <section v-if="stats.formats.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Formats</h2>
           <div class="space-y-2 max-w-md">
             <div v-for="f in stats.formats" :key="f.format" class="flex items-center gap-3">
               <span class="text-sm text-zinc-300 w-14 text-right uppercase">{{ f.format || '?' }}</span>
@@ -482,14 +489,14 @@ onUnmounted(() => {
         </section>
 
         <!-- Most Played Tracks -->
-        <section v-if="stats.topTracks.length > 0">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Most Played Tracks</h2>
+        <section v-if="stats.topTracks.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Most Played Tracks</h2>
           <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays hide-controls />
         </section>
 
         <!-- Top Artists -->
-        <section v-if="stats.topArtists.length > 0">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Top Artists</h2>
+        <section v-if="stats.topArtists.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Top Artists</h2>
           <table class="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
@@ -517,8 +524,8 @@ onUnmounted(() => {
         </section>
 
         <!-- Top Albums -->
-        <section v-if="stats.topAlbums.length > 0">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Top Albums</h2>
+        <section v-if="stats.topAlbums.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Top Albums</h2>
           <table class="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
