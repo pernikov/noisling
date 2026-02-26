@@ -42,6 +42,10 @@ pnpm dev
 
 Client dev server runs on `http://localhost:5173`, API on port 1994.
 
+## Play statistics
+
+Play counts and last-played timestamps are stored directly on the track. If a file is removed from the library or moved to a different path, that data is lost. This is intentional — Noisling is a player, not a scrobbler. If you need durable listening history, use something like Last.fm alongside it.
+
 ## Known issues
 
 - **Mobile playback** — playback on mobile devices has known issues and needs more work. Audio may stall, skip, or behave unexpectedly on iOS and Android browsers.

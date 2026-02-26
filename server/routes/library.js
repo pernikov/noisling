@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import Track from '../models/Track.js';
-import PlayHistory from '../models/PlayHistory.js';
 
 const router = Router();
 
@@ -250,45 +249,13 @@ router.get('/tracks', async (req, res) => {
   res.json({ tracks, total, page, limit });
 });
 
-// GET /api/tracks/recent — recently played tracks (full play history, one entry per play)
+// GET /api/tracks/recent — recently played tracks, deduped, sorted by lastPlayedAt
 router.get('/tracks/recent', async (req, res) => {
   const limit = Math.min(200, parseInt(req.query.limit, 10) || 50);
-  const entries = await PlayHistory.find()
-    .sort({ playedAt: -1 })
+  const tracks = await Track.find({ lastPlayedAt: { $ne: null } })
+    .sort({ lastPlayedAt: -1 })
     .limit(limit)
     .lean();
-
-  const uniqueTrackIds = [...new Set(entries.map(e => String(e.trackId)).filter(Boolean))];
-  const existingIds = new Set(
-    (await Track.find({ _id: { $in: uniqueTrackIds } }, { _id: 1 }).lean()).map(t => String(t._id)),
-  );
-
-  // For orphaned entries that have a stored path, check if the file was re-added under the same path
-  const orphanedPaths = entries
-    .filter(e => e.path && !existingIds.has(String(e.trackId)))
-    .map(e => e.path);
-  const relocatedTracks = orphanedPaths.length > 0
-    ? await Track.find({ path: { $in: orphanedPaths } }, { _id: 1, path: 1, cover: 1 }).lean()
-    : [];
-  const pathToTrack = new Map(relocatedTracks.map(t => [t.path, t]));
-
-  const tracks = entries.map(e => {
-    const isExisting = existingIds.has(String(e.trackId));
-    const relocated = !isExisting && e.path ? pathToTrack.get(e.path) : null;
-    return {
-      _id: relocated?._id ?? e.trackId,
-      historyId: e._id,
-      playedAt: e.playedAt,
-      deleted: !isExisting && !relocated,
-      title: e.title,
-      artists: e.artists,
-      album: e.album,
-      cover: relocated?.cover ?? e.cover,
-      duration: e.duration,
-      format: e.format,
-    };
-  });
-
   res.json(tracks);
 });
 
