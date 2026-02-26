@@ -4,6 +4,7 @@ import Settings from '../models/Settings.js';
 const router = Router();
 const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 const VALID_REPEAT = ['off', 'all', 'one'];
+const VALID_DENSITY = ['comfortable', 'compact'];
 
 router.get('/settings', async (req, res) => {
   const s = await Settings.findOneAndUpdate(
@@ -16,11 +17,12 @@ router.get('/settings', async (req, res) => {
     volume:      s.volume,
     shuffle:     s.shuffle,
     repeatMode:  s.repeatMode,
+    density:     s.density ?? 'comfortable',
   });
 });
 
 router.patch('/settings', async (req, res) => {
-  const { accentColor, volume, shuffle, repeatMode } = req.body;
+  const { accentColor, volume, shuffle, repeatMode, density } = req.body;
   const update = {};
 
   if (accentColor !== undefined) {
@@ -38,6 +40,10 @@ router.patch('/settings', async (req, res) => {
     if (!VALID_REPEAT.includes(repeatMode)) return res.status(400).json({ error: 'Invalid repeatMode' });
     update.repeatMode = repeatMode;
   }
+  if (density !== undefined) {
+    if (!VALID_DENSITY.includes(density)) return res.status(400).json({ error: 'Invalid density' });
+    update.density = density;
+  }
   if (!Object.keys(update).length) return res.status(400).json({ error: 'No valid fields' });
 
   const s = await Settings.findOneAndUpdate({}, update, { upsert: true, new: true }).lean();
@@ -46,6 +52,7 @@ router.patch('/settings', async (req, res) => {
     volume:      s.volume,
     shuffle:     s.shuffle,
     repeatMode:  s.repeatMode,
+    density:     s.density ?? 'comfortable',
   });
 });
 

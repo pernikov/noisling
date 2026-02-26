@@ -57,6 +57,7 @@ const state = reactive({
   showVisualizer: false,
   showNowPlaying: false,
   showQueue: false,
+  showShortcuts: false,
   playReportCount: 0,
 });
 
@@ -110,6 +111,7 @@ let _queueSaveTimer = null;
 
 // Debounce volume server saves.
 let _volumeSaveTimer = null;
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -454,6 +456,10 @@ function toggleQueue() {
   state.showQueue = !state.showQueue;
 }
 
+function toggleShortcuts() {
+  state.showShortcuts = !state.showShortcuts;
+}
+
 function toggleMute() {
   if (state.volume > 0) {
     volumeBeforeMute = state.volume;
@@ -574,6 +580,7 @@ export function usePlayer() {
     toggleVisualizer,
     toggleNowPlaying,
     toggleQueue,
+    toggleShortcuts,
     cycleRepeat,
     audio,
     moveTrack,

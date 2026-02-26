@@ -16,12 +16,16 @@ const COLOR_RGB = {
 };
 
 const STORAGE_KEY = 'noisling_accent';
+const DENSITY_KEY = 'noisling_density';
 const DEFAULT_COLOR = 'violet';
 
-// Module-level singleton — reads from localStorage immediately so there's no
-// flash of the wrong color before the API call returns.
+// Module-level singletons — read from localStorage immediately so there's no
+// flash of the wrong value before the API call returns.
 const stored = localStorage.getItem(STORAGE_KEY);
 const accentColor = ref(VALID_COLORS.includes(stored) ? stored : DEFAULT_COLOR);
+
+const storedDensity = localStorage.getItem(DENSITY_KEY);
+const density = ref(storedDensity === 'compact' ? 'compact' : 'comfortable');
 
 export function useTheme() {
   const api = useApi();
@@ -34,6 +38,10 @@ export function useTheme() {
       if (VALID_COLORS.includes(data.accentColor)) {
         accentColor.value = data.accentColor;
         localStorage.setItem(STORAGE_KEY, data.accentColor);
+      }
+      if (data.density === 'compact' || data.density === 'comfortable') {
+        density.value = data.density;
+        localStorage.setItem(DENSITY_KEY, data.density);
       }
     } catch {
       // fall back to localStorage value already applied above
@@ -51,5 +59,16 @@ export function useTheme() {
     }
   }
 
-  return { accentColor, accentRgb, VALID_COLORS, loadTheme, setAccentColor };
+  async function setDensity(value) {
+    if (value !== 'comfortable' && value !== 'compact') return;
+    density.value = value;
+    localStorage.setItem(DENSITY_KEY, value);
+    try {
+      await api.saveSettings({ density: value });
+    } catch {
+      // silent — density is still applied locally
+    }
+  }
+
+  return { accentColor, accentRgb, VALID_COLORS, density, loadTheme, setAccentColor, setDensity };
 }

@@ -11,6 +11,8 @@ import {
   mdiImage,
   mdiCog,
   mdiChartBar,
+  mdiViewAgenda,
+  mdiViewHeadline,
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import { useApi } from '../composables/useApi.js';
@@ -22,7 +24,7 @@ import CoverArt from '../components/CoverArt.vue';
 const route = useRoute();
 const router = useRouter();
 const api = useApi();
-const { accentColor, accentRgb, VALID_COLORS, setAccentColor } = useTheme();
+const { accentColor, accentRgb, VALID_COLORS, density, setAccentColor, setDensity } = useTheme();
 
 const VALID_TABS = ['settings', 'stats'];
 const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'settings');
@@ -187,20 +189,52 @@ onUnmounted(() => {
     <!-- Settings tab -->
     <div v-if="activeTab === 'settings'" class="space-y-6">
       <!-- Appearance -->
-      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Appearance</h2>
-        <p class="text-sm text-zinc-500 mb-4">Choose an accent color for the interface.</p>
-        <div class="flex items-center gap-3 flex-wrap">
-          <button
-            v-for="color in VALID_COLORS"
-            :key="color"
-            @click="setAccentColor(color)"
-            class="w-8 h-8 rounded-full transition-all ring-offset-2 ring-offset-zinc-900"
-            :class="[`bg-${color}-500`, accentColor === color ? `ring-2 ring-${color}-400` : 'hover:scale-110']"
-            :aria-label="`${color} accent`"
-            :aria-pressed="accentColor === color"
-          />
+      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
+        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Appearance</h2>
+
+        <!-- Accent color -->
+        <div>
+          <p class="text-sm font-medium text-zinc-200 mb-1">Accent color</p>
+          <p class="text-xs text-zinc-500 mb-3">Choose a highlight color for the interface.</p>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button
+              v-for="color in VALID_COLORS"
+              :key="color"
+              @click="setAccentColor(color)"
+              class="w-8 h-8 rounded-full transition-all ring-offset-2 ring-offset-zinc-900"
+              :class="[`bg-${color}-500`, accentColor === color ? `ring-2 ring-${color}-400` : 'hover:scale-110']"
+              :aria-label="`${color} accent`"
+              :aria-pressed="accentColor === color"
+            />
+          </div>
         </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Density -->
+        <div>
+          <p class="text-sm font-medium text-zinc-200 mb-1">List density</p>
+          <p class="text-xs text-zinc-500 mb-3">Control how compact track lists appear.</p>
+          <div class="inline-flex p-1 bg-zinc-800 rounded-lg border border-zinc-700 gap-1">
+            <button
+              @click="setDensity('comfortable')"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+              :class="density === 'comfortable' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+            >
+              <Icon :path="mdiViewAgenda" class="w-4 h-4" />
+              Comfortable
+            </button>
+            <button
+              @click="setDensity('compact')"
+              class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+              :class="density === 'compact' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+            >
+              <Icon :path="mdiViewHeadline" class="w-4 h-4" />
+              Compact
+            </button>
+          </div>
+        </div>
+
       </section>
 
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">

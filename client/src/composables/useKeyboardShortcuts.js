@@ -2,7 +2,7 @@ import { onMounted, onUnmounted } from 'vue';
 import { usePlayer } from './usePlayer.js';
 
 export function useKeyboardShortcuts() {
-  const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute, cycleRepeat, toggleVisualizer, toggleQueue } = usePlayer();
+  const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute, cycleRepeat, toggleVisualizer, toggleQueue, toggleShortcuts } = usePlayer();
 
   function isTyping(e) {
     const tag = e.target.tagName;
@@ -14,9 +14,12 @@ export function useKeyboardShortcuts() {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
 
     if (e.code === 'Escape') {
+      if (state.showShortcuts) { toggleShortcuts(); return; }
       if (state.showVisualizer) { toggleVisualizer(); return; }
       if (state.showQueue) { toggleQueue(); return; }
     }
+
+    if (e.key === '?') { toggleShortcuts(); return; }
 
     if (!state.currentTrack) return;
 

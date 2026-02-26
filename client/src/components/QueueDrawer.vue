@@ -12,9 +12,9 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const { state, moveTrack, playFromQueue } = usePlayer();
-const { accentColor } = useTheme();
+const { accentColor, density } = useTheme();
 
-const ITEM_HEIGHT = 52; // px per row
+const ITEM_HEIGHT = computed(() => density.value === 'compact' ? 36 : 52);
 const OVERSCAN = 10; // extra items rendered above/below viewport
 
 const scrollContainer = ref(null);
@@ -25,16 +25,16 @@ function onScroll(e) {
   scrollTop.value = e.target.scrollTop;
 }
 
-const totalHeight = computed(() => state.queue.length * ITEM_HEIGHT);
+const totalHeight = computed(() => state.queue.length * ITEM_HEIGHT.value);
 
 const startIndex = computed(() =>
-  Math.max(0, Math.floor(scrollTop.value / ITEM_HEIGHT) - OVERSCAN)
+  Math.max(0, Math.floor(scrollTop.value / ITEM_HEIGHT.value) - OVERSCAN)
 );
 
 const endIndex = computed(() =>
   Math.min(
     state.queue.length,
-    Math.ceil((scrollTop.value + containerHeight.value) / ITEM_HEIGHT) + OVERSCAN
+    Math.ceil((scrollTop.value + containerHeight.value) / ITEM_HEIGHT.value) + OVERSCAN
   )
 );
 
@@ -45,7 +45,7 @@ const visibleItems = computed(() =>
   }))
 );
 
-const offsetY = computed(() => startIndex.value * ITEM_HEIGHT);
+const offsetY = computed(() => startIndex.value * ITEM_HEIGHT.value);
 
 // Scroll to current track when drawer opens + lock body scroll
 watch(() => props.open, async (isOpen) => {
@@ -56,7 +56,8 @@ watch(() => props.open, async (isOpen) => {
       containerHeight.value = scrollContainer.value.clientHeight;
       // Scroll current track into view
       if (state.queueIndex >= 0) {
-        const targetScroll = state.queueIndex * ITEM_HEIGHT - containerHeight.value / 2 + ITEM_HEIGHT / 2;
+        const h = ITEM_HEIGHT.value;
+        const targetScroll = state.queueIndex * h - containerHeight.value / 2 + h / 2;
         scrollContainer.value.scrollTop = Math.max(0, targetScroll);
       }
     }
@@ -170,7 +171,7 @@ function formatDuration(seconds) {
               </div>
 
               <div class="relative flex-shrink-0 group/cover" @click.stop="playFromQueue(i)">
-                <CoverArt :cover="track.cover" size="w-8 h-8" />
+                <CoverArt :cover="track.cover" :size="density === 'compact' ? 'w-6 h-6' : 'w-8 h-8'" />
                 <div class="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
                   <Icon :path="mdiPlay" class="w-4 h-4 text-white" />
                 </div>
@@ -183,7 +184,7 @@ function formatDuration(seconds) {
                 >
                   {{ track.title }}
                 </div>
-                <span class="text-xs text-zinc-500 truncate block">
+                <span v-if="density !== 'compact'" class="text-xs text-zinc-500 truncate block">
                   <template v-for="(artist, ai) in track.artists" :key="ai">
                     <span v-if="ai > 0">, </span>
                     <router-link

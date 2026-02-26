@@ -1,10 +1,11 @@
 <script setup>
 import { computed, watch } from 'vue';
-import { mdiCog } from '@mdi/js';
+import { mdiCog, mdiHelpCircleOutline } from '@mdi/js';
 import Icon from './components/Icon.vue';
 import { useRoute } from 'vue-router';
 import PlayerBar from './components/PlayerBar.vue';
 import NowPlayingModal from './components/NowPlayingModal.vue';
+import ShortcutsModal from './components/ShortcutsModal.vue';
 import SpectrogramVisualizer from './components/SpectrogramVisualizer.vue';
 import { usePlayer } from './composables/usePlayer.js';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
@@ -18,7 +19,7 @@ const { loadPlayerPrefs } = usePlayer();
 loadPlayerPrefs();
 
 const route = useRoute();
-const { state: playerState } = usePlayer();
+const { state: playerState, toggleShortcuts } = usePlayer();
 
 watch(() => route.path, () => {
   playerState.showVisualizer = false;
@@ -69,13 +70,23 @@ useKeyboardShortcuts();
           </div>
         </div>
 
-        <router-link
-          to="/settings"
-          class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
-          active-class="!text-zinc-100"
-        >
-          <Icon :path="mdiCog" class="w-5 h-5" />
-        </router-link>
+        <div class="flex items-center gap-1">
+          <button
+            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
+            :class="{ '!text-zinc-100': playerState.showShortcuts }"
+            @click="toggleShortcuts"
+            aria-label="Keyboard shortcuts"
+          >
+            <Icon :path="mdiHelpCircleOutline" class="w-5 h-5" />
+          </button>
+          <router-link
+            to="/settings"
+            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
+            active-class="!text-zinc-100"
+          >
+            <Icon :path="mdiCog" class="w-5 h-5" />
+          </router-link>
+        </div>
       </div>
     </nav>
 
@@ -96,6 +107,9 @@ useKeyboardShortcuts();
 
     <!-- Now Playing full-screen modal -->
     <NowPlayingModal />
+
+    <!-- Keyboard shortcuts modal (manages its own v-if + transitions internally) -->
+    <ShortcutsModal />
   </div>
 </template>
 
