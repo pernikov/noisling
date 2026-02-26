@@ -19,6 +19,7 @@ export function useApi() {
     getRandomArtists: (limit = 12) => request(`/artists/random?limit=${limit}`),
     getArtist: (name) => request(`/artists/${encodeURIComponent(name)}`),
     getArtistTracks: (name) => request(`/artists/${encodeURIComponent(name)}/tracks`),
+    getRecentAlbums: (limit = 12) => request(`/albums/recent?limit=${limit}`),
     getAlbums: () => request('/albums'),
     getAlbum: (artist, album) =>
       request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}`),

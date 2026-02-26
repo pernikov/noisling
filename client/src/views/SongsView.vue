@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import TrackList from '../components/TrackList.vue';
-import { mdiMagnify } from '@mdi/js';
+import { mdiMagnify, mdiMusicNote } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
@@ -121,8 +121,10 @@ function prevPage() {
       </div>
     </div>
 
-    <div v-else-if="allTracks.length === 0" class="text-zinc-500">
-      No songs found. Scan your library first.
+    <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
+      <Icon :path="mdiMusicNote" class="w-8 h-8 text-zinc-600" />
+      <p class="text-sm font-medium text-zinc-400">{{ search ? 'No songs found' : 'No songs yet' }}</p>
+      <p class="text-xs text-zinc-600">{{ search ? 'Try a different search term.' : 'Scan your library in Settings to get started.' }}</p>
     </div>
 
     <template v-else>

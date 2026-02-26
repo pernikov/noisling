@@ -1,12 +1,12 @@
 <script setup>
 import { ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiShuffle, mdiFire, mdiHeart } from '@mdi/js';
+import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import TrackList from '../components/TrackList.vue';
-import ArtistCover from '../components/ArtistCover.vue';
+import CoverArt from '../components/CoverArt.vue';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
@@ -15,9 +15,10 @@ const { state: playerState, playAlbum, toggleShuffle } = usePlayer();
 
 const lovedTracks = ref([]);
 const recentTracks = ref([]);
-const artists = ref([]);
+const recentAlbums = ref([]);
+const loadingLoved = ref(true);
 const loadingRecent = ref(true);
-const loadingArtists = ref(true);
+const loadingRecentAlbums = ref(true);
 
 const GREETINGS = [
   'Hello again.',
@@ -66,6 +67,8 @@ async function loadLoved() {
     lovedTracks.value = await api.getLovedTracks();
   } catch (err) {
     console.error('Failed to load loved tracks:', err);
+  } finally {
+    loadingLoved.value = false;
   }
 }
 
@@ -84,33 +87,33 @@ async function loadRecent() {
   }
 }
 
-async function loadArtists() {
+async function loadRecentAlbums() {
   try {
-    artists.value = await api.getRandomArtists(12);
+    recentAlbums.value = await api.getRecentAlbums(12);
   } catch (err) {
-    console.error('Failed to load artists:', err);
+    console.error('Failed to load recent albums:', err);
   } finally {
-    loadingArtists.value = false;
+    loadingRecentAlbums.value = false;
   }
 }
 
 onMounted(() => {
   loadLoved();
   loadRecent();
-  loadArtists();
+  loadRecentAlbums();
 });
 
 useLibraryEvents(() => {
   loadRecent();
-  loadArtists();
+  loadRecentAlbums();
 });
 
 watch(() => playerState.playReportCount, (count) => {
   if (count > 0) loadRecent();
 });
 
-function goToArtist(name) {
-  router.push({ name: 'artist', params: { name } });
+function goToAlbum(album) {
+  router.push({ name: 'album', params: { artist: album.artistsNorm[0], album: album.name } });
 }
 </script>
 
@@ -158,13 +161,17 @@ function goToArtist(name) {
 
         <!-- Loved Songs -->
         <button
-          v-if="lovedTracks.length > 0"
           @click="playLovedSongs"
-          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-transform shadow-lg"
+          :disabled="loadingLoved || lovedTracks.length === 0"
+          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
         >
           <Icon :path="mdiHeart" class="w-8 h-8 mb-3 text-white/90" />
           <div class="text-lg font-bold font-display text-white">Loved Songs</div>
-          <div class="text-sm text-white/70 mt-0.5">{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</div>
+          <div class="text-sm text-white/70 mt-0.5">
+            <template v-if="loadingLoved">Loading…</template>
+            <template v-else-if="lovedTracks.length === 0">Love some songs to play them here</template>
+            <template v-else>{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</template>
+          </div>
         </button>
       </div>
     </section>
@@ -186,27 +193,20 @@ function goToArtist(name) {
         </div>
       </div>
 
-      <div v-else-if="recentTracks.length === 0" class="text-zinc-500 text-sm">
-        No recently played tracks yet. Start listening!
+      <div v-else-if="recentTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
+        <Icon :path="mdiHistory" class="w-8 h-8 text-zinc-600" />
+        <p class="text-sm font-medium text-zinc-400">Nothing played yet</p>
+        <p class="text-xs text-zinc-600">Your recently played tracks will show up here.</p>
       </div>
 
       <TrackList v-else :tracks="recentTracks" show-cover show-artist show-album show-last-played hide-controls @love-toggled="loadLoved" />
     </section>
 
-    <!-- Artists -->
+    <!-- Recently Added Albums -->
     <section>
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Your Artists</h2>
-        <router-link
-          v-if="artists.length > 0"
-          to="/artists"
-          class="text-xs px-3 py-1.5 rounded border border-zinc-700 hover:border-zinc-500 text-zinc-400 hover:text-zinc-100 transition-colors"
-        >
-          View all
-        </router-link>
-      </div>
+      <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Recently Added</h2>
 
-      <div v-if="loadingArtists" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">
+      <div v-if="loadingRecentAlbums" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">
         <div v-for="i in 12" :key="i" class="rounded-lg p-2 sm:p-4">
           <div class="aspect-square bg-zinc-800 rounded-lg mb-3"></div>
           <div class="h-3.5 bg-zinc-800 rounded mb-1.5" :style="{ width: `${50 + (i * 11) % 35}%` }"></div>
@@ -214,25 +214,26 @@ function goToArtist(name) {
         </div>
       </div>
 
-      <div v-else-if="artists.length === 0" class="text-zinc-500 text-sm">
-        No artists yet. Scan your library in
-        <router-link to="/settings" class="text-zinc-300 hover:text-zinc-100 underline">Settings</router-link>.
+      <div v-else-if="recentAlbums.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
+        <Icon :path="mdiAlbum" class="w-8 h-8 text-zinc-600" />
+        <p class="text-sm font-medium text-zinc-400">No albums yet</p>
+        <p class="text-xs text-zinc-600">
+          <router-link to="/settings" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
+        </p>
       </div>
 
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
         <div
-          v-for="artist in artists"
-          :key="artist.name"
+          v-for="album in recentAlbums"
+          :key="album.name"
           class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
-          @click="goToArtist(artist.name)"
+          @click="goToAlbum(album)"
         >
-          <ArtistCover :covers="artist.covers || []" />
-          <div class="font-medium font-display truncate">{{ artist.name }}</div>
-          <div class="text-xs text-zinc-500">
-            {{ artist.albumCount }} album{{ artist.albumCount !== 1 ? 's' : '' }}
-            &middot;
-            {{ artist.trackCount }} track{{ artist.trackCount !== 1 ? 's' : '' }}
+          <div class="w-full aspect-square rounded-lg overflow-hidden bg-zinc-800 mb-3">
+            <CoverArt :cover="album.cover" size="w-full h-full" />
           </div>
+          <div class="font-medium font-display truncate">{{ album.name }}</div>
+          <div class="text-xs text-zinc-500 truncate">{{ album.artists[0] }}</div>
         </div>
       </div>
     </section>

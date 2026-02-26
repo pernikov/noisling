@@ -154,6 +154,41 @@ router.get('/artists/:name/tracks', async (req, res) => {
   res.json(tracks);
 });
 
+// GET /api/albums/recent — recently added albums, sorted by scannedAt desc
+router.get('/albums/recent', async (req, res) => {
+  const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
+  const albums = await Track.aggregate([
+    {
+      $group: {
+        _id: '$album',
+        artists: { $first: '$artists' },
+        artistsNorm: { $first: '$artistsNorm' },
+        year: { $first: '$year' },
+        trackCount: { $sum: 1 },
+        cover: { $first: '$cover' },
+        duration: { $sum: '$duration' },
+        addedAt: { $max: '$scannedAt' },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        name: '$_id',
+        artists: 1,
+        artistsNorm: 1,
+        year: 1,
+        trackCount: 1,
+        cover: 1,
+        duration: 1,
+        addedAt: 1,
+      },
+    },
+    { $sort: { addedAt: -1 } },
+    { $limit: limit },
+  ]);
+  res.json(albums);
+});
+
 // GET /api/albums — all albums
 router.get('/albums', async (req, res) => {
   const albums = await Track.aggregate([

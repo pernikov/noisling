@@ -9,7 +9,8 @@ import {
   mdiAlertCircle,
   mdiTrashCan,
   mdiImage,
-  mdiCog,
+  mdiPalette,
+  mdiHeadphones,
   mdiChartBar,
   mdiViewAgenda,
   mdiViewHeadline,
@@ -26,8 +27,8 @@ const router = useRouter();
 const api = useApi();
 const { accentColor, accentRgb, VALID_COLORS, density, setAccentColor, setDensity } = useTheme();
 
-const VALID_TABS = ['settings', 'stats'];
-const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'settings');
+const VALID_TABS = ['library', 'appearance', 'stats'];
+const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'library');
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
@@ -169,12 +170,20 @@ onUnmounted(() => {
     <!-- Segmented Nav -->
     <div class="inline-flex p-1 mb-8 bg-zinc-900 rounded-xl border border-zinc-800">
       <button
-        @click="activeTab = 'settings'"
+        @click="activeTab = 'library'"
         class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-        :class="activeTab === 'settings' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+        :class="activeTab === 'library' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
       >
-        <Icon :path="mdiCog" class="w-4 h-4" />
-        Settings
+        <Icon :path="mdiFolderOpen" class="w-4 h-4" />
+        Library
+      </button>
+      <button
+        @click="activeTab = 'appearance'"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === 'appearance' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+      >
+        <Icon :path="mdiPalette" class="w-4 h-4" />
+        Appearance
       </button>
       <button
         @click="activeTab = 'stats'"
@@ -186,12 +195,9 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- Settings tab -->
-    <div v-if="activeTab === 'settings'" class="space-y-6">
-      <!-- Appearance -->
+    <!-- Appearance tab -->
+    <div v-if="activeTab === 'appearance'" class="space-y-6">
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
-        <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Appearance</h2>
-
         <!-- Accent color -->
         <div>
           <p class="text-sm font-medium text-zinc-200 mb-1">Accent color</p>
@@ -234,15 +240,13 @@ onUnmounted(() => {
             </button>
           </div>
         </div>
-
       </section>
+    </div>
 
+    <!-- Library tab -->
+    <div v-else-if="activeTab === 'library'" class="space-y-6">
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
         <div>
-          <div class="flex items-center gap-2 mb-1">
-            <Icon :path="mdiFolderOpen" class="w-5 h-5 text-zinc-400" />
-            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Library</h2>
-          </div>
           <p class="text-sm text-zinc-500">Scan your music directory for new tracks or manage your library.</p>
         </div>
 
@@ -402,7 +406,7 @@ onUnmounted(() => {
     <!-- Stats tab -->
     <div v-else-if="activeTab === 'stats'" class="space-y-4">
       <div v-if="statsLoading" class="space-y-4 animate-pulse">
-        <!-- Library Overview skeleton -->
+        <!-- Library Overview + Formats skeleton -->
         <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <div class="h-3 bg-zinc-800 rounded w-36 mb-4"></div>
           <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
@@ -411,11 +415,7 @@ onUnmounted(() => {
               <div class="h-2.5 bg-zinc-800/60 rounded w-12"></div>
             </div>
           </div>
-        </div>
-        <!-- Formats skeleton -->
-        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <div class="h-3 bg-zinc-800 rounded w-20 mb-4"></div>
-          <div class="space-y-2 max-w-md">
+          <div class="border-t border-zinc-800 mt-6 pt-6 space-y-2 max-w-md">
             <div v-for="i in 3" :key="i" class="flex items-center gap-3">
               <div class="h-2.5 bg-zinc-800 rounded w-14"></div>
               <div class="flex-1 h-2 bg-zinc-800 rounded"></div>
@@ -503,12 +503,9 @@ onUnmounted(() => {
               <div class="text-xs text-zinc-400 mt-1">Total Plays</div>
             </div>
           </div>
-        </section>
 
-        <!-- Format Breakdown -->
-        <section v-if="stats.formats.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Formats</h2>
-          <div class="space-y-2 max-w-md">
+          <!-- Format Breakdown -->
+          <div v-if="stats.formats.length > 0" class="border-t border-zinc-800 mt-6 pt-6 space-y-2 max-w-md">
             <div v-for="f in stats.formats" :key="f.format" class="flex items-center gap-3">
               <span class="text-sm text-zinc-300 w-14 text-right uppercase">{{ f.format || '?' }}</span>
               <div class="flex-1 h-2 bg-zinc-800 rounded overflow-hidden">
@@ -592,8 +589,10 @@ onUnmounted(() => {
         </section>
 
         <!-- Empty state -->
-        <div v-if="stats.totalPlays === 0" class="text-zinc-500 text-sm">
-          No listening data yet. Start playing some music!
+        <div v-if="stats.totalPlays === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
+          <Icon :path="mdiHeadphones" class="w-8 h-8 text-zinc-600" />
+          <p class="text-sm font-medium text-zinc-400">No listening data yet</p>
+          <p class="text-xs text-zinc-600">Play some tracks and your stats will show up here.</p>
         </div>
       </template>
     </div>

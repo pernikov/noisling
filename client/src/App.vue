@@ -44,8 +44,11 @@ useKeyboardShortcuts();
       ? 'h-screen overflow-hidden'
       : { 'min-h-screen': true, 'pb-24': playerState.currentTrack }"
   >
+    <!-- Spacer to offset fixed nav -->
+    <div class="h-14 shrink-0" />
+
     <!-- Top nav -->
-    <nav class="sticky top-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40" :style="navStyle">
+    <nav class="fixed top-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40" :style="navStyle">
       <div class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14">
         <div class="flex items-center gap-6">
           <router-link to="/" class="flex items-center gap-2 text-lg font-bold tracking-tight">
