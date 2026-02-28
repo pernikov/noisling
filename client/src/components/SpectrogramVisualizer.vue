@@ -147,7 +147,10 @@ function drawBars() {
   c.fillStyle = `rgba(9, 9, 11, ${0.12 + (1 - energy) * 0.18})`;
   c.fillRect(0, 0, w, h);
 
-  if (energy < 0.005) { animId = requestAnimationFrame(draw); return; }
+  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
+
+  // Soft gate: smoothly ramp alpha to 0 as energy fades below threshold
+  const gateFactor = Math.min(1, energy / 0.018);
 
   time += 0.008;
 
@@ -175,7 +178,7 @@ function drawBars() {
       if (radius < 2) continue;
 
       const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = 0.1 + bandVal * 0.22;
+      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
       grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
       grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
@@ -207,7 +210,7 @@ function drawBars() {
     });
   }
 
-  const lissAlpha = 0.10 + energy * 0.42;
+  const lissAlpha = (0.10 + energy * 0.42) * gateFactor;
 
   c.globalCompositeOperation = 'lighter';
   c.lineCap = 'round';
@@ -295,10 +298,13 @@ function draw() {
   c.fillStyle = `rgba(9, 9, 11, ${0.12 + (1 - energy) * 0.18})`;
   c.fillRect(0, 0, w, h);
 
-  if (energy < 0.005) {
+  if (energy < 0.0002) {
     animId = requestAnimationFrame(draw);
     return;
   }
+
+  // Soft gate: smoothly ramp alpha to 0 as energy fades below threshold
+  const gateFactor = Math.min(1, energy / 0.018);
 
   time += 0.008;
 
@@ -335,7 +341,7 @@ function draw() {
       if (radius < 2) continue;
 
       const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = 0.1 + bandVal * 0.22;
+      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
       grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
       grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
       grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
@@ -361,7 +367,7 @@ function draw() {
     ringPts.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
   }
 
-  const ringAlpha = 0.15 + energy * 0.5;
+  const ringAlpha = (0.15 + energy * 0.5) * gateFactor;
 
   c.globalCompositeOperation = 'lighter';
   c.lineCap = 'round';
