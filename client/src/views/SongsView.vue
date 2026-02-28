@@ -128,7 +128,7 @@ function prevPage() {
     </div>
 
     <template v-else>
-      <TrackList :tracks="allTracks" show-cover show-artist show-album show-plays :start-index="(page - 1) * limit" :get-all-tracks="fetchAllTracks" />
+      <TrackList :tracks="allTracks" show-cover show-artist show-album show-plays show-last-played :start-index="(page - 1) * limit" :get-all-tracks="fetchAllTracks" />
 
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-4 mt-6 text-sm">
         <button

@@ -135,12 +135,14 @@ function onProgressTouchEnd() {
   progressRect = null;
 }
 
-// Swipe-down to close
+// Swipe-down to close / swipe left-right to skip
 const dragY = ref(0);
+const dragX = ref(0);
 const isDragging = ref(false);
 let touchStartY = 0;
 let touchStartX = 0;
 let swipeActive = false;
+let swipeDirection = null; // 'vertical' | 'horizontal' | null — locked after first 10px
 
 function onTouchStart(e) {
   if (e.target.closest('[data-no-swipe]')) { swipeActive = false; return; }
@@ -149,32 +151,55 @@ function onTouchStart(e) {
   swipeActive = true;
   isDragging.value = true;
   dragY.value = 0;
+  dragX.value = 0;
+  swipeDirection = null;
 }
 
 function onTouchMove(e) {
   if (!swipeActive) return;
   const deltaY = e.touches[0].clientY - touchStartY;
-  const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
-  if (deltaY > 0 && deltaY > deltaX * 0.5) dragY.value = deltaY;
+  const deltaX = e.touches[0].clientX - touchStartX;
+
+  // Lock direction after the gesture travels 10px
+  if (!swipeDirection && (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10)) {
+    swipeDirection = Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
+  }
+
+  if (swipeDirection === 'vertical') {
+    if (deltaY > 0) dragY.value = deltaY;
+  } else if (swipeDirection === 'horizontal') {
+    dragX.value = deltaX;
+  }
 }
 
 function onTouchEnd() {
   if (!swipeActive) return;
   swipeActive = false;
   isDragging.value = false;
-  if (dragY.value > 80) {
-    dragY.value = 0;
-    toggleNowPlaying();
-  } else {
-    dragY.value = 0;
+
+  if (swipeDirection === 'vertical') {
+    if (dragY.value > 80) {
+      dragY.value = 0;
+      toggleNowPlaying();
+    } else {
+      dragY.value = 0;
+    }
+  } else if (swipeDirection === 'horizontal') {
+    const THRESHOLD = 60;
+    if (dragX.value < -THRESHOLD && hasNext.value) next();
+    else if (dragX.value > THRESHOLD && hasPrev.value) prev();
+    dragX.value = 0;
   }
+
+  swipeDirection = null;
 }
 
-const dragStyle = computed(() =>
-  dragY.value > 0
-    ? { transform: `translateY(${dragY.value}px)`, transition: 'none' }
-    : {}
-);
+const dragStyle = computed(() => {
+  const parts = [];
+  if (dragY.value > 0) parts.push(`translateY(${dragY.value}px)`);
+  if (dragX.value !== 0) parts.push(`translateX(${dragX.value * 0.35}px)`); // dampened feel
+  return parts.length ? { transform: parts.join(' '), transition: 'none' } : {};
+});
 
 watch(
   () => state.showNowPlaying,

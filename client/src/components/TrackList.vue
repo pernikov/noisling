@@ -293,9 +293,10 @@ defineExpose({ playAll, playShuffle });
   </div>
 
   <Teleport to="body">
-    <template v-if="menuTrack">
-      <div class="fixed inset-0 z-40" @click="closeMenu" />
+    <div v-if="menuTrack" class="fixed inset-0 z-40" @click="closeMenu" />
+    <Transition name="menu">
       <div
+        v-if="menuTrack"
         class="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
         :style="menuStyle"
       >
@@ -314,8 +315,7 @@ defineExpose({ playAll, playShuffle });
           Add to queue
         </button>
       </div>
-
-    </template>
+    </Transition>
 
     <Transition name="toast">
       <div
@@ -331,6 +331,15 @@ defineExpose({ playAll, playShuffle });
 </template>
 
 <style scoped>
+.menu-enter-active, .menu-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform-origin: top left;
+}
+.menu-enter-from, .menu-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
 .toast-enter-active, .toast-leave-active {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }

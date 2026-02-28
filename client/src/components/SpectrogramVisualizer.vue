@@ -36,6 +36,7 @@ const vizModes = [
   { value: 'wave',      label: 'Lissajous',    icon: '<path d="M4,12 C4,8 8,8 12,12 C16,16 20,16 20,12 C20,8 16,8 12,12 C8,16 4,16 4,12"/>' },
   { value: 'particles', label: 'Particles',    icon: '<circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2"/>' },
   { value: 'polar',     label: 'Polar',        icon: '<path stroke-linecap="round" d="M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>' },
+  { value: 'spectrum',  label: 'Equalizer',    icon: '<path d="M4 20V8M8 20V4M12 20V10M16 20V6M20 20V12" stroke-linecap="round"/>' },
   { value: 'bubbles',   label: 'Bubbles only', icon: '<circle cx="7" cy="15" r="3"/><circle cx="15" cy="9" r="2"/><circle cx="17" cy="17" r="1.5"/>' },
 ];
 
@@ -85,6 +86,8 @@ const blobs = [
 let smoothBass = 0;
 let smoothMid = 0;
 let smoothHigh = 0;
+let prevBass = 0;      // for transient detection
+let beatBoost = 0;     // 0–1, decays after a detected transient
 let spiralAngle = 2.44;
 let spiralDir = true;
 let time = 0;
@@ -178,6 +181,7 @@ function drawBars() {
   smoothBass += (bass - smoothBass) * 0.18;
   smoothMid += (mid - smoothMid) * 0.15;
   smoothHigh += (high - smoothHigh) * 0.12;
+  updateBeatBoost(bass);
 
   const energy = (smoothBass + smoothMid + smoothHigh) / 3;
 
@@ -230,9 +234,9 @@ function drawBars() {
   if (vizMode.value === 'bubbles') { animId = requestAnimationFrame(draw); return; }
 
   // ── Layer 2: Lissajous ──
-  // Bass drives X amplitude, mids drive Y, highs nudge the phase
-  const ampX = minDim * 0.22 * (0.15 + smoothBass * 1.5);
-  const ampY = minDim * 0.22 * (0.15 + smoothMid * 1.5);
+  // Bass drives X amplitude, mids drive Y, highs nudge the phase; beat boost expands both
+  const ampX = minDim * 0.22 * (0.15 + smoothBass * 1.5 + beatBoost * 0.4);
+  const ampY = minDim * 0.22 * (0.15 + smoothMid * 1.5 + beatBoost * 0.25);
   const delta = time * 1.5 + smoothHigh * 3.0;
 
   const numLissPts = 512;
@@ -329,6 +333,7 @@ function drawParticles() {
   smoothBass += (bass - smoothBass) * 0.18;
   smoothMid += (mid - smoothMid) * 0.15;
   smoothHigh += (high - smoothHigh) * 0.12;
+  updateBeatBoost(bass);
   const energy = (smoothBass + smoothMid + smoothHigh) / 3;
 
   c.fillStyle = `rgba(9, 9, 11, ${0.14 + (1 - energy) * 0.16})`;
@@ -419,6 +424,7 @@ function drawPolar() {
   smoothBass += (bass - smoothBass) * 0.18;
   smoothMid += (mid - smoothMid) * 0.15;
   smoothHigh += (high - smoothHigh) * 0.12;
+  updateBeatBoost(bass);
   const energy = (smoothBass + smoothMid + smoothHigh) / 3;
 
   c.fillStyle = `rgba(9, 9, 11, ${0.10 + (1 - energy) * 0.18})`;
@@ -508,6 +514,129 @@ function drawPolar() {
   animId = requestAnimationFrame(draw);
 }
 
+// Detect bass transients and update beatBoost. Call once per frame after smoothBass is updated.
+function updateBeatBoost(rawBass) {
+  const drop = rawBass - prevBass;
+  if (drop > 0.08) beatBoost = Math.min(1, beatBoost + drop * 4); // sharp rise → boost
+  beatBoost *= 0.88; // exponential decay (~12 frames to halve)
+  prevBass = rawBass;
+}
+
+function drawSpectrum() {
+  const canvas = canvasRef.value;
+  const analyser = vizCtx?.analyser;
+  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
+
+  const setup = setupCanvas();
+  if (!setup) { animId = requestAnimationFrame(draw); return; }
+  const { c, w, h } = setup;
+
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  const bufLen = freqData.length;
+  const third = Math.floor(bufLen / 3);
+
+  let bass = 0, mid = 0, high = 0;
+  for (let i = 0; i < third; i++) bass += freqData[i];
+  for (let i = third; i < third * 2; i++) mid += freqData[i];
+  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
+  bass = bass / third / 255;
+  mid = mid / third / 255;
+  high = high / (bufLen - third * 2) / 255;
+
+  smoothBass += (bass - smoothBass) * 0.18;
+  smoothMid += (mid - smoothMid) * 0.15;
+  smoothHigh += (high - smoothHigh) * 0.12;
+  updateBeatBoost(bass);
+
+  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
+
+  // Faster fade for crisp bar edges
+  c.fillStyle = `rgba(9, 9, 11, ${0.35 + (1 - energy) * 0.45})`;
+  c.fillRect(0, 0, w, h);
+
+  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
+  const gateFactor = Math.min(1, energy / 0.018);
+
+  time += 0.008;
+
+  const palette = getColorPalette();
+  const [pr, pg, pb] = palette[0];
+
+  // Bubbles behind bars
+  if (showBubbles.value) {
+    c.globalCompositeOperation = 'screen';
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      const [r, g, b] = palette[i % palette.length];
+      const bandVal = blob.band === 'bass' ? smoothBass : blob.band === 'mid' ? smoothMid : smoothHigh;
+      const t = time * blob.speed + blob.phase;
+      const blobX = (w / 2) + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
+      const blobY = (h / 2) + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
+      const minDim = Math.min(w, h);
+      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
+      if (radius < 2) continue;
+      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
+      const alpha = (0.06 + bandVal * 0.14) * gateFactor;
+      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      c.fillStyle = grad;
+      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
+    }
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  // Classic spectrum bars — logarithmically spaced bins
+  const NUM_BARS = 64;
+  const barGap = 2;
+  const totalBarW = w - barGap;
+  const barW = Math.max(2, totalBarW / NUM_BARS - barGap);
+  const step = totalBarW / NUM_BARS;
+
+  // Beat boost widens and brightens bars
+  const boostH = 1 + beatBoost * 0.7;
+  const maxBarH = h * 0.88 * boostH;
+
+  c.globalCompositeOperation = 'lighter';
+
+  for (let i = 0; i < NUM_BARS; i++) {
+    // Logarithmic bin mapping: gives more bars to bass/mids like a real EQ
+    const logMin = Math.log10(1);
+    const logMax = Math.log10(bufLen * 0.8);
+    const binIdx = Math.floor(Math.pow(10, logMin + (i / NUM_BARS) * (logMax - logMin)));
+    const value = (freqData[Math.min(binIdx, bufLen - 1)] / 255) * gateFactor;
+
+    const barH = value * maxBarH;
+    if (barH < 1) continue;
+
+    const x = i * step + barGap / 2;
+    const y = h - barH;
+
+    // Vertical gradient: dim at base, bright at peak
+    const grad = c.createLinearGradient(x, h, x, y);
+    const alpha = (0.5 + beatBoost * 0.5) * gateFactor;
+    grad.addColorStop(0, `rgba(${pr},${pg},${pb},${alpha * 0.25})`);
+    grad.addColorStop(0.6, `rgba(${pr},${pg},${pb},${alpha * 0.7})`);
+    grad.addColorStop(1, `rgba(${pr},${pg},${pb},${alpha})`);
+
+    // Glow pass
+    c.fillStyle = `rgba(${pr},${pg},${pb},${alpha * 0.08})`;
+    c.fillRect(x - barGap, y - 4, barW + barGap * 2, barH + 4);
+
+    // Core bar
+    c.fillStyle = grad;
+    c.fillRect(x, y, barW, barH);
+
+    // Peak cap — bright dot at top
+    c.fillStyle = `rgba(${pr},${pg},${pb},${Math.min(1, alpha * 1.4)})`;
+    c.fillRect(x, y, barW, Math.min(2, barH));
+  }
+
+  c.globalCompositeOperation = 'source-over';
+  animId = requestAnimationFrame(draw);
+}
+
 function draw() {
   // Apply queued mode switch only once the current visualization has faded to silence
   if (pendingModeSwitch) {
@@ -529,6 +658,7 @@ function draw() {
   if (vizMode.value === 'wave' || vizMode.value === 'bubbles') { drawBars(); return; }
   if (vizMode.value === 'particles') { drawParticles(); return; }
   if (vizMode.value === 'polar') { drawPolar(); return; }
+  if (vizMode.value === 'spectrum') { drawSpectrum(); return; }
 
   const canvas = canvasRef.value;
   const analyser = vizCtx?.analyser;
@@ -567,6 +697,7 @@ function draw() {
   smoothBass += (bass - smoothBass) * 0.18;
   smoothMid += (mid - smoothMid) * 0.15;
   smoothHigh += (high - smoothHigh) * 0.12;
+  updateBeatBoost(bass);
 
   const energy = (smoothBass + smoothMid + smoothHigh) / 3;
 
@@ -631,8 +762,8 @@ function draw() {
 
   // ── Layer 2: Waveform ring ──
   const numRingPts = 256;
-  const baseR = minDim * (0.15 + smoothBass * 0.07);
-  const waveAmp = minDim * 0.10 * (0.3 + energy * 0.7);
+  const baseR = minDim * (0.15 + smoothBass * 0.07 + beatBoost * 0.06);
+  const waveAmp = minDim * (0.10 + beatBoost * 0.05) * (0.3 + energy * 0.7);
 
   const ringPts = [];
   for (let i = 0; i <= numRingPts; i++) {
@@ -643,7 +774,7 @@ function draw() {
     ringPts.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
   }
 
-  const ringAlpha = (0.15 + energy * 0.5) * gateFactor;
+  const ringAlpha = (0.15 + energy * 0.5 + beatBoost * 0.3) * gateFactor;
 
   c.globalCompositeOperation = 'lighter';
   c.lineCap = 'round';

@@ -100,6 +100,11 @@ function onProgressMouseDown(e) {
 function onVolumeInput(e) {
   setVolume(parseFloat(e.target.value));
 }
+
+function onVolumeWheel(e) {
+  const direction = e.deltaY > 0 ? -1 : 1;
+  setVolume(Math.min(1, Math.max(0, state.volume + direction * 0.05)));
+}
 </script>
 
 <template>
@@ -331,7 +336,7 @@ function onVolumeInput(e) {
       </button>
 
       <!-- Volume -->
-      <div class="flex items-center gap-1.5 flex-1">
+      <div class="flex items-center gap-1.5 flex-1" @wheel.prevent="onVolumeWheel">
         <button
           class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0"
           @click="toggleMute"

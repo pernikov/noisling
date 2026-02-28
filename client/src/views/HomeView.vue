@@ -32,7 +32,10 @@ const GREETINGS = [
   'What are we feeling?',
   'Play something.',
 ];
-const greeting = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+const lastIdx = parseInt(localStorage.getItem('noisling-greeting-idx') ?? '-1', 10);
+const nextIdx = (lastIdx + 1) % GREETINGS.length;
+localStorage.setItem('noisling-greeting-idx', String(nextIdx));
+const greeting = GREETINGS[nextIdx];
 
 const loadingShuffleAll = ref(false);
 const loadingTopTracks = ref(false);
@@ -163,14 +166,27 @@ function goToAlbum(album) {
         <button
           @click="playLovedSongs"
           :disabled="loadingLoved || lovedTracks.length === 0"
-          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
+          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
         >
           <Icon :path="mdiHeart" class="w-8 h-8 mb-3 text-white/90" />
           <div class="text-lg font-bold font-display text-white">Loved Songs</div>
-          <div class="text-sm text-white/70 mt-0.5">
-            <template v-if="loadingLoved">Loading…</template>
-            <template v-else-if="lovedTracks.length === 0">Love some songs to play them here</template>
-            <template v-else>{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</template>
+          <div class="text-sm text-white/70 mt-0.5 relative h-5 overflow-hidden">
+            <Transition
+              enter-active-class="transition-opacity duration-300"
+              leave-active-class="transition-opacity duration-150 absolute inset-0"
+              enter-from-class="opacity-0"
+              leave-to-class="opacity-0"
+              mode="out-in"
+            >
+              <span v-if="loadingLoved" key="loading" class="flex items-center">
+                <svg class="w-4 h-4 animate-spin text-white/70" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                </svg>
+              </span>
+              <span v-else-if="lovedTracks.length === 0" key="empty">Love some songs to play them here</span>
+              <span v-else key="count">{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</span>
+            </Transition>
           </div>
         </button>
       </div>

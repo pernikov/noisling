@@ -67,11 +67,34 @@ watch(() => props.open, async (isOpen) => {
 // Drag and drop
 const dragIndex = ref(null);
 const dragOverIndex = ref(null);
+let ghostEl = null;
 
 function onDragStart(e, index) {
   dragIndex.value = index;
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', index);
+
+  // Custom ghost: a styled card so the drag cursor carries a polished row preview
+  const row = e.currentTarget;
+  ghostEl = row.cloneNode(true);
+  Object.assign(ghostEl.style, {
+    position: 'fixed',
+    top: '-9999px',
+    left: '0',
+    width: row.offsetWidth + 'px',
+    height: row.offsetHeight + 'px',
+    background: 'rgb(63 63 70 / 0.97)',
+    border: '1px solid rgb(82 82 91 / 0.8)',
+    borderRadius: '6px',
+    boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+    pointerEvents: 'none',
+    overflow: 'hidden',
+  });
+  document.body.appendChild(ghostEl);
+  e.dataTransfer.setDragImage(ghostEl, e.offsetX, e.offsetY);
+  requestAnimationFrame(() => {
+    if (ghostEl) { document.body.removeChild(ghostEl); ghostEl = null; }
+  });
 }
 
 function onDragOver(e, index) {
@@ -97,6 +120,7 @@ function onDrop(e, toIndex) {
 function onDragEnd() {
   dragIndex.value = null;
   dragOverIndex.value = null;
+  if (ghostEl) { document.body.removeChild(ghostEl); ghostEl = null; }
 }
 
 function formatDuration(seconds) {

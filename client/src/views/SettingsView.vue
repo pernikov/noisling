@@ -25,6 +25,7 @@ import CoverArt from '../components/CoverArt.vue';
 const route = useRoute();
 const router = useRouter();
 const api = useApi();
+const appVersion = __APP_VERSION__;
 const { accentColor, accentRgb, VALID_COLORS, density, setAccentColor, setDensity } = useTheme();
 
 const VALID_TABS = ['library', 'appearance', 'stats'];
@@ -42,7 +43,10 @@ const scanProgress = ref(null);
 const scanResult = ref(null);
 const deleting = ref(false);
 const deleteResult = ref(null);
-const showDeleteConfirm = ref(false);
+const confirm = ref(null); // { title, message, confirmLabel, destructive, onConfirm }
+
+function promptConfirm(opts) { confirm.value = opts; }
+function closeConfirm() { confirm.value = null; }
 const missingCoverAlbums = ref([]);
 const loadingCovers = ref(true);
 
@@ -259,7 +263,7 @@ onUnmounted(() => {
               <p class="text-xs text-zinc-500">Discover and index new audio files from your library folder.</p>
             </div>
             <button
-              @click="scanLibrary"
+              @click="promptConfirm({ title: 'Rescan library?', message: 'This will walk your music directory, process any new or changed files, and remove tracks for deleted files. It may take a while for large libraries.', confirmLabel: 'Scan Library', destructive: false, onConfirm: scanLibrary })"
               :disabled="scanning"
               class="text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
             >
@@ -372,7 +376,7 @@ onUnmounted(() => {
               <p class="text-xs text-zinc-500">Remove all tracks, cover art, and play statistics.</p>
             </div>
             <button
-              @click="showDeleteConfirm = true"
+              @click="promptConfirm({ title: 'Delete library?', message: 'This will permanently delete all tracks from the database, remove all cover art, and clear your play statistics. This action cannot be undone.', confirmLabel: 'Delete Everything', destructive: true, onConfirm: deleteLibrary })"
               :disabled="deleting"
               class="text-sm px-4 py-2 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600/20 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
             >
@@ -597,14 +601,16 @@ onUnmounted(() => {
       </template>
     </div>
 
+    <p class="text-xs text-zinc-700 text-right mt-6">Noisling v{{ appVersion }}</p>
+
     <ConfirmModal
-      v-if="showDeleteConfirm"
-      title="Delete library?"
-      message="This will permanently delete all tracks from the database, remove all cover art, and clear your play statistics. This action cannot be undone."
-      confirm-label="Delete Everything"
-      :destructive="true"
-      @confirm="deleteLibrary"
-      @cancel="showDeleteConfirm = false"
+      :open="!!confirm"
+      :title="confirm?.title"
+      :message="confirm?.message"
+      :confirm-label="confirm?.confirmLabel"
+      :destructive="confirm?.destructive"
+      @confirm="confirm.onConfirm(); closeConfirm()"
+      @cancel="closeConfirm"
     />
   </div>
 </template>

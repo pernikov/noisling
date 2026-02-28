@@ -1,9 +1,4 @@
 # TODO
 
-
-+ Hide / don't allow opening vizualizer when nothing plays
-
+## Known issues
 + Fix mobile playback issues (low priority)
-
-+ MusicBrainz tagger for missing tags (questionable)
-
