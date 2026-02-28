@@ -1,18 +1,34 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 
 const { audio } = usePlayer();
 const { accentColor } = useAccentColor();
 
+const PREFS_KEY = 'noisling_player';
+function loadVizPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (_) { return {}; }
+}
+function saveVizPref(key, value) {
+  let prefs = loadVizPrefs();
+  prefs[key] = value;
+  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
+}
+
+const _prefs = loadVizPrefs();
+
 const containerRef = ref(null);
 const canvasRef = ref(null);
 const isFullscreen = ref(false);
-const vizMode = ref('spiral'); // 'spiral' | 'wave' | 'particles' | 'polar' | 'bubbles'
-const showBubbles = ref(true);
+const vizMode = ref(_prefs.vizMode ?? 'spiral'); // 'spiral' | 'wave' | 'particles' | 'polar' | 'bubbles'
+const showBubbles = ref(_prefs.showBubbles ?? true);
 const showModeDropdown = ref(false);
-const randomizeOnNewSong = ref(false);
+const randomizeOnNewSong = ref(_prefs.randomizeOnNewSong ?? false);
+
+watch(vizMode, v => saveVizPref('vizMode', v));
+watch(showBubbles, v => saveVizPref('showBubbles', v));
+watch(randomizeOnNewSong, v => saveVizPref('randomizeOnNewSong', v));
 let animId = null;
 
 const vizModes = [
