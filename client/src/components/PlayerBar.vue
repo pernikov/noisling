@@ -17,6 +17,8 @@ import {
   mdiShuffle,
   mdiPlaylistMusic,
   mdiWaveform,
+  mdiHeart,
+  mdiHeartOutline,
 } from "@mdi/js";
 import Icon from "./Icon.vue";
 
@@ -32,6 +34,7 @@ const {
   toggleVisualizer,
   toggleNowPlaying,
   toggleQueue,
+  toggleLove,
   cycleRepeat,
   hasNext,
   hasPrev,
@@ -281,6 +284,20 @@ function onVolumeWheel(e) {
     <div
       class="hidden sm:flex items-center gap-3 w-56 flex-shrink-0 justify-end"
     >
+      <!-- Love -->
+      <button
+        class="transition-colors"
+        :class="state.currentTrack.isLoved ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-zinc-100'"
+        @click="toggleLove"
+        title="(L) Love track"
+        aria-label="Love track"
+      >
+        <Transition name="icon-swap" mode="out-in">
+          <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-4 h-4" :key="'loved'" />
+          <Icon v-else :path="mdiHeartOutline" class="w-4 h-4" :key="'unloved'" />
+        </Transition>
+      </button>
+
       <!-- Visualizer -->
       <button
         class="transition-colors disabled:text-zinc-700"

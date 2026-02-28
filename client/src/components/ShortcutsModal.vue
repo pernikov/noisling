@@ -13,6 +13,7 @@ const groups = [
       { keys: ['M'], description: 'Mute / Unmute' },
       { keys: ['S'], description: 'Toggle shuffle' },
       { keys: ['R'], description: 'Cycle repeat mode' },
+      { keys: ['L'], description: 'Love / unlove track' },
     ],
   },
   {

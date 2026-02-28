@@ -476,6 +476,18 @@ function toggleShortcuts() {
   state.showShortcuts = !state.showShortcuts;
 }
 
+async function toggleLove() {
+  if (!state.currentTrack) return;
+  const track = state.currentTrack;
+  track.isLoved = !track.isLoved;
+  try {
+    const { isLoved } = await api.toggleLove(track._id);
+    track.isLoved = isLoved;
+  } catch (_) {
+    track.isLoved = !track.isLoved;
+  }
+}
+
 function toggleMute() {
   if (state.volume > 0) {
     volumeBeforeMute = state.volume;
@@ -605,6 +617,7 @@ export function usePlayer() {
     toggleNowPlaying,
     toggleQueue,
     toggleShortcuts,
+    toggleLove,
     cycleRepeat,
     audio,
     moveTrack,

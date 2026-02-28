@@ -2,7 +2,7 @@ import { onMounted, onUnmounted } from 'vue';
 import { usePlayer } from './usePlayer.js';
 
 export function useKeyboardShortcuts() {
-  const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute, cycleRepeat, toggleVisualizer, toggleQueue, toggleShortcuts } = usePlayer();
+  const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute, cycleRepeat, toggleVisualizer, toggleQueue, toggleShortcuts, toggleLove } = usePlayer();
 
   function isTyping(e) {
     const tag = e.target.tagName;
@@ -64,6 +64,9 @@ export function useKeyboardShortcuts() {
         break;
       case 'KeyQ':
         toggleQueue();
+        break;
+      case 'KeyL':
+        toggleLove();
         break;
     }
   }

@@ -82,9 +82,12 @@ const toastStyle = computed(() => {
   };
 });
 
-const lovedIds = ref(new Set(props.tracks.filter(t => t.isLoved).map(t => String(t._id))));
-watch(() => props.tracks, (tracks) => {
-  lovedIds.value = new Set(tracks.filter(t => t.isLoved).map(t => String(t._id)));
+// When the current track's isLoved is toggled from the player bar,
+// keep the matching track object in props.tracks in sync.
+watch(() => state.currentTrack?.isLoved, (isLoved) => {
+  if (!state.currentTrack) return;
+  const match = props.tracks.find(t => t._id === state.currentTrack._id);
+  if (match) match.isLoved = isLoved;
 });
 
 function timeAgo(date) {
@@ -160,18 +163,16 @@ function playShuffle() {
 }
 
 async function toggleLove(track) {
-  const id = String(track._id);
-  const wasLoved = lovedIds.value.has(id);
-  const next = new Set(lovedIds.value);
-  if (wasLoved) next.delete(id); else next.add(id);
-  lovedIds.value = next;
+  track.isLoved = !track.isLoved;
+  if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = track.isLoved;
   try {
-    await api.toggleLove(id);
-    emit('love-toggled', { id, isLoved: !wasLoved });
+    const { isLoved } = await api.toggleLove(track._id);
+    track.isLoved = isLoved;
+    if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = isLoved;
+    emit('love-toggled', { id: track._id, isLoved });
   } catch {
-    const revert = new Set(lovedIds.value);
-    if (wasLoved) revert.add(id); else revert.delete(id);
-    lovedIds.value = revert;
+    track.isLoved = !track.isLoved;
+    if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = track.isLoved;
   }
 }
 
@@ -269,12 +270,12 @@ defineExpose({ playAll, playShuffle });
             <button
               v-if="!track.deleted"
               class="flex items-center justify-center w-full transition-opacity"
-              :class="lovedIds.has(String(track._id))
+              :class="track.isLoved
                 ? 'text-rose-400'
                 : 'opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-zinc-400'"
               @click.stop="toggleLove(track)"
             >
-              <Icon :path="lovedIds.has(String(track._id)) ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />
+              <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />
             </button>
           </td>
           <td :class="[rowPy, 'px-1 align-middle']">
