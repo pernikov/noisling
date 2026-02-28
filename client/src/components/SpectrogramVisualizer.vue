@@ -12,6 +12,7 @@ const isFullscreen = ref(false);
 const vizMode = ref('spiral'); // 'spiral' | 'wave' | 'particles' | 'polar' | 'bubbles'
 const showBubbles = ref(true);
 const showModeDropdown = ref(false);
+const randomizeOnNewSong = ref(false);
 let animId = null;
 
 const vizModes = [
@@ -73,6 +74,15 @@ let spiralDir = true;
 let time = 0;
 let vizCtx = null;
 let particlePool = null;
+let pendingMode = null;
+
+function onNewSong() {
+  if (!randomizeOnNewSong.value) return;
+  const choices = vizModes.filter(m => m.value !== 'bubbles' && m.value !== vizMode.value);
+  if (!choices.length) return;
+  // Queue the switch — draw loop applies it once the visualization has faded out
+  pendingMode = choices[Math.floor(Math.random() * choices.length)].value;
+}
 
 function selectMode(mode) {
   vizMode.value = mode;
@@ -483,6 +493,18 @@ function drawPolar() {
 }
 
 function draw() {
+  // Apply queued mode switch only once the current visualization has faded to silence
+  if (pendingMode !== null) {
+    const currentEnergy = (smoothBass + smoothMid + smoothHigh) / 3;
+    if (currentEnergy < 0.003) {
+      const m = pendingMode;
+      pendingMode = null;
+      selectMode(m);
+      animId = requestAnimationFrame(draw);
+      return;
+    }
+  }
+
   if (vizMode.value === 'wave' || vizMode.value === 'bubbles') { drawBars(); return; }
   if (vizMode.value === 'particles') { drawParticles(); return; }
   if (vizMode.value === 'polar') { drawPolar(); return; }
@@ -650,6 +672,7 @@ onMounted(() => {
     vizCtx.ctx.resume();
   }
   document.addEventListener('fullscreenchange', onFullscreenChange);
+  audio.addEventListener('loadstart', onNewSong);
 
   // Pre-fill the canvas immediately so it's fully dark before the first draw()
   // fires. Without this, the canvas starts transparent and takes many frames to
@@ -678,6 +701,7 @@ onUnmounted(() => {
     animId = null;
   }
   document.removeEventListener('fullscreenchange', onFullscreenChange);
+  audio.removeEventListener('loadstart', onNewSong);
 });
 </script>
 
@@ -726,6 +750,18 @@ onUnmounted(() => {
           <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" v-html="m.icon" />
           <span class="flex-1">{{ m.label }}</span>
           <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="vizMode === m.value ? 'opacity-100' : 'opacity-0'" />
+        </button>
+        <div class="border-t border-zinc-800 mx-2 my-1" />
+        <button
+          class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2.5 hover:bg-zinc-800"
+          :class="randomizeOnNewSong ? 'text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'"
+          @click="randomizeOnNewSong = !randomizeOnNewSong"
+        >
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
+          </svg>
+          <span class="flex-1">Shuffle on new song</span>
+          <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="randomizeOnNewSong ? 'opacity-100' : 'opacity-0'" />
         </button>
       </div>
     </div>
