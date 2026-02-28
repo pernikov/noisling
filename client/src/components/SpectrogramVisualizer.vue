@@ -9,9 +9,18 @@ const { accentColor } = useAccentColor();
 const containerRef = ref(null);
 const canvasRef = ref(null);
 const isFullscreen = ref(false);
-const vizMode = ref('spiral'); // 'spiral' | 'wave' | 'bubbles'
+const vizMode = ref('spiral'); // 'spiral' | 'wave' | 'particles' | 'polar' | 'bubbles'
 const showBubbles = ref(true);
+const showModeDropdown = ref(false);
 let animId = null;
+
+const vizModes = [
+  { value: 'spiral',    label: 'Spiral',       icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3"/>' },
+  { value: 'wave',      label: 'Lissajous',    icon: '<path d="M4,12 C4,8 8,8 12,12 C16,16 20,16 20,12 C20,8 16,8 12,12 C8,16 4,16 4,12"/>' },
+  { value: 'particles', label: 'Particles',    icon: '<circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2"/>' },
+  { value: 'polar',     label: 'Polar',        icon: '<path stroke-linecap="round" d="M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>' },
+  { value: 'bubbles',   label: 'Bubbles only', icon: '<circle cx="7" cy="15" r="3"/><circle cx="15" cy="9" r="2"/><circle cx="17" cy="17" r="1.5"/>' },
+];
 
 function ensureAudioContext() {
   if (audio._vizCtx) return audio._vizCtx;
@@ -63,10 +72,11 @@ let spiralAngle = 2.44;
 let spiralDir = true;
 let time = 0;
 let vizCtx = null;
-function toggleMode() {
-  if (vizMode.value === 'spiral') vizMode.value = 'wave';
-  else if (vizMode.value === 'wave') vizMode.value = showBubbles.value ? 'bubbles' : 'spiral';
-  else vizMode.value = 'spiral';
+let particlePool = null;
+
+function selectMode(mode) {
+  vizMode.value = mode;
+  showModeDropdown.value = false;
   const canvas = canvasRef.value;
   if (canvas) {
     const c = canvas.getContext('2d');
@@ -74,6 +84,7 @@ function toggleMode() {
     c.fillRect(0, 0, canvas.width, canvas.height);
   }
 }
+
 
 function toggleBubbles() {
   if (showBubbles.value && vizMode.value === 'bubbles') {
@@ -251,8 +262,230 @@ function drawBars() {
   animId = requestAnimationFrame(draw);
 }
 
+function initParticles() {
+  particlePool = Array.from({ length: 120 }, (_, i) => ({
+    angle: (i / 120) * Math.PI * 2,
+    baseRadius: 0.08 + Math.random() * 0.22,
+    speed: (0.005 + Math.random() * 0.012) * (Math.random() < 0.5 ? 1 : -1),
+    size: 0.8 + Math.random() * 3,
+    colorIdx: i % 5,
+    phase: Math.random() * Math.PI * 2,
+    orbitVariance: 0.03 + Math.random() * 0.07,
+    // per-particle personality
+    opacity: 0.12 + Math.random() * Math.random(), // skewed toward dim
+    glowScale: 2 + Math.random() * 7,              // tight sparkle → wide soft halo
+    twinkleAmt: Math.random() * 0.4,               // 0 = steady, 0.4 = shimmer
+    twinkleSpeed: 0.8 + Math.random() * 2.5,
+  }));
+}
+
+function drawParticles() {
+  const canvas = canvasRef.value;
+  const analyser = vizCtx?.analyser;
+  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
+  if (!particlePool) initParticles();
+
+  const setup = setupCanvas();
+  if (!setup) { animId = requestAnimationFrame(draw); return; }
+  const { c, w, h } = setup;
+  const cx = w / 2, cy = h / 2, minDim = Math.min(w, h);
+
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  const bufLen = freqData.length, third = Math.floor(bufLen / 3);
+  let bass = 0, mid = 0, high = 0;
+  for (let i = 0; i < third; i++) bass += freqData[i];
+  for (let i = third; i < third * 2; i++) mid += freqData[i];
+  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
+  bass = bass / third / 255;
+  mid = mid / third / 255;
+  high = high / (bufLen - third * 2) / 255;
+  smoothBass += (bass - smoothBass) * 0.18;
+  smoothMid += (mid - smoothMid) * 0.15;
+  smoothHigh += (high - smoothHigh) * 0.12;
+  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
+
+  c.fillStyle = `rgba(9, 9, 11, ${0.14 + (1 - energy) * 0.16})`;
+  c.fillRect(0, 0, w, h);
+  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
+  const gateFactor = Math.min(1, energy / 0.018);
+  time += 0.008;
+
+  const palette = getColorPalette();
+
+  if (showBubbles.value) {
+    c.globalCompositeOperation = 'screen';
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      const [r, g, b] = palette[i % palette.length];
+      const bandVal = blob.band === 'bass' ? smoothBass : blob.band === 'mid' ? smoothMid : smoothHigh;
+      const t = time * blob.speed + blob.phase;
+      const blobX = cx + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
+      const blobY = cy + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
+      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
+      if (radius < 2) continue;
+      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
+      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
+      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      c.fillStyle = grad;
+      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
+    }
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  c.globalCompositeOperation = 'lighter';
+  for (const p of particlePool) {
+    p.angle += p.speed * (1 + smoothHigh * 4);
+    const pulse = Math.sin(p.phase + time * 2.5) * p.orbitVariance;
+    const orbitR = minDim * (p.baseRadius + smoothBass * 0.15 + pulse);
+    const x = cx + Math.cos(p.angle) * orbitR;
+    const y = cy + Math.sin(p.angle) * orbitR;
+    const dotSize = p.size * (1 + smoothMid * 2.5) * gateFactor;
+    if (dotSize < 0.2) continue;
+    const [pr, pg, pb] = palette[p.colorIdx];
+    const twinkle = 1 + Math.sin(p.phase + time * p.twinkleSpeed) * p.twinkleAmt;
+    const alpha = (0.45 + smoothMid * 0.55) * gateFactor * p.opacity * twinkle;
+    if (alpha < 0.01) continue;
+    const glowR = dotSize * p.glowScale;
+    // diffuse glow: larger halos get proportionally dimmer at center
+    const glowPeak = alpha * 0.35 * (3.5 / p.glowScale);
+    const glow = c.createRadialGradient(x, y, 0, x, y, glowR);
+    glow.addColorStop(0, `rgba(${pr},${pg},${pb},${glowPeak})`);
+    glow.addColorStop(1, `rgba(${pr},${pg},${pb},0)`);
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(x, y, glowR, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = `rgba(${pr},${pg},${pb},${alpha})`;
+    c.beginPath();
+    c.arc(x, y, dotSize, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+  animId = requestAnimationFrame(draw);
+}
+
+function drawPolar() {
+  const canvas = canvasRef.value;
+  const analyser = vizCtx?.analyser;
+  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
+
+  const setup = setupCanvas();
+  if (!setup) { animId = requestAnimationFrame(draw); return; }
+  const { c, w, h } = setup;
+  const cx = w / 2, cy = h / 2, minDim = Math.min(w, h);
+
+  const bufferLength = analyser.fftSize;
+  const floatTimeData = new Float32Array(bufferLength);
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getFloatTimeDomainData(floatTimeData);
+  analyser.getByteFrequencyData(freqData);
+  const bufLen = freqData.length, third = Math.floor(bufLen / 3);
+  let bass = 0, mid = 0, high = 0;
+  for (let i = 0; i < third; i++) bass += freqData[i];
+  for (let i = third; i < third * 2; i++) mid += freqData[i];
+  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
+  bass = bass / third / 255;
+  mid = mid / third / 255;
+  high = high / (bufLen - third * 2) / 255;
+  smoothBass += (bass - smoothBass) * 0.18;
+  smoothMid += (mid - smoothMid) * 0.15;
+  smoothHigh += (high - smoothHigh) * 0.12;
+  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
+
+  c.fillStyle = `rgba(9, 9, 11, ${0.10 + (1 - energy) * 0.18})`;
+  c.fillRect(0, 0, w, h);
+  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
+  const gateFactor = Math.min(1, energy / 0.018);
+  time += 0.008;
+
+  const palette = getColorPalette();
+  const [pr, pg, pb] = palette[0];
+
+  if (showBubbles.value) {
+    c.globalCompositeOperation = 'screen';
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      const [r, g, b] = palette[i % palette.length];
+      const bandVal = blob.band === 'bass' ? smoothBass : blob.band === 'mid' ? smoothMid : smoothHigh;
+      const t = time * blob.speed + blob.phase;
+      const blobX = cx + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
+      const blobY = cy + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
+      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
+      if (radius < 2) continue;
+      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
+      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
+      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
+      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      c.fillStyle = grad;
+      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
+    }
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  // Polar mandala — 6-fold mirrored symmetry
+  const SYMMETRY = 6;
+  const numPts = 256;
+  const baseR = minDim * (0.10 + smoothBass * 0.06);
+  const amplitude = minDim * 0.12 * (0.5 + energy * 0.8);
+  const wedgeAngle = Math.PI / SYMMETRY;
+  const rotation = time * 0.3;
+
+  const radii = new Array(numPts + 1);
+  for (let i = 0; i <= numPts; i++) {
+    const audioIdx = Math.floor((i / numPts) * (bufferLength / 2));
+    radii[i] = baseR + (floatTimeData[audioIdx] || 0) * amplitude;
+  }
+
+  const alpha = (0.12 + energy * 0.5) * gateFactor;
+  c.globalCompositeOperation = 'lighter';
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+
+  const strokeArms = () => {
+    c.save();
+    c.translate(cx, cy);
+    for (let sym = 0; sym < SYMMETRY; sym++) {
+      const symRot = (sym / SYMMETRY) * Math.PI * 2 + rotation;
+      for (const mirror of [1, -1]) {
+        c.save();
+        c.rotate(symRot);
+        c.scale(1, mirror);
+        c.beginPath();
+        for (let i = 0; i <= numPts; i++) {
+          const angle = (i / numPts) * wedgeAngle;
+          const x = Math.cos(angle) * radii[i];
+          const y = Math.sin(angle) * radii[i];
+          if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+        }
+        c.stroke();
+        c.restore();
+      }
+    }
+    c.restore();
+  };
+
+  c.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * 0.06})`;
+  c.lineWidth = 14;
+  strokeArms();
+  c.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * 0.20})`;
+  c.lineWidth = 4;
+  strokeArms();
+  c.strokeStyle = `rgba(${pr},${pg},${pb},${alpha})`;
+  c.lineWidth = 1.5;
+  strokeArms();
+
+  c.globalCompositeOperation = 'source-over';
+  animId = requestAnimationFrame(draw);
+}
+
 function draw() {
   if (vizMode.value === 'wave' || vizMode.value === 'bubbles') { drawBars(); return; }
+  if (vizMode.value === 'particles') { drawParticles(); return; }
+  if (vizMode.value === 'polar') { drawPolar(); return; }
 
   const canvas = canvasRef.value;
   const analyser = vizCtx?.analyser;
@@ -467,25 +700,36 @@ onUnmounted(() => {
       </svg>
     </button>
 
-    <button
-      class="absolute top-3 right-12 text-zinc-500 hover:text-zinc-200 transition-colors z-10"
-      @click="toggleMode"
-      :title="vizMode === 'spiral' ? 'Switch to Lissajous' : vizMode === 'wave' ? (showBubbles ? 'Remove waves' : 'Switch to spiral') : 'Switch to spiral'"
-    >
-      <!-- In spiral: show wave icon (next = wave) -->
-      <svg v-if="vizMode === 'spiral'" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M4,12 C4,8 8,8 12,12 C16,16 20,16 20,12 C20,8 16,8 12,12 C8,16 4,16 4,12" />
-      </svg>
-      <!-- In wave: next is bubbles-only (if bubbles on) → wave-off icon; or spiral (if bubbles off) → spiral icon -->
-      <svg v-else-if="vizMode === 'wave' && showBubbles" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M4 12 C6 9 8 9 10 12 C12 15 14 15 16 12 C18 9 20 9 22 12" stroke-linecap="round" />
-        <line x1="4" y1="20" x2="20" y2="4" stroke-linecap="round" />
-      </svg>
-      <!-- In wave with no bubbles, or in bubbles mode: show spiral icon (next = spiral) -->
-      <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <circle cx="12" cy="12" r="3" /><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3" />
-      </svg>
-    </button>
+    <!-- Mode selector dropdown -->
+    <div class="absolute top-3 right-12 z-30">
+      <button
+        class="text-zinc-500 hover:text-zinc-200 transition-colors"
+        @click="showModeDropdown = !showModeDropdown"
+        title="Visualizer mode"
+      >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </button>
+      <div v-if="showModeDropdown" class="absolute right-0 top-8 bg-zinc-900 border border-zinc-800 rounded-lg py-1 shadow-2xl min-w-[130px]">
+        <button
+          v-for="m in vizModes"
+          :key="m.value"
+          class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2.5"
+          :class="[
+            vizMode === m.value ? 'text-zinc-100' : 'text-zinc-400',
+            m.value === 'bubbles' && !showBubbles ? 'opacity-30 pointer-events-none' : 'hover:bg-zinc-800 hover:text-zinc-200',
+          ]"
+          @click="selectMode(m.value)"
+        >
+          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" v-html="m.icon" />
+          <span class="flex-1">{{ m.label }}</span>
+          <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="vizMode === m.value ? 'opacity-100' : 'opacity-0'" />
+        </button>
+      </div>
+    </div>
+    <div v-if="showModeDropdown" class="fixed inset-0 z-20" @click="showModeDropdown = false" />
 
     <button
       class="absolute top-3 right-3 text-zinc-500 hover:text-zinc-200 transition-colors z-10"
