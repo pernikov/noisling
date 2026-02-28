@@ -74,14 +74,14 @@ let spiralDir = true;
 let time = 0;
 let vizCtx = null;
 let particlePool = null;
-let pendingMode = null;
+let pendingModeSwitch = false;
+let shuffleBag = [];
 
 function onNewSong() {
   if (!randomizeOnNewSong.value) return;
-  const choices = vizModes.filter(m => m.value !== 'bubbles' && m.value !== vizMode.value);
-  if (!choices.length) return;
-  // Queue the switch — draw loop applies it once the visualization has faded out
-  pendingMode = choices[Math.floor(Math.random() * choices.length)].value;
+  // Just flag that a switch is pending — the actual mode is picked at apply time
+  // so it's always guaranteed to differ from whatever mode is active then
+  pendingModeSwitch = true;
 }
 
 function selectMode(mode) {
@@ -494,12 +494,17 @@ function drawPolar() {
 
 function draw() {
   // Apply queued mode switch only once the current visualization has faded to silence
-  if (pendingMode !== null) {
+  if (pendingModeSwitch) {
     const currentEnergy = (smoothBass + smoothMid + smoothHigh) / 3;
     if (currentEnergy < 0.003) {
-      const m = pendingMode;
-      pendingMode = null;
-      selectMode(m);
+      pendingModeSwitch = false;
+      if (shuffleBag.length === 0) {
+        shuffleBag = vizModes
+          .filter(m => m.value !== 'bubbles' && m.value !== vizMode.value)
+          .map(m => m.value)
+          .sort(() => Math.random() - 0.5);
+      }
+      if (shuffleBag.length) selectMode(shuffleBag.pop());
       animId = requestAnimationFrame(draw);
       return;
     }
