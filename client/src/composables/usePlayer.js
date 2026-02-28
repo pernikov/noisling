@@ -1,4 +1,4 @@
-import { reactive, computed } from 'vue';
+import { reactive, computed, watch } from 'vue';
 import { useApi } from './useApi.js';
 
 const api = useApi();
@@ -456,8 +456,13 @@ function setVolume(v) {
 let volumeBeforeMute = 1;
 
 function toggleVisualizer() {
+  if (!state.currentTrack) return;
   state.showVisualizer = !state.showVisualizer;
 }
+
+watch(() => state.currentTrack, (track) => {
+  if (!track) state.showVisualizer = false;
+});
 
 function toggleNowPlaying() {
   state.showNowPlaying = !state.showNowPlaying;

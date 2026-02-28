@@ -278,10 +278,11 @@ function onVolumeInput(e) {
     >
       <!-- Visualizer -->
       <button
-        class="transition-colors"
+        class="transition-colors disabled:text-zinc-700"
         :class="
           state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
         "
+        :disabled="!state.currentTrack"
         @click="toggleVisualizer"
         title="(V) Toggle visualizer"
       >
