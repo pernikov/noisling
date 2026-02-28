@@ -411,6 +411,25 @@ onMounted(() => {
     vizCtx.ctx.resume();
   }
   document.addEventListener('fullscreenchange', onFullscreenChange);
+
+  // Pre-fill the canvas immediately so it's fully dark before the first draw()
+  // fires. Without this, the canvas starts transparent and takes many frames to
+  // reach full opacity due to the low-alpha trail fill, creating a visible gap
+  // during the fade-in transition.
+  const canvas = canvasRef.value;
+  if (canvas) {
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width && rect.height) {
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      const c = canvas.getContext('2d');
+      c.scale(dpr, dpr);
+      c.fillStyle = 'rgb(9, 9, 11)';
+      c.fillRect(0, 0, rect.width, rect.height);
+    }
+  }
+
   animId = requestAnimationFrame(draw);
 });
 
@@ -429,7 +448,7 @@ onUnmounted(() => {
     class="w-full flex-1 bg-zinc-950 relative overflow-hidden"
     :class="isFullscreen ? '' : 'h-[calc(100vh-3.5rem-5.5rem)]'"
   >
-    <canvas ref="canvasRef" class="w-full h-full block" />
+    <canvas ref="canvasRef" class="w-full h-full block bg-zinc-950" />
 
     <button
       class="absolute top-3 right-[4.75rem] transition-colors z-10"
