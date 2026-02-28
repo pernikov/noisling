@@ -65,6 +65,8 @@ const state = reactive({
 audio.volume = state.volume;
 
 let playReported = false;
+let playedSeconds = 0;
+let _lastUpdateTime = null;
 
 // Restore queue from the previous session.
 let _pendingRestoreTime = null;
@@ -82,7 +84,7 @@ if (_savedQueue?.queue?.length > 0) {
     // If the restored position is already past the report threshold, don't report again
     const restoredTrack = queue[idx];
     if (restoredTrack?.duration > 0) {
-      const threshold = Math.min(restoredTrack.duration * 0.5, 30);
+      const threshold = Math.min(restoredTrack.duration * 0.5, 240);
       if (currentTime >= threshold) playReported = true;
     }
   }
@@ -116,10 +118,17 @@ let _volumeSaveTimer = null;
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
 
-  // Count a play after 50% of the track or 30s, whichever comes first
+  // Accumulate actual listened time — large deltas indicate a seek, ignore them
+  if (!audio.paused && _lastUpdateTime !== null) {
+    const delta = audio.currentTime - _lastUpdateTime;
+    if (delta > 0 && delta < 2) playedSeconds += delta;
+  }
+  _lastUpdateTime = audio.currentTime;
+
+  // Count a play after actually listening to 50% of the track or 4 minutes, whichever comes first
   if (!playReported && state.currentTrack && audio.duration > 0) {
-    const threshold = Math.min(audio.duration * 0.5, 30);
-    if (audio.currentTime >= threshold) {
+    const threshold = Math.min(audio.duration * 0.5, 240);
+    if (playedSeconds >= threshold) {
       playReported = true;
       api.reportPlay(state.currentTrack._id)
         .then(() => { state.playReportCount++; })
@@ -339,6 +348,8 @@ function play(track) {
   // state.currentTime is correct (= 0) if 'ended' fires before any timeupdate.
   state.currentTime = 0;
   playReported = false;
+  playedSeconds = 0;
+  _lastUpdateTime = null;
   // Setting audio.src already invokes the media element load algorithm per the
   // HTML spec — calling audio.load() explicitly after this is redundant and on
   // iOS progressively degrades the audio buffer state on every track change,
