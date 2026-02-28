@@ -499,7 +499,15 @@ function next() {
     play(state.queue[0]);
     saveQueue();
   } else {
+    // Queue finished with no repeat — clear everything and hide the player
     state.isPlaying = false;
+    state.currentTrack = null;
+    state.queue = [];
+    state.originalQueue = [];
+    state.queueIndex = -1;
+    state.currentTime = 0;
+    state.duration = 0;
+    try { localStorage.removeItem(QUEUE_KEY); } catch (_) {}
   }
 }
 
