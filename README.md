@@ -26,10 +26,16 @@ Cover art is resolved in the following order:
 cp .env.example .env
 # edit .env — at minimum set MUSIC_DIR to your music folder
 
-docker compose up
+docker compose up -d --build  # --build forces a rebuild of the image; -d runs in the background
 ```
 
 The app will be available at `http://localhost:1994`.
+
+```bash
+docker compose logs -f        # follow live logs from all containers
+docker compose logs -f app    # follow logs from the app container only
+docker compose down           # stop and remove containers
+```
 
 ## Running locally
 
