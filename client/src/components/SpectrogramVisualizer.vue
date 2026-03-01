@@ -1,34 +1,17 @@
 <script setup>
-import { ref, watch, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
+import { useTheme } from '../composables/useTheme.js';
 
 const { audio } = usePlayer();
 const { accentColor } = useAccentColor();
-
-const PREFS_KEY = 'noisling_player';
-function loadVizPrefs() {
-  try { return JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (_) { return {}; }
-}
-function saveVizPref(key, value) {
-  let prefs = loadVizPrefs();
-  prefs[key] = value;
-  try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
-}
-
-const _prefs = loadVizPrefs();
+const { vizMode, showBubbles, randomizeOnNewSong, setVizMode, setShowBubbles, setRandomizeOnNewSong } = useTheme();
 
 const containerRef = ref(null);
 const canvasRef = ref(null);
 const isFullscreen = ref(false);
-const vizMode = ref(_prefs.vizMode ?? 'spiral'); // 'spiral' | 'wave' | 'particles' | 'polar' | 'bubbles'
-const showBubbles = ref(_prefs.showBubbles ?? true);
 const showModeDropdown = ref(false);
-const randomizeOnNewSong = ref(_prefs.randomizeOnNewSong ?? false);
-
-watch(vizMode, v => saveVizPref('vizMode', v));
-watch(showBubbles, v => saveVizPref('showBubbles', v));
-watch(randomizeOnNewSong, v => saveVizPref('randomizeOnNewSong', v));
 let animId = null;
 
 const vizModes = [
@@ -104,7 +87,7 @@ function onNewSong() {
 }
 
 function selectMode(mode) {
-  vizMode.value = mode;
+  setVizMode(mode);
   showModeDropdown.value = false;
   const canvas = canvasRef.value;
   if (canvas) {
@@ -118,9 +101,9 @@ function selectMode(mode) {
 function toggleBubbles() {
   if (showBubbles.value && vizMode.value === 'bubbles') {
     // Turning off bubbles while in bubbles-only mode would show nothing — switch to spiral first
-    vizMode.value = 'spiral';
+    setVizMode('spiral');
   }
-  showBubbles.value = !showBubbles.value;
+  setShowBubbles(!showBubbles.value);
 }
 
 function toggleFullscreen() {
@@ -907,7 +890,7 @@ onUnmounted(() => {
         <button
           class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2.5 hover:bg-zinc-800"
           :class="randomizeOnNewSong ? 'text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'"
-          @click="randomizeOnNewSong = !randomizeOnNewSong"
+          @click="setRandomizeOnNewSong(!randomizeOnNewSong)"
         >
           <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
