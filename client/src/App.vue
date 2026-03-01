@@ -12,6 +12,7 @@ import { usePlayer } from './composables/usePlayer.js';
 import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
 import { useAccentColor } from './composables/useAccentColor.js';
 import { useTheme } from './composables/useTheme.js';
+import { useUpdateCheck } from './composables/useUpdateCheck.js';
 
 const { loadTheme, showArtistsNav } = useTheme();
 loadTheme();
@@ -46,6 +47,8 @@ const navStyle = computed(() => {
 useKeyboardShortcuts();
 
 const { items: toastItems } = useToast();
+
+const { hasUpdate, latestVersion } = useUpdateCheck();
 
 watch(() => playerState.currentTrack, (track) => {
   document.title = track
@@ -92,6 +95,17 @@ watch(() => playerState.currentTrack, (track) => {
         </div>
 
         <div class="flex items-center gap-1">
+          <a
+            v-if="hasUpdate"
+            href="https://github.com/pernikov/noisling/releases"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+            :title="`Update available: v${latestVersion}`"
+          >
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse shrink-0" />
+            Update available
+          </a>
           <button
             class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
             :class="{ '!text-zinc-100': playerState.showShortcuts }"
