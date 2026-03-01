@@ -19,6 +19,80 @@ function buildSort(sortField, sortOrder) {
   }
 }
 
+// GET /api/search — global search across tracks, artists, and albums
+router.get('/search', async (req, res) => {
+  const q = req.query.q?.trim();
+  if (!q) return res.json({ tracks: [], artists: [], albums: [] });
+
+  const limit = Math.min(8, parseInt(req.query.limit, 10) || 5);
+  const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+
+  const [tracks, artists, albums] = await Promise.all([
+    Track.find({ $or: [{ title: regex }, { artists: regex }, { album: regex }] })
+      .sort({ title: 1 })
+      .limit(limit)
+      .select('title artists album cover duration')
+      .lean(),
+
+    Track.aggregate([
+      { $project: { pairs: { $zip: { inputs: ['$artists', '$artistsNorm'] } }, album: 1, cover: 1 } },
+      { $unwind: '$pairs' },
+      {
+        $group: {
+          _id: { $arrayElemAt: ['$pairs', 1] },
+          name: { $first: { $arrayElemAt: ['$pairs', 0] } },
+          albumCount: { $addToSet: '$album' },
+          trackCount: { $sum: 1 },
+          covers: { $addToSet: '$cover' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: 1,
+          albumCount: { $size: '$albumCount' },
+          trackCount: 1,
+          covers: { $filter: { input: '$covers', cond: { $ne: ['$$this', ''] } } },
+        },
+      },
+      { $match: { name: regex } },
+      { $sort: { name: 1 } },
+      { $limit: limit },
+    ]),
+
+    Track.aggregate([
+      { $match: { album: regex } },
+      {
+        $group: {
+          // Group by (album, primary artistNorm) so same-named albums from
+          // different artists (e.g. multiple "Unknown Album") stay separate.
+          _id: { album: '$album', artistNorm: { $arrayElemAt: ['$artistsNorm', 0] } },
+          artists: { $first: '$artists' },
+          artistsNorm: { $first: '$artistsNorm' },
+          year: { $first: '$year' },
+          trackCount: { $sum: 1 },
+          cover: { $first: '$cover' },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          name: '$_id.album',
+          artists: 1,
+          artistsNorm: 1,
+          year: 1,
+          trackCount: 1,
+          cover: 1,
+        },
+      },
+      { $sort: { name: 1 } },
+      { $limit: limit },
+    ]),
+  ]);
+
+  res.json({ tracks, artists, albums });
+});
+
 // GET /api/artists — list artists with counts (paginated, searchable)
 router.get('/artists', async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);

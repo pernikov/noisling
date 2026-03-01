@@ -28,6 +28,7 @@ const groups = [
   {
     label: 'Interface',
     shortcuts: [
+      { keys: ['F'], description: 'Global search' },
       { keys: ['V'], description: 'Toggle visualizer' },
       { keys: ['Q'], description: 'Toggle queue' },
       { keys: ['?'], description: 'Show this panel' },

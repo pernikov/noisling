@@ -239,7 +239,7 @@ onUnmounted(() => {
         <!-- Density -->
         <div>
           <p class="text-sm font-medium text-zinc-200 mb-1">List density</p>
-          <p class="text-xs text-zinc-500 mb-3">Control how compact track lists appear.</p>
+          <p class="text-xs text-zinc-500 mb-3">Control how compact track lists and search results appear.</p>
           <div class="inline-flex p-1 bg-zinc-800 rounded-lg border border-zinc-700 gap-1">
             <button
               @click="setDensity('comfortable')"
@@ -381,7 +381,7 @@ onUnmounted(() => {
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm text-zinc-200">Cover art</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Show album thumbnails in track lists and the queue.</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Show album thumbnails in track lists, the queue, and search results.</p>
           </div>
           <button
             @click="setShowCoverArt(!showCoverArt)"
@@ -402,8 +402,8 @@ onUnmounted(() => {
         <div class="space-y-3">
           <div
             v-for="col in [
-              { key: 'artist',     label: 'Artist',      desc: 'Primary artist in track lists and the queue.' },
-              { key: 'album',      label: 'Album',       desc: 'Album the track belongs to.' },
+              { key: 'artist',     label: 'Artist',      desc: 'Primary artist in track lists, the queue, and search results.' },
+              { key: 'album',      label: 'Album',       desc: 'Album the track belongs to, shown in track lists and search results.' },
               { key: 'plays',      label: 'Plays',       desc: 'How many times you\'ve played it.' },
               { key: 'lastPlayed', label: 'Last Played', desc: 'When you last listened.' },
             ]"

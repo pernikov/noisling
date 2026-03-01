@@ -13,6 +13,7 @@ import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
 import { useAccentColor } from './composables/useAccentColor.js';
 import { useTheme } from './composables/useTheme.js';
 import { useUpdateCheck } from './composables/useUpdateCheck.js';
+import GlobalSearch from './components/GlobalSearch.vue';
 
 const { loadTheme, showArtistsNav } = useTheme();
 loadTheme();
@@ -95,6 +96,7 @@ watch(() => playerState.currentTrack, (track) => {
         </div>
 
         <div class="flex items-center gap-1">
+          <GlobalSearch />
           <a
             v-if="hasUpdate"
             href="https://github.com/pernikov/noisling"

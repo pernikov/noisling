@@ -44,6 +44,10 @@ export function useApi() {
     getTrack: (id) => request(`/tracks/${id}`),
     scanLibrary: () => request('/scan', { method: 'POST' }),
     deleteLibrary: () => request('/library', { method: 'DELETE' }),
+    globalSearch: (q, limit = 5) => {
+      const params = new URLSearchParams({ q, limit });
+      return request(`/search?${params}`);
+    },
     getStats: () => request('/stats'),
     getSettings: () => request('/settings'),
     saveSettings: (body) => request('/settings', {
