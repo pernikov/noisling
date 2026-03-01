@@ -97,7 +97,7 @@ watch(() => playerState.currentTrack, (track) => {
         <div class="flex items-center gap-1">
           <a
             v-if="hasUpdate"
-            href="https://github.com/pernikov/noisling/releases"
+            href="https://github.com/pernikov/noisling"
             target="_blank"
             rel="noopener noreferrer"
             class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
