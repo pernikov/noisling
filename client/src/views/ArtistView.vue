@@ -1,11 +1,11 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import CoverArt from '../components/CoverArt.vue';
-import { mdiPlay, mdiShuffle } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiChevronLeft, mdiChevronRight } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import NotFoundPage from '../components/NotFoundPage.vue';
 
@@ -17,6 +17,11 @@ const artistName = ref('');
 const albums = ref([]);
 const loading = ref(true);
 const notFound = ref(false);
+const page = ref(1);
+const totalAlbums = ref(0);
+const limit = 20;
+
+const totalPages = computed(() => Math.ceil(totalAlbums.value / limit));
 
 async function load() {
   loading.value = true;
@@ -24,8 +29,9 @@ async function load() {
   try {
     const name = decodeURIComponent(route.params.name);
     artistName.value = name;
-    const data = await api.getArtist(name);
+    const data = await api.getArtist(name, page.value, limit);
     albums.value = data.albums;
+    totalAlbums.value = data.total;
   } catch (err) {
     notFound.value = true;
   } finally {
@@ -34,7 +40,8 @@ async function load() {
 }
 
 onMounted(load);
-watch(() => route.params.name, load);
+watch(() => route.params.name, () => { page.value = 1; load(); });
+watch(page, load);
 useLibraryEvents(load);
 
 function goToAlbum(album) {
@@ -114,6 +121,25 @@ function formatDuration(seconds) {
             {{ formatDuration(album.duration) }}
           </div>
         </div>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="flex items-center justify-center gap-3 mt-8">
+        <button
+          :disabled="page === 1"
+          class="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          @click="page--"
+        >
+          <Icon :path="mdiChevronLeft" class="w-4 h-4" />
+        </button>
+        <span class="text-sm text-zinc-400">{{ page }} / {{ totalPages }}</span>
+        <button
+          :disabled="page === totalPages"
+          class="p-1.5 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          @click="page++"
+        >
+          <Icon :path="mdiChevronRight" class="w-4 h-4" />
+        </button>
       </div>
     </template>
   </div>

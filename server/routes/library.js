@@ -199,39 +199,52 @@ router.get('/artists/random', async (req, res) => {
   res.json(artists);
 });
 
-// GET /api/artists/:name — artist detail with albums
+// GET /api/artists/:name — artist detail with albums (paginated)
 router.get('/artists/:name', async (req, res) => {
   const { name } = req.params;
-  const norm = name.toLowerCase();
-  const albums = await Track.aggregate([
+  const norm  = name.toLowerCase();
+  const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const skip  = (page - 1) * limit;
+
+  const result = await Track.aggregate([
     { $match: { artistsNorm: norm } },
     {
       $group: {
         _id: '$album',
-        year: { $first: '$year' },
+        year:       { $first: '$year' },
         trackCount: { $sum: 1 },
-        cover: { $first: '$cover' },
-        duration: { $sum: '$duration' },
+        cover:      { $first: '$cover' },
+        duration:   { $sum: '$duration' },
       },
     },
     {
       $project: {
         _id: 0,
-        name: '$_id',
-        year: 1,
+        name:       '$_id',
+        year:       1,
         trackCount: 1,
-        cover: 1,
-        duration: 1,
+        cover:      1,
+        duration:   1,
       },
     },
     { $sort: { year: -1, name: 1 } },
+    {
+      $facet: {
+        total:  [{ $count: 'count' }],
+        albums: [{ $skip: skip }, { $limit: limit }],
+      },
+    },
   ]);
 
-  if (albums.length === 0) {
+  const { total = [], albums = [] } = result[0] || {};
+  const totalCount = total[0]?.count ?? 0;
+
+  if (totalCount === 0) {
     return res.status(404).json({ error: 'Artist not found' });
   }
 
-  res.json({ artist: name, albums });
+  res.json({ artist: name, albums, total: totalCount, page, limit });
 });
 
 // GET /api/artists/:name/tracks — all tracks for an artist

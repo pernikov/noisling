@@ -26,5 +26,9 @@ const trackSchema = new mongoose.Schema({
 
 trackSchema.index({ artistsNorm: 1, album: 1 });
 trackSchema.index({ album: 1, disc: 1, trackNumber: 1 });
+trackSchema.index({ isLoved: 1 });
+trackSchema.index({ playCount: -1 });
+trackSchema.index({ lastPlayedAt: -1 });
+trackSchema.index({ scannedAt: -1 });
 
 export default mongoose.model('Track', trackSchema);

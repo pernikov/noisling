@@ -12,7 +12,7 @@ import Icon from '../components/Icon.vue';
 
 const api = useApi();
 const router = useRouter();
-const { state: playerState, playAlbum, toggleShuffle } = usePlayer();
+const { state: playerState, playAlbum, shuffleAll } = usePlayer();
 const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, songsColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
 
 const lovedTracks = ref([]);
@@ -45,11 +45,7 @@ const loadingTopTracks = ref(false);
 async function playShuffleAll() {
   loadingShuffleAll.value = true;
   try {
-    const tracks = await api.getAllTracks();
-    if (!tracks.length) return;
-    if (!playerState.shuffle) toggleShuffle();
-    const startIndex = Math.floor(Math.random() * tracks.length);
-    playAlbum(tracks, startIndex);
+    await shuffleAll();
   } finally {
     loadingShuffleAll.value = false;
   }
@@ -58,10 +54,8 @@ async function playShuffleAll() {
 async function playTopTracks() {
   loadingTopTracks.value = true;
   try {
-    const tracks = await api.getAllTracks();
-    if (!tracks.length) return;
-    const sorted = [...tracks].sort((a, b) => (b.playCount || 0) - (a.playCount || 0));
-    playAlbum(sorted.slice(0, 50), 0);
+    const tracks = await api.getTopTracks(50);
+    if (tracks.length) playAlbum(tracks, 0);
   } finally {
     loadingTopTracks.value = false;
   }

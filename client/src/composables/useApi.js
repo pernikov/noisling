@@ -17,7 +17,10 @@ export function useApi() {
       return request(`/artists?${params}`);
     },
     getRandomArtists: (limit = 12) => request(`/artists/random?limit=${limit}`),
-    getArtist: (name) => request(`/artists/${encodeURIComponent(name)}`),
+    getArtist: (name, page = 1, limit = 20) => {
+      const params = new URLSearchParams({ page, limit });
+      return request(`/artists/${encodeURIComponent(name)}?${params}`);
+    },
     getArtistTracks: (name) => request(`/artists/${encodeURIComponent(name)}/tracks`),
     getRecentAlbums: (limit = 12) => request(`/albums/recent?limit=${limit}`),
     getAlbums: () => request('/albums'),
@@ -51,6 +54,22 @@ export function useApi() {
     getStats: () => request('/stats'),
     getSettings: () => request('/settings'),
     saveSettings: (body) => request('/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    getTopTracks: (limit = 50) =>
+      request(`/tracks?sort=plays&order=desc&limit=${limit}&page=1`).then(d => d.tracks),
+    getQueue: () => request('/queue'),
+    getQueueTracks: (offset = 0, limit = 50) =>
+      request(`/queue/tracks?offset=${offset}&limit=${limit}`),
+    setQueue: (body) => request('/queue', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    shuffleQueue: () => request('/queue/shuffle', { method: 'PUT' }),
+    updateQueue: (body) => request('/queue', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
