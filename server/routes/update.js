@@ -37,10 +37,10 @@ router.post('/update', (req, res) => {
   (async () => {
     try {
       send('step', 'Running git pull...');
-      await runCommand('git', ['pull'], repoDir);
+      await runCommand('git', ['pull'], REPO_DIR);
 
       send('step', 'Building and restarting containers (this will take a moment)...');
-      await runCommand('docker', ['compose', 'up', '-d', '--build'], repoDir);
+      await runCommand('docker', ['compose', 'up', '-d', '--build'], REPO_DIR);
 
       send('done', 'Update complete! The application is restarting...');
     } catch (err) {
