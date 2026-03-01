@@ -40,7 +40,7 @@ router.post('/update', (_req, res) => {
       await runCommand('git', ['-c', `safe.directory=${REPO_DIR}`, 'pull'], REPO_DIR);
 
       send('step', 'Building and restarting containers (this will take a moment)...');
-      await runCommand('docker', ['compose', 'up', '-d', '--build'], REPO_DIR);
+      await runCommand('docker-compose', ['up', '-d', '--build'], REPO_DIR);
 
       send('done', 'Update complete! The application is restarting...');
     } catch (err) {
