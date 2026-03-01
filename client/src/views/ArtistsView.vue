@@ -3,11 +3,13 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
+import { useToast } from '../composables/useToast.js';
 import ArtistCover from '../components/ArtistCover.vue';
 import { mdiMagnify, mdiMicrophone } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
+const { error: toastError } = useToast();
 const route = useRoute();
 const router = useRouter();
 const artists = ref([]);
@@ -44,6 +46,7 @@ async function loadArtists() {
     total.value = data.total;
   } catch (err) {
     console.error('Failed to load artists:', err);
+    toastError('Failed to load artists. Check your connection.');
   } finally {
     loading.value = false;
   }

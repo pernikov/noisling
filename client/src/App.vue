@@ -1,6 +1,7 @@
 <script setup>
 import { computed, watch } from 'vue';
-import { mdiCog, mdiHelpCircleOutline } from '@mdi/js';
+import { mdiCog, mdiHelpCircleOutline, mdiAlertCircleOutline } from '@mdi/js';
+import { useToast } from './composables/useToast.js';
 import Icon from './components/Icon.vue';
 import { useRoute } from 'vue-router';
 import PlayerBar from './components/PlayerBar.vue';
@@ -35,6 +36,14 @@ const navStyle = computed(() => {
   };
 });
 useKeyboardShortcuts();
+
+const { items: toastItems } = useToast();
+
+watch(() => playerState.currentTrack, (track) => {
+  document.title = track
+    ? `${track.title} · ${track.artists?.join(', ')} — Noisling`
+    : 'Noisling';
+}, { immediate: true });
 </script>
 
 <template>
@@ -113,6 +122,22 @@ useKeyboardShortcuts();
 
     <!-- Keyboard shortcuts modal (manages its own v-if + transitions internally) -->
     <ShortcutsModal />
+
+    <!-- Global error toasts -->
+    <Teleport to="body">
+      <div class="fixed bottom-24 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+        <TransitionGroup name="toast-slide">
+          <div
+            v-for="item in toastItems"
+            :key="item.id"
+            class="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/95 backdrop-blur-xl border border-red-900/60 rounded-lg shadow-xl text-sm max-w-xs"
+          >
+            <Icon :path="mdiAlertCircleOutline" class="w-4 h-4 text-red-400 shrink-0" />
+            <span class="text-zinc-200">{{ item.message }}</span>
+          </div>
+        </TransitionGroup>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -139,5 +164,16 @@ useKeyboardShortcuts();
 .vis-fade-enter-from,
 .vis-fade-leave-to {
   opacity: 0;
+}
+
+/* Error toasts */
+.toast-slide-enter-active,
+.toast-slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast-slide-enter-from,
+.toast-slide-leave-to {
+  opacity: 0;
+  transform: translateX(12px);
 }
 </style>

@@ -3,11 +3,13 @@ import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
+import { useToast } from '../composables/useToast.js';
 import TrackList from '../components/TrackList.vue';
 import { mdiMagnify, mdiMusicNote } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
+const { error: toastError } = useToast();
 const route = useRoute();
 const router = useRouter();
 const allTracks = ref([]);
@@ -44,6 +46,7 @@ async function loadTracks() {
     total.value = data.total;
   } catch (err) {
     console.error('Failed to load tracks:', err);
+    toastError('Failed to load songs. Check your connection.');
   } finally {
     loading.value = false;
   }

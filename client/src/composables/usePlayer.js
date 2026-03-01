@@ -441,6 +441,7 @@ function toggle() {
 
 function seek(time) {
   audio.currentTime = time;
+  state.currentTime = time;
 }
 
 function setVolume(v) {

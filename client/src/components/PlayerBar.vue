@@ -25,6 +25,8 @@ import Icon from "./Icon.vue";
 const {
   state,
   toggle,
+  pause,
+  resume,
   next,
   prev,
   seek,
@@ -64,6 +66,8 @@ function formatTime(seconds) {
 // snap seeks to the nearest keyframe, which can be ±several seconds off).
 const isScrubbing = ref(false);
 const scrubPercent = ref(0);
+const hoverPercent = ref(null);
+const showVolTooltip = ref(false);
 
 const displayPercent = computed(() => {
   if (isScrubbing.value) return scrubPercent.value;
@@ -81,13 +85,13 @@ function onProgressMouseDown(e) {
   const rect = e.currentTarget.getBoundingClientRect();
   const clamp = (x) => Math.max(0, Math.min(100, (x - rect.left) / rect.width * 100));
 
+  const wasPlaying = state.isPlaying;
+  if (wasPlaying) pause();
   isScrubbing.value = true;
   scrubPercent.value = clamp(e.clientX);
-  seek(scrubPercent.value / 100 * state.duration);
 
   const onMove = (ev) => {
     scrubPercent.value = clamp(ev.clientX);
-    seek(scrubPercent.value / 100 * state.duration);
   };
   const onUp = (ev) => {
     document.removeEventListener('mousemove', onMove);
@@ -95,6 +99,7 @@ function onProgressMouseDown(e) {
     scrubPercent.value = clamp(ev.clientX);
     seek(scrubPercent.value / 100 * state.duration);
     isScrubbing.value = false;
+    if (wasPlaying) resume();
   };
   document.addEventListener('mousemove', onMove);
   document.addEventListener('mouseup', onUp);
@@ -108,6 +113,27 @@ function onVolumeWheel(e) {
   const direction = e.deltaY > 0 ? -1 : 1;
   setVolume(Math.min(1, Math.max(0, state.volume + direction * 0.05)));
 }
+
+function onProgressMouseMove(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  hoverPercent.value = Math.max(0, Math.min(100, (e.clientX - rect.left) / rect.width * 100));
+}
+
+function onProgressMouseLeave() {
+  hoverPercent.value = null;
+}
+
+// During scrubbing use the scrub position; otherwise use the mouse hover position.
+const activeTooltipPercent = computed(() => {
+  if (isScrubbing.value) return scrubPercent.value;
+  return hoverPercent.value;
+});
+
+const hoverTime = computed(() => {
+  const pct = activeTooltipPercent.value;
+  if (pct === null || !state.duration) return null;
+  return formatTime(pct / 100 * state.duration);
+});
 </script>
 
 <template>
@@ -262,8 +288,17 @@ function onVolumeWheel(e) {
           class="flex-1 py-2 -my-2 group"
           :class="isScrubbing ? 'cursor-grabbing' : 'cursor-grab'"
           @mousedown.prevent="onProgressMouseDown"
+          @mousemove="onProgressMouseMove"
+          @mouseleave="onProgressMouseLeave"
         >
           <div class="relative h-1 bg-zinc-700 rounded">
+            <Transition name="tooltip-fade">
+              <div
+                v-if="hoverTime"
+                class="absolute -top-7 text-xs text-zinc-100 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded pointer-events-none tabular-nums z-10 bar-tooltip"
+                :style="{ left: `clamp(24px, ${activeTooltipPercent}%, calc(100% - 24px))` }"
+              >{{ hoverTime }}</div>
+            </Transition>
             <div
               class="h-full rounded"
               :class="isScrubbing ? `bg-${accentColor}-400` : `bg-zinc-100 group-hover:bg-${accentColor}-400`"
@@ -353,7 +388,7 @@ function onVolumeWheel(e) {
       </button>
 
       <!-- Volume -->
-      <div class="flex items-center gap-1.5 flex-1" @wheel.prevent="onVolumeWheel">
+      <div class="flex items-center gap-1.5 flex-1" @wheel.prevent="onVolumeWheel" @mouseenter="showVolTooltip = true" @mouseleave="showVolTooltip = false">
         <button
           class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0"
           @click="toggleMute"
@@ -362,15 +397,24 @@ function onVolumeWheel(e) {
           <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
           <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
         </button>
-        <input
-          type="range"
-          min="0"
-          max="1"
-          step="0.01"
-          :value="state.volume"
-          class="w-full h-1 appearance-none bg-zinc-700 rounded outline-none accent-zinc-100"
-          @input="onVolumeInput"
-        />
+        <div class="relative flex-1">
+          <Transition name="tooltip-fade">
+            <div
+              v-if="showVolTooltip"
+              class="absolute -top-5 text-xs text-zinc-100 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded pointer-events-none tabular-nums z-10 bar-tooltip"
+              :style="{ left: `clamp(20px, ${state.volume * 100}%, calc(100% - 20px))` }"
+            >{{ Math.round(state.volume * 100) }}%</div>
+          </Transition>
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            :value="state.volume"
+            class="w-full h-1 appearance-none bg-zinc-700 rounded outline-none accent-zinc-100"
+            @input="onVolumeInput"
+          />
+        </div>
       </div>
     </div>
   </div>
@@ -402,6 +446,20 @@ function onVolumeWheel(e) {
 .track-fade-enter-from,
 .track-fade-leave-to {
   opacity: 0;
+}
+
+/* Shared progress/volume tooltip */
+.bar-tooltip {
+  transform: translateX(-50%);
+}
+.tooltip-fade-enter-active,
+.tooltip-fade-leave-active {
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.tooltip-fade-enter-from,
+.tooltip-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(4px);
 }
 
 /* Play/pause and volume icon swaps */

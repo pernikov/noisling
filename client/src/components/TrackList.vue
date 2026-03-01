@@ -39,11 +39,16 @@ function openMenu(event, index, track) {
     return;
   }
   const rect = event.currentTarget.getBoundingClientRect();
+  const MENU_HEIGHT = 96;
+  const MENU_WIDTH = 176;
+  const top = rect.bottom + 4 + MENU_HEIGHT > window.innerHeight
+    ? rect.top - MENU_HEIGHT - 4
+    : rect.bottom + 4;
   menuRowIndex.value = index;
   menuTrack.value = track;
   menuStyle.value = {
-    top: `${rect.bottom + 4}px`,
-    left: `${Math.min(rect.left, window.innerWidth - 176)}px`,
+    top: `${Math.max(0, top)}px`,
+    left: `${Math.min(rect.left, window.innerWidth - MENU_WIDTH)}px`,
   };
 }
 
