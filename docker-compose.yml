@@ -10,6 +10,8 @@ services:
     volumes:
       - /mnt/data/music:/music:ro
       - covers:/app/server/covers
+      - .:/repo
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - mongo
     restart: unless-stopped

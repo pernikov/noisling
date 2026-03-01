@@ -37,6 +37,23 @@ docker compose logs -f app    # follow logs from the app container only
 docker compose down           # stop and remove containers
 ```
 
+### One-click updates
+
+When a new version is released, an **Update available** button appears in the top navigation bar. Clicking it opens a dialog that runs `git pull` and `docker compose up -d --build` directly from the UI, streaming live output as the image builds. The page automatically reloads once the container is back online.
+
+This requires two things in `docker-compose.yml` (already included by default):
+
+- **Docker socket mount** — gives the container access to the host Docker daemon so it can trigger a rebuild of itself
+- **Repo mount** — mounts the cloned repository at `/repo` inside the container so `git pull` has somewhere to write
+
+```yaml
+volumes:
+  - .:/repo                                    # repo root mounted at /repo
+  - /var/run/docker.sock:/var/run/docker.sock  # Docker socket
+```
+
+The server automatically looks for a git repository at `/repo`. No extra configuration is needed as long as `docker compose` is run from the cloned repo directory, which is the standard setup.
+
 ## Running locally
 
 Requires Node.js 20+ and a running MongoDB instance.
@@ -63,3 +80,4 @@ Play counts and last-played timestamps are stored directly on the track. If a fi
 | `MUSIC_DIR` | — | Path to your music directory (required) |
 | `MONGODB_URI` | `mongodb://localhost:27017/noisling` | MongoDB connection string |
 | `PORT` | `1994` | Server port |
+| `REPO_DIR` | `/repo` | Path to the git repository inside the container (override if mounting at a different path) |
