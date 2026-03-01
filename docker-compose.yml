@@ -1,3 +1,5 @@
+name: noisling
+
 services:
   app:
     build: .
@@ -7,6 +9,7 @@ services:
       - MONGODB_URI=mongodb://mongo:27017/noisling
       - MUSIC_DIR=/music
       - PORT=1994
+      - COMPOSE_PROJECT_NAME=noisling
     volumes:
       - /mnt/data/music:/music:ro
       - covers:/app/server/covers
