@@ -17,7 +17,7 @@ router.get('/queue/tracks', async (req, res) => {
   if (!q || !q.trackIds.length) return res.json([]);
 
   const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
-  const limit  = Math.min(500, Math.max(1, parseInt(req.query.limit, 10) || 50));
+  const limit  = Math.min(10000, Math.max(1, parseInt(req.query.limit, 10) || 50));
   const ids    = q.trackIds.slice(offset, offset + limit);
 
   const tracks = await Track.find({ _id: { $in: ids } }).lean();

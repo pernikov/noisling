@@ -31,10 +31,6 @@ const PREFS_KEY = 'noisling_player';
 let _savedPrefs = {};
 try { _savedPrefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch (_) {}
 
-// Large-queue threshold: queues above this size use a sliding buffer in memory
-// instead of holding all track objects at once.
-const LARGE_QUEUE_THRESHOLD = 500;
-
 // ─────────────────────────────────────────────────────────────────────────────
 
 const audio = new Audio();
@@ -267,37 +263,21 @@ export async function restoreQueue() {
     const { total, currentIndex, currentTime } = meta;
     if (currentIndex >= total) return; // queue ended naturally
 
-    let tracks, bufferIndex;
-
-    if (total <= LARGE_QUEUE_THRESHOLD) {
-      // Small queue: fetch everything in one shot
-      tracks = await api.getQueueTracks(0, total);
-      if (!tracks.length) return;
-      state.isLargeQueue      = false;
-      state.queueTotal        = 0;
-      state.queueBufferOffset = 0;
-      state.originalQueue     = [...tracks];
-      bufferIndex             = currentIndex;
-    } else {
-      // Large queue: buffer a window around the saved position
-      const fetchOffset = Math.max(0, currentIndex - 10);
-      tracks = await api.getQueueTracks(fetchOffset, 60);
-      if (!tracks.length) return;
-      state.isLargeQueue      = true;
-      state.queueTotal        = total;
-      state.queueBufferOffset = fetchOffset;
-      state.originalQueue     = [];
-      bufferIndex             = currentIndex - fetchOffset;
-    }
+    const tracks = await api.getQueueTracks(0, total);
+    if (!tracks.length) return;
+    state.isLargeQueue      = false;
+    state.queueTotal        = 0;
+    state.queueBufferOffset = 0;
+    state.originalQueue     = [...tracks];
 
     state.queue        = tracks;
-    state.queueIndex   = bufferIndex;
-    state.currentTrack = tracks[bufferIndex];
-    audio.src = api.streamUrl(tracks[bufferIndex]._id, needsTranscode(tracks[bufferIndex]));
+    state.queueIndex   = currentIndex;
+    state.currentTrack = tracks[currentIndex];
+    audio.src = api.streamUrl(tracks[currentIndex]._id, needsTranscode(tracks[currentIndex]));
 
     if (typeof currentTime === 'number' && currentTime > 5) {
       _pendingRestoreTime = currentTime;
-      const track = tracks[bufferIndex];
+      const track = tracks[currentIndex];
       if (track?.duration > 0) {
         const threshold = Math.min(track.duration * 0.5, 240);
         if (currentTime >= threshold) playReported = true;
@@ -390,23 +370,24 @@ function playAlbum(tracks, startIndex = 0) {
   saveQueueOrder();
 }
 
-// Shuffle All: server generates the shuffled ID list, client streams in batches.
+// Shuffle All: server shuffles and persists all IDs, client fetches the full list.
 async function shuffleAll() {
   const { total, tracks } = await api.shuffleQueue();
   if (!total || !tracks.length) return;
 
-  state.isLargeQueue      = true;
-  state.queueTotal        = total;
-  state.queueBufferOffset = 0;
-  state.queue             = tracks;
-  state.queueIndex        = 0;
-  state.originalQueue     = [];
+  const allTracks = await api.getQueueTracks(0, total);
 
-  play(tracks[0]);
-  prefetchIfNeeded();
+  state.isLargeQueue      = false;
+  state.queueTotal        = 0;
+  state.queueBufferOffset = 0;
+  state.queue             = allTracks.length ? allTracks : tracks;
+  state.originalQueue     = [...state.queue];
+  state.queueIndex        = 0;
+
+  play(state.queue[0]);
 }
 
-// Extend the buffer when running low on tracks ahead.
+// Extend the sliding-window buffer when running low on tracks ahead (large queues only).
 async function prefetchIfNeeded() {
   if (!state.isLargeQueue || _prefetching) return;
   const tracksAhead = state.queue.length - 1 - state.queueIndex;
