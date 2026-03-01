@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { fileURLToPath, URL } from 'node:url';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const pkg = require('./package.json');
+const pkg = require('../package.json');
 
 export default defineConfig({
   define: {
