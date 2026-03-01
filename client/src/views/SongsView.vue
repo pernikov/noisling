@@ -4,11 +4,13 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useToast } from '../composables/useToast.js';
+import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
 import { mdiMagnify, mdiMusicNote } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
+const { songsColumns, songsSort, setSongsSort } = useTheme();
 const { error: toastError } = useToast();
 const route = useRoute();
 const router = useRouter();
@@ -41,7 +43,7 @@ function updateQuery() {
 async function loadTracks() {
   loading.value = true;
   try {
-    const data = await api.getTracks(page.value, limit, search.value.trim());
+    const data = await api.getTracks(page.value, limit, search.value.trim(), songsSort.value.field, songsSort.value.dir);
     allTracks.value = data.tracks;
     total.value = data.total;
   } catch (err) {
@@ -50,6 +52,13 @@ async function loadTracks() {
   } finally {
     loading.value = false;
   }
+}
+
+function onSort({ field, dir }) {
+  setSongsSort(field, dir);
+  page.value = 1;
+  updateQuery();
+  loadTracks();
 }
 
 watch(search, () => {
@@ -65,7 +74,7 @@ onMounted(loadTracks);
 useLibraryEvents(loadTracks);
 
 async function fetchAllTracks() {
-  return api.getAllTracks(search.value.trim());
+  return api.getAllTracks(search.value.trim(), songsSort.value.field, songsSort.value.dir);
 }
 
 const totalPages = computed(() => Math.ceil(total.value / limit));
@@ -131,7 +140,20 @@ function prevPage() {
     </div>
 
     <template v-else>
-      <TrackList :tracks="allTracks" show-cover show-artist show-album show-plays show-last-played :start-index="(page - 1) * limit" :get-all-tracks="fetchAllTracks" />
+      <TrackList
+        :tracks="allTracks"
+        show-cover
+        :show-artist="songsColumns.artist"
+        :show-album="songsColumns.album"
+        :show-plays="songsColumns.plays"
+        :show-last-played="songsColumns.lastPlayed"
+        sortable
+        :sort-by="songsSort.field"
+        :sort-dir="songsSort.dir"
+        @sort="onSort"
+        :start-index="(page - 1) * limit"
+        :get-all-tracks="fetchAllTracks"
+      />
 
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-4 mt-6 text-sm">
         <button

@@ -21,5 +21,6 @@ export default {
     { pattern: /^ring-(rose|amber|yellow|emerald|teal|sky|indigo|violet|slate)-400$/ },
     { pattern: /^bg-(rose|amber|yellow|emerald|teal|sky|indigo|violet|slate)-400$/, variants: ['group-hover'] },
     { pattern: /^ring-(rose|amber|yellow|emerald|teal|sky|indigo|violet|slate)-400$/, variants: ['focus-visible'] },
+    { pattern: /^text-(rose|amber|yellow|emerald|teal|sky|indigo|violet|slate)-300$/, variants: ['hover'] },
   ],
 };

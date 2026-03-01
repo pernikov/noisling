@@ -3,7 +3,7 @@ import { computed, watch } from 'vue';
 import { mdiCog, mdiHelpCircleOutline, mdiAlertCircleOutline } from '@mdi/js';
 import { useToast } from './composables/useToast.js';
 import Icon from './components/Icon.vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import PlayerBar from './components/PlayerBar.vue';
 import NowPlayingModal from './components/NowPlayingModal.vue';
 import ShortcutsModal from './components/ShortcutsModal.vue';
@@ -13,14 +13,22 @@ import { useKeyboardShortcuts } from './composables/useKeyboardShortcuts.js';
 import { useAccentColor } from './composables/useAccentColor.js';
 import { useTheme } from './composables/useTheme.js';
 
-const { loadTheme } = useTheme();
+const { loadTheme, showArtistsNav } = useTheme();
 loadTheme();
 
 const { loadPlayerPrefs } = usePlayer();
 loadPlayerPrefs();
 
 const route = useRoute();
+const router = useRouter();
 const { state: playerState, toggleShortcuts } = usePlayer();
+
+// Redirect away from /artists* if the nav link is hidden
+watch(showArtistsNav, (visible) => {
+  if (!visible && route.path.startsWith('/artists')) {
+    router.replace('/');
+  }
+});
 
 watch(() => route.path, () => {
   playerState.showVisualizer = false;
@@ -73,6 +81,7 @@ watch(() => playerState.currentTrack, (track) => {
             Songs
           </router-link>
           <router-link
+            v-if="showArtistsNav"
             to="/artists"
             class="text-zinc-400 hover:text-zinc-100 transition-colors"
             active-class="!text-zinc-100"

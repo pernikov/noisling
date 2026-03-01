@@ -18,6 +18,10 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Font size scale — changes root rem so all Tailwind rem values scale with it */
+html.font-small { font-size: 13px; }
+html.font-large  { font-size: 18px; }
+
 /* Thin, subtle scrollbar */
 ::-webkit-scrollbar {
   width: 4px;

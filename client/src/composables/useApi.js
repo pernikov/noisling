@@ -23,14 +23,18 @@ export function useApi() {
     getAlbums: () => request('/albums'),
     getAlbum: (artist, album) =>
       request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}`),
-    getTracks: (page = 1, limit = 50, search = '') => {
+    getTracks: (page = 1, limit = 50, search = '', sort = '', order = 'asc') => {
       const params = new URLSearchParams({ page, limit });
       if (search) params.set('search', search);
+      if (sort)   params.set('sort', sort);
+      if (order !== 'asc') params.set('order', order);
       return request(`/tracks?${params}`);
     },
-    getAllTracks: (search = '') => {
+    getAllTracks: (search = '', sort = '', order = 'asc') => {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
+      if (sort)   params.set('sort', sort);
+      if (order !== 'asc') params.set('order', order);
       const qs = params.toString();
       return request(`/tracks/all${qs ? `?${qs}` : ''}`);
     },

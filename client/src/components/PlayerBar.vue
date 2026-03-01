@@ -42,7 +42,7 @@ const {
   hasPrev,
 } = usePlayer();
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor } = useTheme();
+const { accentColor, lovedUseAccent } = useTheme();
 
 const barStyle = computed(() => {
   if (!albumAccentColor.value) return {};
@@ -322,7 +322,9 @@ const hoverTime = computed(() => {
       <!-- Love -->
       <button
         class="transition-colors"
-        :class="state.currentTrack.isLoved ? 'text-red-400 hover:text-red-300' : 'text-zinc-400 hover:text-zinc-100'"
+        :class="state.currentTrack.isLoved
+          ? (lovedUseAccent ? `text-${accentColor}-400 hover:text-${accentColor}-300` : 'text-red-400 hover:text-red-300')
+          : 'text-zinc-400 hover:text-zinc-100'"
         @click="toggleLove"
         title="(L) Love track"
         aria-label="Love track"

@@ -3,6 +3,22 @@ import Track from '../models/Track.js';
 
 const router = Router();
 
+const VALID_SORT_FIELDS = ['title', 'artist', 'album', 'plays', 'lastPlayed', 'added', 'duration'];
+
+function buildSort(sortField, sortOrder) {
+  const o = sortOrder === 'desc' ? -1 : 1;
+  switch (sortField) {
+    case 'title':      return { title: o };
+    case 'artist':     return { artistsNorm: o, album: 1, disc: 1, trackNumber: 1 };
+    case 'album':      return { album: o, disc: 1, trackNumber: 1 };
+    case 'plays':      return { playCount: o };
+    case 'lastPlayed': return { lastPlayedAt: o };
+    case 'added':      return { scannedAt: o };
+    case 'duration':   return { duration: o };
+    default:           return { artistsNorm: 1, album: 1, disc: 1, trackNumber: 1 };
+  }
+}
+
 // GET /api/artists — list artists with counts (paginated, searchable)
 router.get('/artists', async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
@@ -244,40 +260,37 @@ router.get('/albums/:artist/:album', async (req, res) => {
 // GET /api/tracks/all — all tracks unpaginated (for queue building, with optional search)
 router.get('/tracks/all', async (req, res) => {
   const search = req.query.search?.trim();
+  const sortField = VALID_SORT_FIELDS.includes(req.query.sort) ? req.query.sort : null;
+  const sortOrder = req.query.order === 'desc' ? 'desc' : 'asc';
+
   const filter = {};
   if (search) {
     const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [
-      { title: regex },
-      { artists: regex },
-      { album: regex },
-    ];
+    filter.$or = [{ title: regex }, { artists: regex }, { album: regex }];
   }
   const tracks = await Track.find(filter)
-    .sort({ artistsNorm: 1, album: 1, disc: 1, trackNumber: 1 })
+    .sort(buildSort(sortField, sortOrder))
     .lean();
   res.json(tracks);
 });
 
-// GET /api/tracks — all tracks (with optional pagination and search)
+// GET /api/tracks — all tracks (with optional pagination, search and sort)
 router.get('/tracks', async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(200, parseInt(req.query.limit, 10) || 50);
   const skip = (page - 1) * limit;
   const search = req.query.search?.trim();
+  const sortField = VALID_SORT_FIELDS.includes(req.query.sort) ? req.query.sort : null;
+  const sortOrder = req.query.order === 'desc' ? 'desc' : 'asc';
 
   const filter = {};
   if (search) {
     const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [
-      { title: regex },
-      { artists: regex },
-      { album: regex },
-    ];
+    filter.$or = [{ title: regex }, { artists: regex }, { album: regex }];
   }
 
   const [tracks, total] = await Promise.all([
-    Track.find(filter).sort({ artistsNorm: 1, album: 1, disc: 1, trackNumber: 1 }).skip(skip).limit(limit).lean(),
+    Track.find(filter).sort(buildSort(sortField, sortOrder)).skip(skip).limit(limit).lean(),
     Track.countDocuments(filter),
   ]);
 

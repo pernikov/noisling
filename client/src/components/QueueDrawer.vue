@@ -12,7 +12,7 @@ const props = defineProps({
 const emit = defineEmits(['close']);
 
 const { state, moveTrack, playFromQueue } = usePlayer();
-const { accentColor, density } = useTheme();
+const { accentColor, density, showCoverArt, songsColumns } = useTheme();
 
 const ITEM_HEIGHT = computed(() => density.value === 'compact' ? 36 : 52);
 const OVERSCAN = 10; // extra items rendered above/below viewport
@@ -194,7 +194,7 @@ function formatDuration(seconds) {
                 <Icon :path="mdiDrag" class="w-4 h-4" />
               </div>
 
-              <div class="relative flex-shrink-0 group/cover" @click.stop="playFromQueue(i)">
+              <div v-if="showCoverArt" class="relative flex-shrink-0 group/cover" @click.stop="playFromQueue(i)">
                 <CoverArt :cover="track.cover" :size="density === 'compact' ? 'w-6 h-6' : 'w-8 h-8'" />
                 <div class="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
                   <Icon :path="mdiPlay" class="w-4 h-4 text-white" />
@@ -203,12 +203,13 @@ function formatDuration(seconds) {
 
               <div class="flex-1 min-w-0">
                 <div
-                  class="text-sm truncate"
+                  class="text-sm truncate cursor-pointer hover:underline"
                   :class="i === state.queueIndex ? `text-${accentColor}-400 font-medium` : ''"
+                  @click.stop="playFromQueue(i)"
                 >
                   {{ track.title }}
                 </div>
-                <span v-if="density !== 'compact'" class="text-xs text-zinc-500 truncate block">
+                <span v-if="density !== 'compact' && songsColumns.artist" class="text-xs text-zinc-500 truncate block">
                   <template v-for="(artist, ai) in track.artists" :key="ai">
                     <span v-if="ai > 0">, </span>
                     <router-link

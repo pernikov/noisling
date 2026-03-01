@@ -5,6 +5,7 @@ import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
+import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
 import Icon from '../components/Icon.vue';
@@ -12,6 +13,7 @@ import Icon from '../components/Icon.vue';
 const api = useApi();
 const router = useRouter();
 const { state: playerState, playAlbum, toggleShuffle } = usePlayer();
+const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, songsColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
 
 const lovedTracks = ref([]);
 const recentTracks = ref([]);
@@ -101,18 +103,18 @@ async function loadRecentAlbums() {
 }
 
 onMounted(() => {
-  loadLoved();
-  loadRecent();
-  loadRecentAlbums();
+  if (homeShowQuickPlay.value) loadLoved();
+  if (homeShowRecent.value)    loadRecent();
+  if (homeShowAlbums.value)   loadRecentAlbums();
 });
 
 useLibraryEvents(() => {
-  loadRecent();
-  loadRecentAlbums();
+  if (homeShowRecent.value)  loadRecent();
+  if (homeShowAlbums.value)  loadRecentAlbums();
 });
 
 watch(() => playerState.playReportCount, (count) => {
-  if (count > 0) loadRecent();
+  if (count > 0 && homeShowRecent.value) loadRecent();
 });
 
 function goToAlbum(album) {
@@ -125,7 +127,7 @@ function goToAlbum(album) {
     <h1 class="text-2xl font-bold font-display">{{ greeting }}</h1>
 
     <!-- Quick Actions -->
-    <section>
+    <section v-if="homeShowQuickPlay">
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Quick Play</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <!-- Shuffle All -->
@@ -167,6 +169,7 @@ function goToAlbum(album) {
           @click="playLovedSongs"
           :disabled="loadingLoved || lovedTracks.length === 0"
           class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
+          :style="lovedUseAccent ? { backgroundImage: `linear-gradient(to bottom right, rgb(${accentRgb}), rgb(${accentDarkRgb}))` } : undefined"
         >
           <Icon :path="mdiHeart" class="w-8 h-8 mb-3 text-white/90" />
           <div class="text-lg font-bold font-display text-white">Loved Songs</div>
@@ -193,7 +196,7 @@ function goToAlbum(album) {
     </section>
 
     <!-- Recently Played -->
-    <section>
+    <section v-if="homeShowRecent">
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Recently Played</h2>
 
       <div v-if="loadingRecent" class="space-y-1 animate-pulse">
@@ -215,11 +218,20 @@ function goToAlbum(album) {
         <p class="text-xs text-zinc-600">Your recently played tracks will show up here.</p>
       </div>
 
-      <TrackList v-else :tracks="recentTracks" show-cover show-artist show-album show-last-played hide-controls @love-toggled="loadLoved" />
+      <TrackList
+        v-else
+        :tracks="recentTracks"
+        show-cover
+        :show-artist="songsColumns.artist"
+        :show-album="songsColumns.album"
+        :show-last-played="songsColumns.lastPlayed"
+        hide-controls
+        @love-toggled="loadLoved"
+      />
     </section>
 
     <!-- Recently Added Albums -->
-    <section>
+    <section v-if="homeShowAlbums">
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Recently Added</h2>
 
       <div v-if="loadingRecentAlbums" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">

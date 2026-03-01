@@ -26,7 +26,15 @@ const route = useRoute();
 const router = useRouter();
 const api = useApi();
 const appVersion = __APP_VERSION__;
-const { accentColor, accentRgb, VALID_COLORS, density, setAccentColor, setDensity } = useTheme();
+const {
+  accentColor, accentRgb, VALID_COLORS,
+  density, showCoverArt, fontSize,
+  lovedUseAccent, setLovedUseAccent,
+  songsColumns, setSongsColumn,
+  showArtistsNav, homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
+  setAccentColor, setDensity, setShowCoverArt, setFontSize,
+  setShowArtistsNav, setHomeSection,
+} = useTheme();
 
 const VALID_TABS = ['library', 'appearance', 'stats'];
 const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'library');
@@ -202,6 +210,13 @@ onUnmounted(() => {
     <!-- Appearance tab -->
     <div v-if="activeTab === 'appearance'" class="space-y-6">
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
+        <div>
+          <p class="text-sm font-medium text-zinc-200">Theme</p>
+          <p class="text-xs text-zinc-500 mt-1">Colors, sizing, and global display options.</p>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
         <!-- Accent color -->
         <div>
           <p class="text-sm font-medium text-zinc-200 mb-1">Accent color</p>
@@ -241,6 +256,175 @@ onUnmounted(() => {
             >
               <Icon :path="mdiViewHeadline" class="w-4 h-4" />
               Compact
+            </button>
+          </div>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Font size -->
+        <div>
+          <p class="text-sm font-medium text-zinc-200 mb-1">Font size</p>
+          <p class="text-xs text-zinc-500 mb-3">Scale the interface text up or down.</p>
+          <div class="inline-flex p-1 bg-zinc-800 rounded-lg border border-zinc-700 gap-1">
+            <button
+              v-for="size in [{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }]"
+              :key="size.value"
+              @click="setFontSize(size.value)"
+              class="px-3 py-1.5 rounded-md text-sm font-medium transition-all"
+              :class="fontSize === size.value ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+            >
+              {{ size.label }}
+            </button>
+          </div>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Loved color -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Loved track color</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Always rose/pink, or follow the accent color.</p>
+          </div>
+          <button
+            @click="setLovedUseAccent(!lovedUseAccent)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="lovedUseAccent ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="lovedUseAccent"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="lovedUseAccent ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+      </section>
+
+      <!-- Layout section -->
+      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
+        <div>
+          <p class="text-sm font-medium text-zinc-200">Layout</p>
+          <p class="text-xs text-zinc-500 mt-1">Choose which sections and navigation links are visible.</p>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Artists nav link -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Artists in navigation</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Show the Artists link in the top nav bar.</p>
+          </div>
+          <button
+            @click="setShowArtistsNav(!showArtistsNav)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="showArtistsNav ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="showArtistsNav"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="showArtistsNav ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Home sections -->
+        <div>
+          <p class="text-sm font-medium text-zinc-200 mb-3">Home page sections</p>
+          <div class="space-y-3">
+            <div
+              v-for="section in [
+                { key: 'quickPlay', label: 'Quick Play',      desc: 'Shuffle All, Top Songs, and Loved Songs cards.', value: homeShowQuickPlay },
+                { key: 'recent',   label: 'Recently Played',  desc: 'Your last 10 played tracks.',                    value: homeShowRecent },
+                { key: 'albums',   label: 'Recently Added',   desc: 'Albums added to your library.',                  value: homeShowAlbums },
+              ]"
+              :key="section.key"
+              class="flex items-center justify-between"
+            >
+              <div>
+                <p class="text-sm text-zinc-200">{{ section.label }}</p>
+                <p class="text-xs text-zinc-500 mt-0.5">{{ section.desc }}</p>
+              </div>
+              <button
+                @click="setHomeSection(section.key, !section.value)"
+                :disabled="section.value && homeVisibleCount <= 1"
+                class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                :class="section.value ? `bg-${accentColor}-500` : 'bg-zinc-700 cursor-pointer'"
+                role="switch"
+                :aria-checked="section.value"
+              >
+                <span
+                  class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+                  :class="section.value ? 'translate-x-5' : 'translate-x-0'"
+                />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Songs columns section -->
+      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
+        <div>
+          <p class="text-sm font-medium text-zinc-200">Songs view</p>
+          <p class="text-xs text-zinc-500 mt-1">Customize what's visible in track lists and queues. Click any column header in Songs to sort.</p>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Cover art toggle -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-zinc-200">Cover art</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Show album thumbnails in track lists and the queue.</p>
+          </div>
+          <button
+            @click="setShowCoverArt(!showCoverArt)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="showCoverArt ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="showCoverArt"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="showCoverArt ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <div class="space-y-3">
+          <div
+            v-for="col in [
+              { key: 'artist',     label: 'Artist',      desc: 'Primary artist in track lists and the queue.' },
+              { key: 'album',      label: 'Album',       desc: 'Album the track belongs to.' },
+              { key: 'plays',      label: 'Plays',       desc: 'How many times you\'ve played it.' },
+              { key: 'lastPlayed', label: 'Last Played', desc: 'When you last listened.' },
+            ]"
+            :key="col.key"
+            class="flex items-center justify-between"
+          >
+            <div>
+              <p class="text-sm text-zinc-200">{{ col.label }}</p>
+              <p class="text-xs text-zinc-500 mt-0.5">{{ col.desc }}</p>
+            </div>
+            <button
+              @click="setSongsColumn(col.key, !songsColumns[col.key])"
+              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+              :class="songsColumns[col.key] ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+              role="switch"
+              :aria-checked="songsColumns[col.key]"
+            >
+              <span
+                class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+                :class="songsColumns[col.key] ? 'translate-x-5' : 'translate-x-0'"
+              />
             </button>
           </div>
         </div>
@@ -479,7 +663,7 @@ onUnmounted(() => {
           <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Library Overview</h2>
           <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
             <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display text-rose-400">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
+              <div class="text-2xl font-bold font-display" :class="lovedUseAccent ? `text-${accentColor}-400` : 'text-rose-400'">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Loved</div>
             </div>
             <div class="bg-zinc-800/50 rounded-lg p-4">
