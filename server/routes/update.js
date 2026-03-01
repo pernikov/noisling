@@ -6,7 +6,7 @@ const REPO_DIR = process.env.REPO_DIR || '/repo';
 
 const router = Router();
 
-router.post('/update', (req, res) => {
+router.post('/update', (_req, res) => {
   if (!existsSync(`${REPO_DIR}/.git`)) {
     return res.status(500).json({
       error: `No git repository found at ${REPO_DIR}. Make sure the repo is mounted (docker-compose.yml: "- .:/repo").`,
@@ -37,7 +37,7 @@ router.post('/update', (req, res) => {
   (async () => {
     try {
       send('step', 'Running git pull...');
-      await runCommand('git', ['pull'], REPO_DIR);
+      await runCommand('git', ['-c', `safe.directory=${REPO_DIR}`, 'pull'], REPO_DIR);
 
       send('step', 'Building and restarting containers (this will take a moment)...');
       await runCommand('docker', ['compose', 'up', '-d', '--build'], REPO_DIR);
