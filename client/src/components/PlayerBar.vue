@@ -406,11 +406,11 @@ const hoverTime = computed(() => {
           <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
           <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
         </button>
-        <div class="relative flex-1">
+        <div class="relative flex-1 flex items-center">
           <Transition name="tooltip-fade">
             <div
               v-if="showVolTooltip"
-              class="absolute -top-5 text-xs text-zinc-100 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded pointer-events-none tabular-nums z-10 bar-tooltip"
+              class="absolute -top-7 text-xs text-zinc-100 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded pointer-events-none tabular-nums z-10 bar-tooltip"
               :style="{ left: `clamp(20px, ${state.volume * 100}%, calc(100% - 20px))` }"
             >{{ Math.round(state.volume * 100) }}%</div>
           </Transition>
