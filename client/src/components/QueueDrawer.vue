@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue';
-import { mdiClose, mdiDrag, mdiPlay, mdiRepeatOnce } from '@mdi/js';
+import { mdiClose, mdiPlay, mdiRepeatOnce } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -189,11 +189,6 @@ function formatDuration(seconds) {
               @drop="onDrop($event, i)"
               @dragend="onDragEnd"
             >
-              <!-- Drag handle -->
-              <div class="text-zinc-600 flex-shrink-0">
-                <Icon :path="mdiDrag" class="w-4 h-4" />
-              </div>
-
               <div v-if="showCoverArt" class="relative flex-shrink-0 group/cover" @click.stop="playFromQueue(i)">
                 <CoverArt :cover="track.cover" :size="density === 'compact' ? 'w-6 h-6' : 'w-8 h-8'" />
                 <div class="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">

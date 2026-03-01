@@ -525,6 +525,7 @@ function next() {
     state.queueIndex = -1;
     state.currentTime = 0;
     state.duration = 0;
+    state.showQueue = false;
     try { localStorage.removeItem(QUEUE_KEY); } catch (_) {}
   }
 }

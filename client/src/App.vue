@@ -172,11 +172,11 @@ watch(() => playerState.currentTrack, (track) => {
 }
 .page-enter-from {
   opacity: 0;
-  transform: translateY(6px);
+  /* transform: translateY(6px); */
 }
 .page-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  /* transform: translateY(-6px); */
 }
 
 /* Visualizer toggle */

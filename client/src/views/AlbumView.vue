@@ -97,7 +97,7 @@ function formatDuration(seconds) {
         </div>
       </div>
 
-      <TrackList :tracks="tracks" />
+      <TrackList :tracks="tracks" :use-track-number="true" />
     </template>
     </template>
   </div>

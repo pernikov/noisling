@@ -22,6 +22,7 @@ const props = defineProps({
   startIndex: { type: Number, default: 0 },
   getAllTracks: { type: Function, default: null }, // () => Promise<Track[]> for full library play/shuffle
   hideControls: { type: Boolean, default: false },
+  useTrackNumber: { type: Boolean, default: false },
   sortable: { type: Boolean, default: false },
   sortBy: { type: String, default: '' },
   sortDir: { type: String, default: 'asc' },
@@ -317,6 +318,10 @@ defineExpose({ playAll, playShuffle });
             <span v-else-if="isCurrentTrack(track) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
               <Icon :path="mdiPlay" class="w-3 h-3" />
             </span>
+            <template v-else-if="useTrackNumber">
+              <span v-if="track.trackNumber">{{ track.trackNumber }}</span>
+              <span v-else class="opacity-30">{{ startIndex + i + 1 }}</span>
+            </template>
             <span v-else>{{ startIndex + i + 1 }}</span>
           </td>
           <td :class="[rowPy, 'px-3 font-medium overflow-hidden']">

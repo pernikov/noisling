@@ -145,7 +145,11 @@ const hoverTime = computed(() => {
     :style="barStyle"
     @click="toggleNowPlaying"
   >
-    <CoverArt :cover="state.currentTrack.cover" size="w-10 h-10" />
+    <div class="relative w-10 h-10 flex-shrink-0">
+      <Transition name="cover-fade">
+        <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-10 h-10" />
+      </Transition>
+    </div>
     <div class="flex-1 min-w-0">
       <div class="text-sm font-medium truncate">
         {{ state.currentTrack.title }}
@@ -194,15 +198,18 @@ const hoverTime = computed(() => {
     <!-- Track info -->
     <div class="flex items-center gap-2 min-w-0 flex-none w-32 sm:w-56">
       <button
-        class="flex-shrink-0 rounded focus:outline-none focus-visible:ring-2"
+        class="relative flex-shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded focus:outline-none focus-visible:ring-2"
         :class="`focus-visible:ring-${accentColor}-400`"
         @click="toggleNowPlaying"
         aria-label="Open Now Playing"
       >
-        <CoverArt
-          :cover="state.currentTrack.cover"
-          size="w-9 h-9 sm:w-10 sm:h-10"
-        />
+        <Transition name="cover-fade">
+          <CoverArt
+            :key="state.currentTrack._id"
+            :cover="state.currentTrack.cover"
+            size="w-9 h-9 sm:w-10 sm:h-10"
+          />
+        </Transition>
       </button>
       <Transition name="track-fade" mode="out-in">
       <div class="min-w-0" :key="state.currentTrack._id">
@@ -447,6 +454,20 @@ const hoverTime = computed(() => {
 }
 .track-fade-enter-from,
 .track-fade-leave-to {
+  opacity: 0;
+}
+
+/* Album cover crossfades between tracks */
+.cover-fade-enter-active,
+.cover-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+.cover-fade-leave-active {
+  position: absolute;
+  inset: 0;
+}
+.cover-fade-enter-from,
+.cover-fade-leave-to {
   opacity: 0;
 }
 
