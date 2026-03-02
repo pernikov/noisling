@@ -272,11 +272,24 @@ audio.addEventListener('ended', () => {
     return;
   }
 
-  if (state.repeat === 'one') {
-    play(state.currentTrack);
-  } else {
-    next();
-  }
+  // Defer play/next out of the ended handler. When audio.src is reassigned and
+  // audio.play() is called synchronously inside the 'ended' event on iOS Safari,
+  // the element hasn't fully exited the ended state yet and play() immediately
+  // rejects with NotSupportedError. Calling next() from a queued task (after the
+  // handler returns) lets iOS settle first — this is why pressing Prev manually
+  // works but automatic queue advancement doesn't without the defer.
+  // Set ignoreNextEnded now so any spurious ended iOS fires in the gap is swallowed.
+  ignoreNextEnded = true;
+  clearTimeout(ignoreEndedTimer);
+  ignoreEndedTimer = null;
+  setTimeout(() => {
+    // play() will immediately reinstall its own ignoreNextEnded guard.
+    if (state.repeat === 'one') {
+      play(state.currentTrack);
+    } else {
+      next();
+    }
+  }, 0);
 });
 
 audio.addEventListener('play', () => {
