@@ -37,6 +37,23 @@ const coverUrl = computed(() =>
   state.currentTrack?.cover ? api.coverUrl(state.currentTrack.cover) : null
 );
 
+// Cover crossfade: hold the previous cover visible until the new one finishes loading,
+// then crossfade both simultaneously (fade-out old, fade-in new).
+const displayedCoverUrl = ref(null);
+const prevCoverUrl = ref(null);
+const currLoaded = ref(false);
+
+watch(coverUrl, (newUrl) => {
+  prevCoverUrl.value = displayedCoverUrl.value;
+  displayedCoverUrl.value = newUrl;
+  currLoaded.value = !newUrl; // no image → nothing to wait for
+}, { immediate: true });
+
+function onCoverLoad() {
+  currLoaded.value = true;
+  setTimeout(() => { prevCoverUrl.value = null; }, 350);
+}
+
 const accentOverlay = computed(() => {
   if (!albumAccentColor.value) return 'transparent';
   return `linear-gradient(to top, rgba(${albumAccentColor.value}, 0.5), rgba(${albumAccentColor.value}, 0.15) 60%, transparent)`;
@@ -277,13 +294,20 @@ onUnmounted(() => {
         <!-- Layer 1: Blurred album art — the actual background -->
         <div class="absolute inset-0 overflow-hidden bg-zinc-900">
           <img
-            v-if="coverUrl"
-            :src="coverUrl"
+            v-if="prevCoverUrl"
+            :src="prevCoverUrl"
             alt=""
             aria-hidden="true"
-            class="w-full h-full object-cover"
-            style="filter: blur(80px); opacity: 0.9; transform: scale(1.2);"
-            loading="eager"
+            class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0 : 0.9 }"
+          />
+          <img
+            v-if="displayedCoverUrl"
+            :src="displayedCoverUrl"
+            alt=""
+            aria-hidden="true"
+            class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0.9 : 0 }"
           />
         </div>
 
@@ -342,26 +366,41 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <Transition name="cover-fade" mode="out-in">
-                <img
-                  v-if="coverUrl"
-                  :key="coverUrl"
-                  :src="coverUrl"
-                  alt="Album art"
-                  class="aspect-square object-cover rounded-xl w-full"
-                  style="box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
-                  loading="eager"
-                />
+              <div
+                class="relative aspect-square w-full rounded-xl overflow-hidden"
+                style="box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
+              >
+                <!-- Placeholder when no cover -->
                 <div
-                  v-else
-                  key="placeholder"
-                  class="aspect-square rounded-xl bg-zinc-800 flex items-center justify-center w-full"
+                  v-if="!displayedCoverUrl"
+                  class="absolute inset-0 bg-zinc-800 flex items-center justify-center"
                 >
                   <svg class="w-24 h-24 text-zinc-700" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                   </svg>
                 </div>
-              </Transition>
+
+                <!-- Previous cover fading out -->
+                <img
+                  v-if="prevCoverUrl"
+                  :src="prevCoverUrl"
+                  alt=""
+                  aria-hidden="true"
+                  class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                  :class="currLoaded ? 'opacity-0' : 'opacity-100'"
+                />
+
+                <!-- Current cover fading in when loaded -->
+                <img
+                  v-if="displayedCoverUrl"
+                  :src="displayedCoverUrl"
+                  alt="Album art"
+                  class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                  :class="currLoaded ? 'opacity-100' : 'opacity-0'"
+                  loading="eager"
+                  @load="onCoverLoad"
+                />
+              </div>
             </div>
           </div>
 
@@ -484,16 +523,6 @@ onUnmounted(() => {
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translateY(100%);
-}
-
-/* Album art crossfade on track change */
-.cover-fade-enter-active,
-.cover-fade-leave-active {
-  transition: opacity 0.25s ease;
-}
-.cover-fade-enter-from,
-.cover-fade-leave-to {
-  opacity: 0;
 }
 
 /* Play/pause and repeat icon swaps */
