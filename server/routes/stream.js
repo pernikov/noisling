@@ -64,7 +64,7 @@ function startWarm(id, trackPath) {
     '-i', trackPath,
     '-vn',
     '-c:a', 'aac',
-    '-b:a', '192k',
+    '-b:a', '256k',
     '-movflags', '+faststart',
     '-f', 'mp4',
     tempPath(id),
@@ -179,7 +179,7 @@ router.get('/stream/:id', async (req, res) => {
       '-i', track.path,
       '-vn',
       '-c:a', 'aac',
-      '-b:a', '192k',
+      '-b:a', '256k',
       '-f', 'adts',
       'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'ignore'] });

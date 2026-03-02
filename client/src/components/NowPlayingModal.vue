@@ -139,6 +139,7 @@ function onProgressTouchEnd() {
 const dragY = ref(0);
 const dragX = ref(0);
 const isDragging = ref(false);
+const isReleasingHorizontal = ref(false);
 let touchStartY = 0;
 let touchStartX = 0;
 let swipeActive = false;
@@ -186,6 +187,11 @@ function onTouchEnd() {
     }
   } else if (swipeDirection === 'horizontal') {
     const THRESHOLD = 60;
+    const triggered = (dragX.value < -THRESHOLD && hasNext.value) || (dragX.value > THRESHOLD && hasPrev.value);
+    if (!triggered) {
+      isReleasingHorizontal.value = true;
+      setTimeout(() => { isReleasingHorizontal.value = false; }, 450);
+    }
     if (dragX.value < -THRESHOLD && hasNext.value) next();
     else if (dragX.value > THRESHOLD && hasPrev.value) prev();
     dragX.value = 0;
@@ -199,6 +205,34 @@ const dragStyle = computed(() => {
   if (dragY.value > 0) parts.push(`translateY(${dragY.value}px)`);
   if (dragX.value !== 0) parts.push(`translateX(${dragX.value * 0.35}px)`); // dampened feel
   return parts.length ? { transform: parts.join(' '), transition: 'none' } : {};
+});
+
+// Cover-specific drag physics: tilt + slight scale-up while dragging horizontally
+const coverDragStyle = computed(() => {
+  const x = dragX.value;
+  if (x !== 0) {
+    const rotate = Math.max(-12, Math.min(12, x * 0.08));
+    const scale = 1 + Math.min(Math.abs(x) * 0.0003, 0.03);
+    return { transform: `rotate(${rotate}deg) scale(${scale})`, transition: 'none' };
+  }
+  if (isReleasingHorizontal.value) {
+    // Snap-back spring when swipe was rejected
+    return { transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' };
+  }
+  return {};
+});
+
+// Floating skip badge that fades in as you drag past 15px toward a valid target
+const swipeHint = computed(() => {
+  const x = dragX.value;
+  if (!isDragging.value || x === 0) return null;
+  const THRESHOLD = 60;
+  const opacity = Math.min(1, Math.max(0, (Math.abs(x) - 15) / (THRESHOLD - 15)));
+  if (opacity <= 0) return null;
+  const direction = x < 0 ? 'next' : 'prev';
+  if (direction === 'next' && !hasNext.value) return null;
+  if (direction === 'prev' && !hasPrev.value) return null;
+  return { direction, opacity };
 });
 
 watch(
@@ -283,27 +317,53 @@ onUnmounted(() => {
 
           <!-- Album art -->
           <div class="flex-1 flex items-center justify-center py-2 min-h-0">
-            <Transition name="cover-fade" mode="out-in">
-              <img
-                v-if="coverUrl"
-                :key="coverUrl"
-                :src="coverUrl"
-                alt="Album art"
-                class="aspect-square object-cover rounded-xl w-full"
-                style="max-width: min(100%, 60vh, 400px);  box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
-                loading="eager"
-              />
+            <div
+              class="relative w-full"
+              style="max-width: min(100%, 60vh, 400px);"
+              :style="coverDragStyle"
+            >
+              <!-- Swipe-to-prev hint (dragging right) -->
               <div
-                v-else
-                key="placeholder"
-                class="aspect-square rounded-xl bg-zinc-800 flex items-center justify-center w-full"
-                style="max-width: min(100%, 60vh, 400px);"
+                v-if="swipeHint?.direction === 'prev'"
+                class="absolute inset-y-0 left-0 flex items-center pointer-events-none z-10"
+                :style="{ opacity: swipeHint.opacity }"
               >
-                <svg class="w-24 h-24 text-zinc-700" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                </svg>
+                <div class="bg-black/70 rounded-full p-3 shadow-lg -translate-x-1/2 backdrop-blur-sm">
+                  <Icon :path="mdiSkipPrevious" class="w-7 h-7 text-white" />
+                </div>
               </div>
-            </Transition>
+              <!-- Swipe-to-next hint (dragging left) -->
+              <div
+                v-if="swipeHint?.direction === 'next'"
+                class="absolute inset-y-0 right-0 flex items-center pointer-events-none z-10"
+                :style="{ opacity: swipeHint.opacity }"
+              >
+                <div class="bg-black/70 rounded-full p-3 shadow-lg translate-x-1/2 backdrop-blur-sm">
+                  <Icon :path="mdiSkipNext" class="w-7 h-7 text-white" />
+                </div>
+              </div>
+
+              <Transition name="cover-fade" mode="out-in">
+                <img
+                  v-if="coverUrl"
+                  :key="coverUrl"
+                  :src="coverUrl"
+                  alt="Album art"
+                  class="aspect-square object-cover rounded-xl w-full"
+                  style="box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
+                  loading="eager"
+                />
+                <div
+                  v-else
+                  key="placeholder"
+                  class="aspect-square rounded-xl bg-zinc-800 flex items-center justify-center w-full"
+                >
+                  <svg class="w-24 h-24 text-zinc-700" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                  </svg>
+                </div>
+              </Transition>
+            </div>
           </div>
 
           <!-- Bottom section -->
