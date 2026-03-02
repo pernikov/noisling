@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { stat, createReadStream, createWriteStream, unlink } from 'fs';
+import { stat, createReadStream, unlink } from 'fs';
 import { promisify } from 'util';
 import { spawn } from 'child_process';
 import { tmpdir } from 'os';
@@ -13,9 +13,9 @@ const unlinkAsync = promisify(unlink);
 const router = Router();
 
 // Transcode cache — persists for the lifetime of the server process.
-// transcodeReady: tracks whose temp file is fully written and safe to range-serve.
-// transcodeInProgress: tracks currently being transcoded (value = Promise that
-//   resolves when the temp file is complete).
+// transcodeReady: tracks whose faststart M4A is fully written and safe to range-serve.
+// transcodeInProgress: tracks currently being transcoded to faststart M4A (value =
+//   Promise that resolves when the temp file is complete).
 const transcodeReady = new Set();
 const transcodeInProgress = new Map();
 
@@ -23,8 +23,7 @@ function tempPath(id) {
   return join(tmpdir(), `noisling_tc_${id}.m4a`);
 }
 
-// Serve a fully-written M4A file with HTTP range support (same logic as
-// regular files, just using the cached temp path).
+// Serve a fully-written faststart M4A with HTTP range support.
 async function serveCachedTranscode(id, req, res) {
   const path = tempPath(id);
   let st;
@@ -54,31 +53,15 @@ async function serveCachedTranscode(id, req, res) {
   return true;
 }
 
-// GET /api/stream/:id/warm — pre-transcode to cache without streaming.
-// Called by the client while the current track is playing so the next track's
-// cache is ready before playback starts (eliminates the stall/gap on first play).
-router.get('/stream/:id/warm', async (req, res) => {
-  const track = await Track.findById(req.params.id).lean();
-  if (!track) return res.status(404).json({ error: 'Track not found' });
+// Start a background ffmpeg job that writes a faststart MP4 to tempPath(id).
+// The faststart flag moves the moov atom to the front so iOS can seek immediately
+// over byte-range requests once the cache is served.
+// No-op if already done or in progress.
+function startWarm(id, trackPath) {
+  if (transcodeReady.has(id) || transcodeInProgress.has(id)) return;
 
-  const id = req.params.id;
-
-  // Already done or in progress — nothing to do.
-  if (transcodeReady.has(id)) return res.json({ status: 'ready' });
-  if (transcodeInProgress.has(id)) return res.json({ status: 'in_progress' });
-
-  // Check if the file is already on disk from a previous server run.
-  try {
-    await statAsync(tempPath(id));
-    transcodeReady.add(id);
-    return res.json({ status: 'ready' });
-  } catch { /* not on disk */ }
-
-  // Start ffmpeg writing directly to the temp file (no piping to response).
-  // MP4 with faststart moves the moov atom to the front so iOS can seek
-  // immediately over HTTP range requests.
   const ff = spawn('ffmpeg', [
-    '-i', track.path,
+    '-i', trackPath,
     '-vn',
     '-c:a', 'aac',
     '-b:a', '192k',
@@ -101,18 +84,38 @@ router.get('/stream/:id/warm', async (req, res) => {
       resolveTranscode();
     } else {
       unlinkAsync(tempPath(id)).catch(() => {});
-      rejectTranscode(new Error(`ffmpeg warm exit ${code}`));
+      rejectTranscode(new Error(`ffmpeg exit ${code}`));
     }
   });
 
   ff.on('error', (err) => {
-    console.error('[transcode] warm ffmpeg spawn error:', err);
+    console.error('[transcode] ffmpeg spawn error:', err);
     transcodeInProgress.delete(id);
     unlinkAsync(tempPath(id)).catch(() => {});
     rejectTranscode(err);
   });
+}
 
-  // Return immediately — transcoding runs in the background.
+// GET /api/stream/:id/warm — pre-transcode to faststart M4A cache without streaming.
+// Called by the client while the current track plays so the next track's cache is
+// ready before playback starts, eliminating the first-play stall/gap.
+router.get('/stream/:id/warm', async (req, res) => {
+  const track = await Track.findById(req.params.id).lean();
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+
+  const id = req.params.id;
+
+  if (transcodeReady.has(id)) return res.json({ status: 'ready' });
+  if (transcodeInProgress.has(id)) return res.json({ status: 'in_progress' });
+
+  // Check if the file is already on disk from a previous server run.
+  try {
+    await statAsync(tempPath(id));
+    transcodeReady.add(id);
+    return res.json({ status: 'ready' });
+  } catch { /* not on disk */ }
+
+  startWarm(id, track.path);
   res.json({ status: 'started' });
 });
 
@@ -135,20 +138,20 @@ router.get('/stream/:id', async (req, res) => {
   if (req.query.transcode) {
     const id = req.params.id;
 
-    // Already fully transcoded — serve with range support so iOS can seek/resume.
+    // Already fully transcoded (faststart M4A) — serve with range support so iOS can seek.
     if (transcodeReady.has(id)) {
       if (await serveCachedTranscode(id, req, res)) return;
-      transcodeReady.delete(id); // file was deleted; fall through to re-transcode
+      transcodeReady.delete(id); // file was deleted externally; fall through to re-transcode
     }
 
-    // Check for a cached file left over from a previous server run.
+    // Check for a faststart M4A left over from a previous server run.
     try {
       await statAsync(tempPath(id));
       transcodeReady.add(id);
       if (await serveCachedTranscode(id, req, res)) return;
     } catch { /* not on disk yet */ }
 
-    // Another request is already transcoding this track — wait for it, then serve.
+    // Warm (faststart M4A) is in progress — wait for it, then serve.
     if (transcodeInProgress.has(id)) {
       try {
         await transcodeInProgress.get(id);
@@ -156,74 +159,51 @@ router.get('/stream/:id', async (req, res) => {
       } catch { /* transcoding failed; fall through to retry */ }
     }
 
-    // First request for this track: stream from ffmpeg to the client AND
-    // simultaneously write to a temp file.  When ffmpeg finishes (it transcodes
-    // much faster than real-time), the temp file is complete.  iOS typically
-    // buffers only a fraction of a long track, fires 'ended' early, and the
-    // client re-requests — that second request hits the cache above and gets
-    // a proper seekable response, letting iOS resume from where it stalled.
-    // Fragmented MP4: iOS can parse duration and structure from the stream
-    // headers (ftyp + moov + moof/mdat fragments) without needing the full file.
-    // This eliminates the blank-duration display and improves buffering vs ADTS.
+    // First request for this track and no cache available yet.
+    //
+    // Strategy: stream ADTS live to the client for immediate playback, while
+    // simultaneously kicking off the warm process (faststart M4A) in the background.
+    //
+    // Why ADTS for the live stream:
+    //   - ADTS gives a stable "unknown" duration display on iOS — better UX than
+    //     the flickering/changing duration caused by fMP4 with empty_moov.
+    //   - The warm process writes a proper faststart M4A with accurate duration and
+    //     full seek support.  iOS typically stalls after 30–60 s; by then the warm
+    //     is usually complete, so the stall-recovery re-request gets the good file.
+    //
+    // The live-stream ffmpeg does NOT write to tempPath — only startWarm does.
+    // This keeps the cache exclusively faststart M4A (never a broken fMP4).
+    startWarm(id, track.path);
+
     const ff = spawn('ffmpeg', [
       '-i', track.path,
       '-vn',
       '-c:a', 'aac',
       '-b:a', '192k',
-      '-f', 'mp4',
-      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+      '-f', 'adts',
       'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
-    const ws = createWriteStream(tempPath(id));
-
-    res.setHeader('Content-Type', 'audio/mp4');
+    res.setHeader('Content-Type', 'audio/aac');
     res.setHeader('Cache-Control', 'no-cache');
-    // First response is non-seekable (live pipe). The client will re-request
-    // after the stall and get the cached, seekable version.
+    // Live pipe — not seekable. The stall-recovery re-request will get the
+    // faststart M4A cache which is fully seekable.
     res.setHeader('Accept-Ranges', 'none');
 
-    // Tee ffmpeg stdout: write to response AND to the temp file.
     ff.stdout.on('data', (chunk) => {
       if (!res.writableEnded) res.write(chunk);
-      ws.write(chunk);
     });
     ff.stdout.on('end', () => {
       if (!res.writableEnded) res.end();
-      ws.end();
-    });
-
-    let resolveTranscode, rejectTranscode;
-    const transcodePromise = new Promise((res, rej) => {
-      resolveTranscode = res;
-      rejectTranscode = rej;
-    });
-    transcodeInProgress.set(id, transcodePromise);
-
-    ff.on('close', (code) => {
-      transcodeInProgress.delete(id);
-      if (code === 0) {
-        transcodeReady.add(id);
-        resolveTranscode();
-      } else {
-        ws.destroy();
-        unlinkAsync(tempPath(id)).catch(() => {});
-        rejectTranscode(new Error(`ffmpeg exit ${code}`));
-      }
     });
 
     ff.on('error', (err) => {
-      console.error('[transcode] ffmpeg spawn error:', err);
-      transcodeInProgress.delete(id);
-      ws.destroy(err);
-      unlinkAsync(tempPath(id)).catch(() => {});
-      rejectTranscode(err);
+      console.error('[transcode] live stream ffmpeg error:', err);
       if (!res.headersSent) res.status(500).json({ error: 'Transcoding failed' });
     });
 
-    // Do NOT kill ffmpeg when the client disconnects — let it finish writing
-    // the temp file so the next request (iOS retry after stall) can be served
-    // from the seekable cache.
+    // Do NOT kill the live-stream ffmpeg on client disconnect — the warm process
+    // is already running independently and will finish regardless.
     return;
   }
 
