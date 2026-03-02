@@ -141,50 +141,53 @@ const hoverTime = computed(() => {
   <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
-    class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex items-center gap-3 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] cursor-pointer active:bg-white/5"
+    class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex flex-col cursor-pointer active:bg-white/5"
     :style="barStyle"
     @click="toggleNowPlaying"
   >
-    <div class="relative w-10 h-10 flex-shrink-0">
-      <Transition name="cover-fade">
-        <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-10 h-10" />
-      </Transition>
-    </div>
-    <div class="flex-1 min-w-0">
-      <div class="text-sm font-medium truncate">
-        {{ state.currentTrack.title }}
-      </div>
-      <span class="text-xs text-zinc-400 truncate block">
-        <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
-          <span v-if="ai > 0">, </span>{{ artist }}
-        </template>
-      </span>
-    </div>
-    <div class="flex items-center gap-1 flex-shrink-0">
-      <button
-        :disabled="!hasPrev"
-        class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
-        @click.stop="prev"
-      >
-        <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
-      </button>
-      <button
-        class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center"
-        @click.stop="toggle"
-      >
-        <Transition name="icon-swap" mode="out-in">
-          <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-mobile'" />
-          <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-mobile'" />
+    <div class="flex items-center gap-3 px-4 py-2">
+      <div class="relative w-10 h-10 flex-shrink-0">
+        <Transition name="cover-fade">
+          <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-10 h-10" />
         </Transition>
-      </button>
-      <button
-        :disabled="!hasNext"
-        class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
-        @click.stop="next"
-      >
-        <Icon :path="mdiSkipNext" class="w-5 h-5" />
-      </button>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-sm font-medium truncate">
+          {{ state.currentTrack.title }}
+        </div>
+        <span class="text-xs text-zinc-400 truncate block">
+          <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
+            <span v-if="ai > 0">, </span>{{ artist }}
+          </template>
+        </span>
+      </div>
+      <div class="flex items-center gap-1 flex-shrink-0">
+        <button
+          :disabled="!hasPrev"
+          class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
+          @click.stop="prev"
+        >
+          <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
+        </button>
+        <button
+          class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center"
+          @click.stop="toggle"
+        >
+          <Transition name="icon-swap" mode="out-in">
+            <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-mobile'" />
+            <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-mobile'" />
+          </Transition>
+        </button>
+        <button
+          :disabled="!hasNext"
+          class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
+          @click.stop="next"
+        >
+          <Icon :path="mdiSkipNext" class="w-5 h-5" />
+        </button>
+      </div>
     </div>
+    <div class="h-[env(safe-area-inset-bottom)]" />
   </div>
   </Transition>
 
@@ -192,9 +195,10 @@ const hoverTime = computed(() => {
   <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
-    class="hidden sm:flex fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] items-center justify-between gap-4 z-40"
+    class="hidden sm:flex flex-col fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40"
     :style="barStyle"
   >
+    <div class="flex items-center justify-between gap-4 px-4 py-3">
     <!-- Track info -->
     <div class="flex items-center gap-2 min-w-0 flex-none w-32 sm:w-56">
       <button
@@ -426,6 +430,8 @@ const hoverTime = computed(() => {
         </div>
       </div>
     </div>
+    </div>
+    <div class="h-[env(safe-area-inset-bottom)]" />
   </div>
   </Transition>
 

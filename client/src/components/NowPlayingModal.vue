@@ -233,7 +233,7 @@ onUnmounted(() => {
       <div
         v-if="state.showNowPlaying && state.currentTrack"
         class="fixed inset-0 flex flex-col overflow-hidden"
-        :style="[{ zIndex: 60 }, dragStyle]"
+        :style="[{ zIndex: 60, touchAction: 'none' }, dragStyle]"
         role="dialog"
         aria-modal="true"
         aria-label="Now Playing"

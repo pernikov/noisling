@@ -73,8 +73,8 @@ watch(
     class="flex flex-col"
     :class="
       playerState.showVisualizer
-        ? 'h-[100dvh] overflow-hidden'
-        : { 'min-h-[100dvh]': true, 'pb-[calc(6rem+env(safe-area-inset-bottom))]': playerState.currentTrack }
+        ? 'h-svh overflow-hidden'
+        : { 'min-h-svh': true, 'pb-[calc(6rem+env(safe-area-inset-bottom))]': playerState.currentTrack }
     "
   >
     <!-- Spacer to offset fixed nav -->
