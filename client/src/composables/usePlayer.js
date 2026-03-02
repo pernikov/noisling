@@ -437,11 +437,6 @@ function play(track) {
   _lastUpdateTime       = null;
   _transcodeAttempted   = false;
   audio.src = api.streamUrl(track._id, needsTranscode(track));
-  // Explicitly invoke load() so iOS clears any stale error state from the
-  // previous track before play() is called.  Setting src alone is supposed to
-  // trigger the load algorithm per spec, but iOS does not do this synchronously,
-  // so a subsequent play() call can see the old error and immediately reject.
-  audio.load();
 
   if (audio._vizCtx?.ctx?.state === 'suspended') {
     audio._vizCtx.ctx.resume();
