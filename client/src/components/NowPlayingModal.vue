@@ -201,19 +201,18 @@ function onTouchEnd() {
 }
 
 const dragStyle = computed(() => {
-  const parts = [];
-  if (dragY.value > 0) parts.push(`translateY(${dragY.value}px)`);
-  if (dragX.value !== 0) parts.push(`translateX(${dragX.value * 0.35}px)`); // dampened feel
-  return parts.length ? { transform: parts.join(' '), transition: 'none' } : {};
+  if (dragY.value > 0) return { transform: `translateY(${dragY.value}px)`, transition: 'none' };
+  return {};
 });
 
-// Cover-specific drag physics: tilt + slight scale-up while dragging horizontally
+// Cover-specific drag physics: slide + tilt + slight scale-up while dragging horizontally
 const coverDragStyle = computed(() => {
   const x = dragX.value;
   if (x !== 0) {
+    const translateX = x * 0.45;
     const rotate = Math.max(-12, Math.min(12, x * 0.08));
     const scale = 1 + Math.min(Math.abs(x) * 0.0003, 0.03);
-    return { transform: `rotate(${rotate}deg) scale(${scale})`, transition: 'none' };
+    return { transform: `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`, transition: 'none' };
   }
   if (isReleasingHorizontal.value) {
     // Snap-back spring when swipe was rejected
