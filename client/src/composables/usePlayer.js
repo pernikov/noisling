@@ -14,7 +14,7 @@ const UNSUPPORTED_FORMATS = new Set(
     opus: 'audio/ogg; codecs=opus',
     wma:  'audio/x-ms-wma',
   })
-    .filter(([, mime]) => _probe.canPlayType(mime) === '')
+    .filter(([, mime]) => _probe.canPlayType(mime) !== 'probably')
     .map(([fmt]) => fmt)
 );
 
