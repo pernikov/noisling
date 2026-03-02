@@ -187,7 +187,6 @@ const hoverTime = computed(() => {
         </button>
       </div>
     </div>
-    <div class="h-[env(safe-area-inset-bottom)]" />
   </div>
   </Transition>
 
@@ -431,7 +430,6 @@ const hoverTime = computed(() => {
       </div>
     </div>
     </div>
-    <div class="h-[env(safe-area-inset-bottom)]" />
   </div>
   </Transition>
 
