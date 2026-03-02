@@ -94,6 +94,9 @@ let _prefetching = false;
 // Guard against retrying the transcode fallback more than once per track.
 let _transcodeAttempted = false;
 
+// Count consecutive error-induced skips so we stop looping if everything fails.
+let _consecutiveErrors = 0;
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -175,6 +178,14 @@ audio.addEventListener('error', () => {
 
   } else {
     // Decode error, or transcode fallback also failed → skip to next track.
+    // Stop after 3 consecutive error-skips so we don't race through the whole queue.
+    if (++_consecutiveErrors >= 3) {
+      console.error('[player] too many consecutive errors, stopping playback');
+      _consecutiveErrors = 0;
+      ignoreNextEnded = false;
+      state.isPlaying = false;
+      return;
+    }
     next();
   }
 });
@@ -264,6 +275,7 @@ audio.addEventListener('ended', () => {
 
 audio.addEventListener('play', () => {
   state.isPlaying = true;
+  _consecutiveErrors = 0;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 });
 
@@ -395,7 +407,7 @@ async function loadPlayerPrefs() {
 
 function play(track) {
   audio.pause();
-  stallRecoverySeq++;
+  const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
   ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
@@ -416,8 +428,9 @@ function play(track) {
     console.error('[player] play() failed:', err);
     if (err.name !== 'NotAllowedError') {
       setTimeout(() => {
+        // If the error handler already took over (changed stallRecoverySeq), bail out.
+        if (stallRecoverySeq !== playSeq) return;
         if (state.currentTrack?._id !== trackId) return;
-        // If audio.error is set the error event handler is already dealing with it.
         if (audio.error) return;
         audio.play().catch(e => console.error('[player] play() retry failed:', e));
       }, 500);
@@ -546,6 +559,7 @@ function resume() {
   // If the element is stuck in an error state (e.g. previous network drop),
   // calling play() throws NotSupportedError. Reload the track first.
   if (audio.error && state.currentTrack) {
+    _consecutiveErrors = 0;
     const track = state.currentTrack;
     const resumeAt = state.currentTime;
     const seq = ++stallRecoverySeq;
