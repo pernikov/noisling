@@ -73,8 +73,8 @@ watch(
     class="flex flex-col"
     :class="
       playerState.showVisualizer
-        ? 'h-screen overflow-hidden'
-        : { 'min-h-screen': true, 'pb-24': playerState.currentTrack }
+        ? 'h-[100dvh] overflow-hidden'
+        : { 'min-h-[100dvh]': true, 'pb-[calc(6rem+env(safe-area-inset-bottom))]': playerState.currentTrack }
     "
   >
     <!-- Spacer to offset fixed nav -->
@@ -94,7 +94,7 @@ watch(
             class="flex items-center gap-2 text-lg font-bold tracking-tight"
           >
             <img
-              src="@/assets/img/logo.png"
+              src="@/assets/img/logo512.png"
               alt="Noisling"
               class="h-7 w-7 rounded"
             />
@@ -186,7 +186,7 @@ watch(
     <!-- Global error toasts -->
     <Teleport to="body">
       <div
-        class="fixed bottom-24 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+        class="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[100] flex flex-col gap-2 pointer-events-none"
       >
         <TransitionGroup name="toast-slide">
           <div

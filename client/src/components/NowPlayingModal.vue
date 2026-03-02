@@ -264,7 +264,7 @@ onUnmounted(() => {
         <div class="relative z-10 flex flex-col h-full px-6">
 
           <!-- Drag pill -->
-          <div class="flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div class="flex justify-center pt-[calc(0.75rem+env(safe-area-inset-top))] pb-1 flex-shrink-0">
             <div class="w-10 h-1 bg-white/30 rounded-full" />
           </div>
 
@@ -307,7 +307,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Bottom section -->
-          <div class="flex flex-col gap-4 pb-10 flex-shrink-0" data-no-swipe>
+          <div class="flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
 
             <!-- Track info -->
             <div>

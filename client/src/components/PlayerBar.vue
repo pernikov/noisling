@@ -141,7 +141,7 @@ const hoverTime = computed(() => {
   <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
-    class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex items-center gap-3 px-4 py-2 cursor-pointer active:bg-white/5"
+    class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex items-center gap-3 px-4 pt-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] cursor-pointer active:bg-white/5"
     :style="barStyle"
     @click="toggleNowPlaying"
   >
@@ -192,7 +192,7 @@ const hoverTime = computed(() => {
   <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
-    class="hidden sm:flex fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 py-3 items-center justify-between gap-4 z-40"
+    class="hidden sm:flex fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] items-center justify-between gap-4 z-40"
     :style="barStyle"
   >
     <!-- Track info -->
