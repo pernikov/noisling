@@ -519,6 +519,27 @@ function resume() {
   if (audio._vizCtx?.ctx?.state === 'suspended') {
     audio._vizCtx.ctx.resume();
   }
+  // If the element is stuck in an error state (e.g. previous network drop),
+  // calling play() throws NotSupportedError. Reload the track first.
+  if (audio.error && state.currentTrack) {
+    const track = state.currentTrack;
+    const resumeAt = state.currentTime;
+    const seq = ++stallRecoverySeq;
+    ignoreNextEnded = true;
+    clearTimeout(ignoreEndedTimer);
+    ignoreEndedTimer = null;
+    audio.src = api.streamUrl(track._id, needsTranscode(track));
+    audio.load();
+    audio.addEventListener('loadedmetadata', () => {
+      if (stallRecoverySeq !== seq) return;
+      ignoreNextEnded = false;
+      if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+        audio.currentTime = resumeAt;
+      }
+      audio.play().catch(e => console.error('[player] resume after reload failed:', e));
+    }, { once: true });
+    return;
+  }
   audio.play().catch(err => console.error('[player] resume() failed:', err));
 }
 
