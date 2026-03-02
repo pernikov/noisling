@@ -20,10 +20,10 @@ const transcodeReady = new Set();
 const transcodeInProgress = new Map();
 
 function tempPath(id) {
-  return join(tmpdir(), `noisling_tc_${id}.aac`);
+  return join(tmpdir(), `noisling_tc_${id}.m4a`);
 }
 
-// Serve a fully-written ADTS file with HTTP range support (same logic as
+// Serve a fully-written M4A file with HTTP range support (same logic as
 // regular files, just using the cached temp path).
 async function serveCachedTranscode(id, req, res) {
   const path = tempPath(id);
@@ -40,13 +40,13 @@ async function serveCachedTranscode(id, req, res) {
       'Content-Range': `bytes ${start}-${end}/${size}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': end - start + 1,
-      'Content-Type': 'audio/aac',
+      'Content-Type': 'audio/mp4',
     });
     createReadStream(path, { start, end }).pipe(res);
   } else {
     res.writeHead(200, {
       'Content-Length': size,
-      'Content-Type': 'audio/aac',
+      'Content-Type': 'audio/mp4',
       'Accept-Ranges': 'bytes',
     });
     createReadStream(path).pipe(res);
@@ -75,12 +75,15 @@ router.get('/stream/:id/warm', async (req, res) => {
   } catch { /* not on disk */ }
 
   // Start ffmpeg writing directly to the temp file (no piping to response).
+  // MP4 with faststart moves the moov atom to the front so iOS can seek
+  // immediately over HTTP range requests.
   const ff = spawn('ffmpeg', [
     '-i', track.path,
     '-vn',
     '-c:a', 'aac',
-    '-b:a', '320k',
-    '-f', 'adts',
+    '-b:a', '192k',
+    '-movflags', '+faststart',
+    '-f', 'mp4',
     tempPath(id),
   ], { stdio: 'ignore' });
 
@@ -159,18 +162,22 @@ router.get('/stream/:id', async (req, res) => {
     // buffers only a fraction of a long track, fires 'ended' early, and the
     // client re-requests — that second request hits the cache above and gets
     // a proper seekable response, letting iOS resume from where it stalled.
+    // Fragmented MP4: iOS can parse duration and structure from the stream
+    // headers (ftyp + moov + moof/mdat fragments) without needing the full file.
+    // This eliminates the blank-duration display and improves buffering vs ADTS.
     const ff = spawn('ffmpeg', [
       '-i', track.path,
       '-vn',
       '-c:a', 'aac',
-      '-b:a', '320k',
-      '-f', 'adts',
+      '-b:a', '192k',
+      '-f', 'mp4',
+      '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
       'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'ignore'] });
 
     const ws = createWriteStream(tempPath(id));
 
-    res.setHeader('Content-Type', 'audio/aac');
+    res.setHeader('Content-Type', 'audio/mp4');
     res.setHeader('Cache-Control', 'no-cache');
     // First response is non-seekable (live pipe). The client will re-request
     // after the stall and get the cached, seekable version.

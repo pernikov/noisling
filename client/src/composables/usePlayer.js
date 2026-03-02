@@ -160,13 +160,22 @@ audio.addEventListener('ended', () => {
   const resumeAt = state.currentTime;
   if (knownDuration > 5 && resumeAt < knownDuration - 3 && state.currentTrack) {
     const track = state.currentTrack;
+    // Keep ignoreNextEnded true for the entire recovery window — do NOT reset it
+    // on a short timer. iOS will fire 'ended' again when audio.src changes and
+    // nothing is playing yet; a 500 ms timer expires before the server responds
+    // (especially if it's still transcoding), causing next() to fire spuriously.
+    // We clear it explicitly once loadedmetadata fires or recovery aborts.
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
-    ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
+    ignoreEndedTimer = null;
     const seq = ++stallRecoverySeq;
     audio.src = api.streamUrl(track._id, needsTranscode(track));
+    // iOS Safari requires an explicit load() call after setting src on an
+    // element that was in the 'ended' state to trigger metadata loading.
+    audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
+      ignoreNextEnded = false;
       if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
         audio.currentTime = resumeAt;
       }
