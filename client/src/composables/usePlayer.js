@@ -91,6 +91,9 @@ let _volumeSaveTimer = null;
 // In-flight prefetch guard — prevent concurrent fetches.
 let _prefetching = false;
 
+// Guard against retrying the transcode fallback more than once per track.
+let _transcodeAttempted = false;
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -127,35 +130,53 @@ audio.addEventListener('timeupdate', () => {
   }
 });
 
-// Recover from network drops mid-stream (MEDIA_ERR_NETWORK). Other error codes
-// (decode, format) are not retryable so we leave them alone.
 audio.addEventListener('error', () => {
   const err = audio.error;
   if (!err || !state.currentTrack) return;
   console.error('[player] media error:', err.code, err.message);
-  if (err.code !== MediaError.MEDIA_ERR_NETWORK) return;
 
   const track = state.currentTrack;
   const resumeAt = state.currentTime;
   const seq = ++stallRecoverySeq;
-  ignoreNextEnded = true;
-  clearTimeout(ignoreEndedTimer);
-  ignoreEndedTimer = null;
 
-  // Wait 3 s to give the network a moment to recover before retrying.
-  setTimeout(() => {
-    if (stallRecoverySeq !== seq) return;
-    audio.src = api.streamUrl(track._id, needsTranscode(track));
+  if (err.code === MediaError.MEDIA_ERR_NETWORK) {
+    // Network drop — wait 3 s then reload from the same position.
+    ignoreNextEnded = true;
+    clearTimeout(ignoreEndedTimer);
+    ignoreEndedTimer = null;
+    setTimeout(() => {
+      if (stallRecoverySeq !== seq) return;
+      audio.src = api.streamUrl(track._id, needsTranscode(track));
+      audio.load();
+      audio.addEventListener('loadedmetadata', () => {
+        if (stallRecoverySeq !== seq) return;
+        ignoreNextEnded = false;
+        if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+          audio.currentTime = resumeAt;
+        }
+        audio.play().catch(e => console.error('[player] error-recovery play failed:', e));
+      }, { once: true });
+    }, 3000);
+
+  } else if (err.code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED && !_transcodeAttempted) {
+    // iOS rejected the native format — try the server-side transcode as a fallback.
+    // _transcodeAttempted prevents looping if the transcode also fails.
+    _transcodeAttempted = true;
+    ignoreNextEnded = true;
+    clearTimeout(ignoreEndedTimer);
+    ignoreEndedTimer = null;
+    audio.src = api.streamUrl(track._id, true);
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
       ignoreNextEnded = false;
-      if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-        audio.currentTime = resumeAt;
-      }
-      audio.play().catch(e => console.error('[player] error-recovery play failed:', e));
+      audio.play().catch(e => console.error('[player] transcode-fallback play failed:', e));
     }, { once: true });
-  }, 3000);
+
+  } else {
+    // Decode error, or transcode fallback also failed → skip to next track.
+    next();
+  }
 });
 
 audio.addEventListener('loadedmetadata', () => {
@@ -380,9 +401,10 @@ function play(track) {
   ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
   state.currentTrack = track;
   state.currentTime  = 0;
-  playReported       = false;
-  playedSeconds      = 0;
-  _lastUpdateTime    = null;
+  playReported          = false;
+  playedSeconds         = 0;
+  _lastUpdateTime       = null;
+  _transcodeAttempted   = false;
   audio.src = api.streamUrl(track._id, needsTranscode(track));
 
   if (audio._vizCtx?.ctx?.state === 'suspended') {
@@ -395,6 +417,8 @@ function play(track) {
     if (err.name !== 'NotAllowedError') {
       setTimeout(() => {
         if (state.currentTrack?._id !== trackId) return;
+        // If audio.error is set the error event handler is already dealing with it.
+        if (audio.error) return;
         audio.play().catch(e => console.error('[player] play() retry failed:', e));
       }, 500);
     }
