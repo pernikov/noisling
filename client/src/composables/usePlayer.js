@@ -14,7 +14,7 @@ const UNSUPPORTED_FORMATS = new Set(
     opus: 'audio/ogg; codecs=opus',
     wma:  'audio/x-ms-wma',
   })
-    .filter(([, mime]) => _probe.canPlayType(mime) !== 'probably')
+    .filter(([, mime]) => _probe.canPlayType(mime) === '')
     .map(([fmt]) => fmt)
 );
 
@@ -127,6 +127,37 @@ audio.addEventListener('timeupdate', () => {
   }
 });
 
+// Recover from network drops mid-stream (MEDIA_ERR_NETWORK). Other error codes
+// (decode, format) are not retryable so we leave them alone.
+audio.addEventListener('error', () => {
+  const err = audio.error;
+  if (!err || !state.currentTrack) return;
+  console.error('[player] media error:', err.code, err.message);
+  if (err.code !== MediaError.MEDIA_ERR_NETWORK) return;
+
+  const track = state.currentTrack;
+  const resumeAt = state.currentTime;
+  const seq = ++stallRecoverySeq;
+  ignoreNextEnded = true;
+  clearTimeout(ignoreEndedTimer);
+  ignoreEndedTimer = null;
+
+  // Wait 3 s to give the network a moment to recover before retrying.
+  setTimeout(() => {
+    if (stallRecoverySeq !== seq) return;
+    audio.src = api.streamUrl(track._id, needsTranscode(track));
+    audio.load();
+    audio.addEventListener('loadedmetadata', () => {
+      if (stallRecoverySeq !== seq) return;
+      ignoreNextEnded = false;
+      if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+        audio.currentTime = resumeAt;
+      }
+      audio.play().catch(e => console.error('[player] error-recovery play failed:', e));
+    }, { once: true });
+  }, 3000);
+});
+
 audio.addEventListener('loadedmetadata', () => {
   const audioDuration = isFinite(audio.duration) ? audio.duration : 0;
   const trackDuration = state.currentTrack?.duration ?? 0;
@@ -169,17 +200,36 @@ audio.addEventListener('ended', () => {
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
     const seq = ++stallRecoverySeq;
+
+    // Safety net: if loadedmetadata never fires (e.g. network dropped during
+    // recovery), clear the guard after 15 s and advance to the next track so
+    // the player doesn't silently freeze forever.
+    const recoveryTimeout = setTimeout(() => {
+      if (stallRecoverySeq !== seq) return;
+      ignoreNextEnded = false;
+      next();
+    }, 15000);
+
     audio.src = api.streamUrl(track._id, needsTranscode(track));
     // iOS Safari requires an explicit load() call after setting src on an
     // element that was in the 'ended' state to trigger metadata loading.
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
+      clearTimeout(recoveryTimeout);
       ignoreNextEnded = false;
       if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
         audio.currentTime = resumeAt;
       }
-      audio.play().catch(err => console.error('[player] resume after stall:', err));
+      audio.play().catch(err => {
+        console.error('[player] resume after stall:', err);
+        if (err.name !== 'NotAllowedError') {
+          setTimeout(() => {
+            if (stallRecoverySeq !== seq) return;
+            audio.play().catch(e => console.error('[player] resume retry failed:', e));
+          }, 1000);
+        }
+      });
     }, { once: true });
     return;
   }
@@ -339,7 +389,16 @@ function play(track) {
     audio._vizCtx.ctx.resume();
   }
 
-  audio.play().catch(err => console.error('[player] play() failed:', err));
+  const trackId = track._id;
+  audio.play().catch(err => {
+    console.error('[player] play() failed:', err);
+    if (err.name !== 'NotAllowedError') {
+      setTimeout(() => {
+        if (state.currentTrack?._id !== trackId) return;
+        audio.play().catch(e => console.error('[player] play() retry failed:', e));
+      }, 500);
+    }
+  });
   updateMediaSession(track);
 
   // Pre-warm transcode cache for the next queued track.
