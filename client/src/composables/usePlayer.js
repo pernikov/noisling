@@ -136,6 +136,12 @@ audio.addEventListener('timeupdate', () => {
 audio.addEventListener('error', () => {
   const err = audio.error;
   if (!err || !state.currentTrack) return;
+
+  // Abort is a normal side-effect of calling audio.load() to clear a stale error
+  // state between tracks.  It is not a real playback failure — ignore it and do NOT
+  // increment stallRecoverySeq so any pending loadedmetadata listener stays valid.
+  if (err.code === MediaError.MEDIA_ERR_ABORTED) return;
+
   console.error('[player] media error:', err.code, err.message);
 
   const track = state.currentTrack;
@@ -418,6 +424,11 @@ function play(track) {
   _lastUpdateTime       = null;
   _transcodeAttempted   = false;
   audio.src = api.streamUrl(track._id, needsTranscode(track));
+  // Explicitly invoke load() so iOS clears any stale error state from the
+  // previous track before play() is called.  Setting src alone is supposed to
+  // trigger the load algorithm per spec, but iOS does not do this synchronously,
+  // so a subsequent play() call can see the old error and immediately reject.
+  audio.load();
 
   if (audio._vizCtx?.ctx?.state === 'suspended') {
     audio._vizCtx.ctx.resume();
