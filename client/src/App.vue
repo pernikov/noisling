@@ -74,15 +74,15 @@ watch(
     :class="
       playerState.showVisualizer
         ? 'h-svh overflow-hidden'
-        : { 'min-h-svh': true, 'pb-[calc(6rem+env(safe-area-inset-bottom))]': playerState.currentTrack }
+        : { 'min-h-svh': true, 'pb-24': playerState.currentTrack }
     "
   >
-    <!-- Spacer to offset fixed nav -->
-    <div class="h-14 shrink-0" />
+    <!-- Spacer to offset fixed nav (includes safe-area-inset-top for PWA notch) -->
+    <div class="h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0" />
 
     <!-- Top nav -->
     <nav
-      class="fixed top-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40"
+      class="fixed top-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40 pt-[env(safe-area-inset-top)]"
       :style="navStyle"
     >
       <div
@@ -186,7 +186,7 @@ watch(
     <!-- Global error toasts -->
     <Teleport to="body">
       <div
-        class="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-4 z-[100] flex flex-col gap-2 pointer-events-none"
+        class="fixed bottom-24 right-4 z-[100] flex flex-col gap-2 pointer-events-none"
       >
         <TransitionGroup name="toast-slide">
           <div
