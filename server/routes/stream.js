@@ -65,6 +65,8 @@ function startWarm(id, trackPath) {
     '-vn',
     '-c:a', 'aac',
     '-b:a', '256k',
+    '-ar', '44100',   // normalise to 44.1 kHz — iOS rejects unusual rates in AAC streams
+    '-ac', '2',       // normalise to stereo
     '-movflags', '+faststart',
     '-f', 'mp4',
     tempPath(id),
@@ -180,6 +182,8 @@ router.get('/stream/:id', async (req, res) => {
       '-vn',
       '-c:a', 'aac',
       '-b:a', '256k',
+      '-ar', '44100',   // normalise to 44.1 kHz — iOS rejects unusual rates in AAC streams
+      '-ac', '2',       // normalise to stereo
       '-f', 'adts',
       'pipe:1',
     ], { stdio: ['ignore', 'pipe', 'ignore'] });
