@@ -184,13 +184,20 @@ audio.addEventListener('error', () => {
 
   } else if (err.code === MediaError.MEDIA_ERR_DECODE && needsTranscode(track) && !_transcodeAttempted) {
     // ADTS live-stream decode error — typically a transient framing issue at the
-    // start of the ffmpeg pipe.  Retry after 1.5 s: by then the warm is usually
-    // complete and the re-request will get the stable faststart M4A instead.
+    // start of the ffmpeg pipe.  Poll the warm endpoint until the faststart M4A is
+    // ready (or 10 s timeout), then retry — gets the stable M4A instead of ADTS.
     _transcodeAttempted = true;
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
-    setTimeout(() => {
+    (async () => {
+      const deadline = Date.now() + 10000;
+      while (Date.now() < deadline) {
+        if (stallRecoverySeq !== seq) return;
+        const { status } = await api.warmTranscode(track._id);
+        if (status === 'ready') break;
+        await new Promise(r => setTimeout(r, 300));
+      }
       if (stallRecoverySeq !== seq) return;
       audio.src = api.streamUrl(track._id, true);
       audio.load();
@@ -199,7 +206,7 @@ audio.addEventListener('error', () => {
         ignoreNextEnded = false;
         audio.play().catch(e => console.error('[player] decode-retry play failed:', e));
       }, { once: true });
-    }, 1500);
+    })();
 
   } else {
     // Decode error (retry exhausted), or transcode fallback failed → skip.
