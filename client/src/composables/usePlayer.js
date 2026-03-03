@@ -434,6 +434,15 @@ audio.addEventListener('pause', () => {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
 
+// These fire when iOS silently suspends a stream — without 'ended' or 'error' —
+// which is the suspected cause of mid-song restarts with no other logs.
+audio.addEventListener('stalled', () => {
+  console.log(`[player] stalled — "${state.currentTrack?.title}" t=${audio.currentTime.toFixed(1)} rs=${audio.readyState}`);
+});
+audio.addEventListener('waiting', () => {
+  console.log(`[player] waiting — "${state.currentTrack?.title}" t=${audio.currentTime.toFixed(1)} rs=${audio.readyState}`);
+});
+
 function updateMediaSession(track) {
   if (!('mediaSession' in navigator)) return;
   navigator.mediaSession.metadata = new MediaMetadata({
@@ -459,15 +468,16 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => resume());
-  navigator.mediaSession.setActionHandler('pause', () => pause());
-  navigator.mediaSession.setActionHandler('previoustrack', () => prev());
-  navigator.mediaSession.setActionHandler('nexttrack', () => next());
+  navigator.mediaSession.setActionHandler('play', () => { console.log('[mediasession] play'); resume(); });
+  navigator.mediaSession.setActionHandler('pause', () => { console.log('[mediasession] pause'); pause(); });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack t=${audio.currentTime.toFixed(1)}`); prev(); });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { console.log('[mediasession] nexttrack'); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
+    console.log(`[mediasession] seekto ${details.seekTime?.toFixed(1)}`);
     if (details.seekTime != null) seek(details.seekTime);
   });
-  navigator.mediaSession.setActionHandler('seekbackward', () => prev());
-  navigator.mediaSession.setActionHandler('seekforward', () => next());
+  navigator.mediaSession.setActionHandler('seekbackward', (details) => { console.log(`[mediasession] seekbackward offset=${details?.seekOffset}`); prev(); });
+  navigator.mediaSession.setActionHandler('seekforward', (details) => { console.log(`[mediasession] seekforward offset=${details?.seekOffset}`); next(); });
 }
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
@@ -556,6 +566,7 @@ async function loadPlayerPrefs() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function play(track) {
+  console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
   audio.pause();
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
@@ -740,6 +751,7 @@ function toggle() {
 }
 
 function seek(time) {
+  console.log(`[player] seek ${time.toFixed(1)}s — "${state.currentTrack?.title}"`);
   audio.currentTime = time;
   state.currentTime = time;
 }
@@ -816,6 +828,7 @@ function _clearQueue() {
 }
 
 function next() {
+  console.log(`[player] next — "${state.currentTrack?.title}" idx=${state.queueIndex}`);
   if (state.queue.length === 0) {
     state.isPlaying = false;
     return;
@@ -886,6 +899,7 @@ function cycleRepeat() {
 
 function prev() {
   if (audio.currentTime > 3) {
+    console.log(`[player] prev → seek to 0 (was ${audio.currentTime.toFixed(1)}s) — "${state.currentTrack?.title}"`);
     audio.currentTime = 0;
     return;
   }
