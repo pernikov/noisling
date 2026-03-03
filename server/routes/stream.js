@@ -153,13 +153,12 @@ router.get('/stream/:id', async (req, res) => {
       if (await serveCachedTranscode(id, req, res)) return;
     } catch { /* not on disk yet */ }
 
-    // Warm (faststart M4A) is in progress — wait for it, then serve.
-    if (transcodeInProgress.has(id)) {
-      try {
-        await transcodeInProgress.get(id);
-        if (await serveCachedTranscode(id, req, res)) return;
-      } catch { /* transcoding failed; fall through to retry */ }
-    }
+    // Do NOT block here waiting for an in-progress warm — iOS's audio element will
+    // time out (typically ~2 s on mobile) if the server holds the connection open
+    // with no data, causing a MEDIA_ERR_SRC_NOT_SUPPORTED that bypasses all
+    // client-side guards and leads to a song skip.  Instead, fall straight through
+    // to the ADTS live-stream (which delivers data within ~200 ms) and let the
+    // existing stall-detection / re-request path pick up the finished M4A cache.
 
     // First request for this track and no cache available yet.
     //
