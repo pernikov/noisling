@@ -182,8 +182,27 @@ audio.addEventListener('error', () => {
       audio.play().catch(e => console.error('[player] transcode-fallback play failed:', e));
     }, { once: true });
 
+  } else if (err.code === MediaError.MEDIA_ERR_DECODE && needsTranscode(track) && !_transcodeAttempted) {
+    // ADTS live-stream decode error — typically a transient framing issue at the
+    // start of the ffmpeg pipe.  Retry after 1.5 s: by then the warm is usually
+    // complete and the re-request will get the stable faststart M4A instead.
+    _transcodeAttempted = true;
+    ignoreNextEnded = true;
+    clearTimeout(ignoreEndedTimer);
+    ignoreEndedTimer = null;
+    setTimeout(() => {
+      if (stallRecoverySeq !== seq) return;
+      audio.src = api.streamUrl(track._id, true);
+      audio.load();
+      audio.addEventListener('loadedmetadata', () => {
+        if (stallRecoverySeq !== seq) return;
+        ignoreNextEnded = false;
+        audio.play().catch(e => console.error('[player] decode-retry play failed:', e));
+      }, { once: true });
+    }, 1500);
+
   } else {
-    // Decode error, or transcode fallback also failed → skip to next track.
+    // Decode error (retry exhausted), or transcode fallback failed → skip.
     // Stop after 3 consecutive error-skips so we don't race through the whole queue.
     if (++_consecutiveErrors >= 3) {
       console.error('[player] too many consecutive errors, stopping playback');

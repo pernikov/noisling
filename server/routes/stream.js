@@ -147,11 +147,15 @@ router.get('/stream/:id', async (req, res) => {
     }
 
     // Check for a faststart M4A left over from a previous server run.
-    try {
-      await statAsync(tempPath(id));
-      transcodeReady.add(id);
-      if (await serveCachedTranscode(id, req, res)) return;
-    } catch { /* not on disk yet */ }
+    // Skip this check while a warm is actively writing to the file — statAsync
+    // would succeed on the still-incomplete M4A and we'd serve corrupt data.
+    if (!transcodeInProgress.has(id)) {
+      try {
+        await statAsync(tempPath(id));
+        transcodeReady.add(id);
+        if (await serveCachedTranscode(id, req, res)) return;
+      } catch { /* not on disk yet */ }
+    }
 
     // Do NOT block here waiting for an in-progress warm — iOS's audio element will
     // time out (typically ~2 s on mobile) if the server holds the connection open
