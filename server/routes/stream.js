@@ -58,8 +58,10 @@ async function serveCachedTranscode(id, req, res) {
 // The faststart flag moves the moov atom to the front so iOS can seek immediately
 // over byte-range requests once the cache is served.
 // No-op if already done or in progress.
-function startWarm(id, trackPath) {
+function startWarm(id, trackPath, label) {
   if (transcodeReady.has(id) || transcodeInProgress.has(id)) return;
+
+  console.log(`[stream] warm start  — ${label}`);
 
   const ff = spawn('ffmpeg', [
     '-i', trackPath,
@@ -86,14 +88,16 @@ function startWarm(id, trackPath) {
       transcodeReady.add(id);
       resolveTranscode();
       broadcast('transcode_ready', { trackId: id });
+      console.log(`[stream] warm done   — ${label}`);
     } else {
       unlinkAsync(tempPath(id)).catch(() => {});
       rejectTranscode(new Error(`ffmpeg exit ${code}`));
+      console.error(`[stream] warm failed (exit ${code}) — ${label}`);
     }
   });
 
   ff.on('error', (err) => {
-    console.error('[transcode] ffmpeg spawn error:', err);
+    console.error(`[stream] warm spawn error — ${label}:`, err.message);
     transcodeInProgress.delete(id);
     unlinkAsync(tempPath(id)).catch(() => {});
     rejectTranscode(err);
@@ -108,6 +112,7 @@ router.get('/stream/:id/warm', async (req, res) => {
   if (!track) return res.status(404).json({ error: 'Track not found' });
 
   const id = req.params.id;
+  const label = `"${track.title || id}"`;
 
   if (transcodeReady.has(id)) return res.json({ status: 'ready' });
   if (transcodeInProgress.has(id)) return res.json({ status: 'in_progress' });
@@ -119,7 +124,7 @@ router.get('/stream/:id/warm', async (req, res) => {
     return res.json({ status: 'ready' });
   } catch { /* not on disk */ }
 
-  startWarm(id, track.path);
+  startWarm(id, track.path, label);
   res.json({ status: 'started' });
 });
 
@@ -141,11 +146,16 @@ router.get('/stream/:id', async (req, res) => {
   // On-the-fly transcode for browsers that can't play the native format (e.g. FLAC on iOS).
   if (req.query.transcode) {
     const id = req.params.id;
+    const label = `"${track.title || id}"`;
+    const range = req.headers.range || 'none';
+    console.log(`[stream] transcode req — ${label}  range=${range}`);
 
     // Already fully transcoded (faststart M4A) — serve with range support so iOS can seek.
     if (transcodeReady.has(id)) {
+      console.log(`[stream] serving M4A cache — ${label}`);
       if (await serveCachedTranscode(id, req, res)) return;
       transcodeReady.delete(id); // file was deleted externally; fall through to re-transcode
+      console.log(`[stream] M4A cache gone, re-transcoding — ${label}`);
     }
 
     // Check for a faststart M4A left over from a previous server run.
@@ -155,8 +165,11 @@ router.get('/stream/:id', async (req, res) => {
       try {
         await statAsync(tempPath(id));
         transcodeReady.add(id);
+        console.log(`[stream] serving M4A from disk — ${label}`);
         if (await serveCachedTranscode(id, req, res)) return;
       } catch { /* not on disk yet */ }
+    } else {
+      console.log(`[stream] warm in progress, falling to ADTS — ${label}`);
     }
 
     // First request for this track and no cache available yet.
@@ -173,7 +186,8 @@ router.get('/stream/:id', async (req, res) => {
     //
     // The live-stream ffmpeg does NOT write to tempPath — only startWarm does.
     // This keeps the cache exclusively faststart M4A (never a broken fMP4).
-    startWarm(id, track.path);
+    console.log(`[stream] starting ADTS live stream — ${label}`);
+    startWarm(id, track.path, label);
 
     const ff = spawn('ffmpeg', [
       '-i', track.path,

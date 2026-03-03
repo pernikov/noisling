@@ -185,7 +185,11 @@ audio.addEventListener('error', () => {
   // increment stallRecoverySeq so any pending loadedmetadata listener stays valid.
   if (err.code === MediaError.MEDIA_ERR_ABORTED) return;
 
-  console.error('[player] media error:', err.code, err.message);
+  const _errTitle = state.currentTrack?.title ?? '?';
+  const _errT = audio.currentTime.toFixed(1);
+  const _errDur = isFinite(audio.duration) ? audio.duration.toFixed(1) : '∞';
+  const codeNames = { 1: 'ABORTED', 2: 'NETWORK', 3: 'DECODE', 4: 'SRC_NOT_SUPPORTED' };
+  console.error(`[player] media error — "${_errTitle}" t=${_errT} dur=${_errDur} code=${err.code}(${codeNames[err.code] ?? '?'}) msg="${err.message}"`);
 
   const track = state.currentTrack;
   const resumeAt = state.currentTime;
@@ -281,6 +285,10 @@ audio.addEventListener('loadedmetadata', () => {
 });
 
 audio.addEventListener('ended', () => {
+  const _t = audio.currentTime.toFixed(1);
+  const _d = isFinite(audio.duration) ? audio.duration.toFixed(1) : '∞';
+  const _title = state.currentTrack?.title ?? '?';
+
   if (ignoreNextEnded) {
     ignoreNextEnded = false;
     clearTimeout(ignoreEndedTimer);
@@ -289,7 +297,11 @@ audio.addEventListener('ended', () => {
     // immediately after audio.src is reassigned before any data has loaded.
     // If audio has actually buffered content (readyState ≥ HAVE_CURRENT_DATA) and
     // advanced past 0.5 s, it's a real event — fall through to stall detection.
-    if (audio.readyState <= 1 || audio.currentTime < 0.5) return;
+    if (audio.readyState <= 1 || audio.currentTime < 0.5) {
+      console.log(`[player] ended suppressed (spurious) — "${_title}" t=${_t} rs=${audio.readyState}`);
+      return;
+    }
+    console.log(`[player] ended not suppressed (real) — "${_title}" t=${_t} rs=${audio.readyState}`);
   }
 
   // Detect premature 'ended' caused by iOS exhausting its audio buffer before
@@ -301,8 +313,12 @@ audio.addEventListener('ended', () => {
     trackDuration,
   );
   const resumeAt = state.currentTime;
+
+  console.log(`[player] ended — "${_title}" t=${_t} audio.dur=${_d} knownDur=${knownDuration.toFixed(1)} state.dur=${state.duration.toFixed(1)}`);
+
   if (knownDuration > 5 && resumeAt < knownDuration - 3 && state.currentTrack) {
     const track = state.currentTrack;
+    console.log(`[player] stall detected at ${resumeAt.toFixed(1)}s / ${knownDuration.toFixed(1)}s — "${_title}" — starting recovery`);
     // Keep ignoreNextEnded true for the entire recovery window — do NOT reset it
     // on a short timer. iOS will fire 'ended' again when audio.src changes and
     // nothing is playing yet; a 500 ms timer expires before the server responds
@@ -318,6 +334,7 @@ audio.addEventListener('ended', () => {
     // the player doesn't silently freeze forever.
     const recoveryTimeout = setTimeout(() => {
       if (stallRecoverySeq !== seq) return;
+      console.log(`[player] recovery timeout — "${_title}" — calling next()`);
       ignoreNextEnded = false;
       next();
     }, 15000);
@@ -330,7 +347,10 @@ audio.addEventListener('ended', () => {
       if (stallRecoverySeq !== seq) return;
       clearTimeout(recoveryTimeout);
       ignoreNextEnded = false;
+      const seekable = audio.seekable.length > 0 ? audio.seekable.end(0).toFixed(1) : 'none';
+      console.log(`[player] recovery loadedmetadata — "${_title}" seekable=${seekable} resumeAt=${resumeAt.toFixed(1)}`);
       if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+        console.log(`[player] recovery seek to ${resumeAt.toFixed(1)}s — "${_title}"`);
         audio.currentTime = resumeAt;
       } else {
         // Got ADTS (not seekable) — warm M4A not ready yet.  Register a callback
@@ -339,10 +359,16 @@ audio.addEventListener('ended', () => {
         // We only honour the callback if it fires within 5 s: after that the user
         // has already re-engaged with the beginning of the track and interrupting
         // would be more jarring than helpful.
+        console.log(`[player] recovery got ADTS (not seekable) — waiting for transcode_ready — "${_title}"`);
         const registeredAt = Date.now();
         _whenTranscodeReady(track._id, () => {
           if (stallRecoverySeq !== seq) return; // player has moved on
-          if (Date.now() - registeredAt > 5000) return; // too late to interrupt
+          const elapsed = Date.now() - registeredAt;
+          if (elapsed > 5000) {
+            console.log(`[player] transcode_ready too late (${elapsed}ms) — "${_title}"`);
+            return;
+          }
+          console.log(`[player] transcode_ready fired (${elapsed}ms) — re-seeking to ${resumeAt.toFixed(1)}s — "${_title}"`);
           const newSeq = ++stallRecoverySeq;
           ignoreNextEnded = true;
           clearTimeout(ignoreEndedTimer);
@@ -354,6 +380,9 @@ audio.addEventListener('ended', () => {
             ignoreNextEnded = false;
             if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
               audio.currentTime = resumeAt;
+              console.log(`[player] transcode-ready seek succeeded — "${_title}"`);
+            } else {
+              console.log(`[player] transcode-ready seek failed (still not seekable) — "${_title}"`);
             }
             audio.play().catch(e => console.error('[player] transcode-ready re-seek failed:', e));
           }, { once: true });
@@ -371,6 +400,8 @@ audio.addEventListener('ended', () => {
     }, { once: true });
     return;
   }
+
+  console.log(`[player] natural end — "${_title}" — advancing queue`);
 
   // Defer play/next out of the ended handler. When audio.src is reassigned and
   // audio.play() is called synchronously inside the 'ended' event on iOS Safari,
