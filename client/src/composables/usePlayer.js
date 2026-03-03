@@ -97,6 +97,49 @@ let _transcodeAttempted = false;
 // Count consecutive error-induced skips so we stop looping if everything fails.
 let _consecutiveErrors = 0;
 
+// ─── Transcode-ready SSE listener ─────────────────────────────────────────────
+// The server broadcasts 'transcode_ready' when a warm M4A finishes encoding.
+// We use this to interrupt an ADTS fallback stream and immediately re-seek to
+// the correct position once the seekable M4A becomes available.
+
+let _transcodeEventSource = null;
+const _transcodeReadyCallbacks = new Map(); // trackId → Set<{ cb, cancel }>
+
+function _initTranscodeEvents() {
+  if (_transcodeEventSource) return;
+  _transcodeEventSource = new EventSource('/api/events');
+  _transcodeEventSource.addEventListener('transcode_ready', (e) => {
+    try {
+      const { trackId } = JSON.parse(e.data);
+      const key = String(trackId);
+      const entries = _transcodeReadyCallbacks.get(key);
+      if (entries) {
+        for (const { cb } of [...entries]) cb();
+        _transcodeReadyCallbacks.delete(key);
+      }
+    } catch (_) {}
+  });
+  _transcodeEventSource.onerror = () => {
+    _transcodeEventSource.close();
+    _transcodeEventSource = null;
+    setTimeout(_initTranscodeEvents, 3000);
+  };
+}
+
+// Register a one-shot callback for when a specific track's M4A is ready.
+// Returns a cancel function to de-register it (e.g. if the track changes).
+function _whenTranscodeReady(trackId, cb) {
+  _initTranscodeEvents();
+  const key = String(trackId);
+  if (!_transcodeReadyCallbacks.has(key)) _transcodeReadyCallbacks.set(key, new Set());
+  const entry = { cb };
+  _transcodeReadyCallbacks.get(key).add(entry);
+  return () => {
+    const entries = _transcodeReadyCallbacks.get(key);
+    if (entries) { entries.delete(entry); if (!entries.size) _transcodeReadyCallbacks.delete(key); }
+  };
+}
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -289,6 +332,32 @@ audio.addEventListener('ended', () => {
       ignoreNextEnded = false;
       if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
         audio.currentTime = resumeAt;
+      } else {
+        // Got ADTS (not seekable) — warm M4A not ready yet.  Register a callback
+        // so that when the server finishes encoding and broadcasts 'transcode_ready',
+        // we immediately interrupt the ADTS replay and re-seek to the right spot.
+        // We only honour the callback if it fires within 5 s: after that the user
+        // has already re-engaged with the beginning of the track and interrupting
+        // would be more jarring than helpful.
+        const registeredAt = Date.now();
+        _whenTranscodeReady(track._id, () => {
+          if (stallRecoverySeq !== seq) return; // player has moved on
+          if (Date.now() - registeredAt > 5000) return; // too late to interrupt
+          const newSeq = ++stallRecoverySeq;
+          ignoreNextEnded = true;
+          clearTimeout(ignoreEndedTimer);
+          ignoreEndedTimer = null;
+          audio.src = api.streamUrl(track._id, true);
+          audio.load();
+          audio.addEventListener('loadedmetadata', () => {
+            if (stallRecoverySeq !== newSeq) return;
+            ignoreNextEnded = false;
+            if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+              audio.currentTime = resumeAt;
+            }
+            audio.play().catch(e => console.error('[player] transcode-ready re-seek failed:', e));
+          }, { once: true });
+        });
       }
       audio.play().catch(err => {
         console.error('[player] resume after stall:', err);

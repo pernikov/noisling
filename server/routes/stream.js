@@ -7,6 +7,7 @@ import mime from 'mime-types';
 import Track from '../models/Track.js';
 import config from '../config.js';
 import { join } from 'path';
+import { broadcast } from '../services/events.js';
 
 const statAsync = promisify(stat);
 const unlinkAsync = promisify(unlink);
@@ -84,6 +85,7 @@ function startWarm(id, trackPath) {
     if (code === 0) {
       transcodeReady.add(id);
       resolveTranscode();
+      broadcast('transcode_ready', { trackId: id });
     } else {
       unlinkAsync(tempPath(id)).catch(() => {});
       rejectTranscode(new Error(`ffmpeg exit ${code}`));
@@ -156,13 +158,6 @@ router.get('/stream/:id', async (req, res) => {
         if (await serveCachedTranscode(id, req, res)) return;
       } catch { /* not on disk yet */ }
     }
-
-    // Do NOT block here waiting for an in-progress warm — iOS's audio element will
-    // time out (typically ~2 s on mobile) if the server holds the connection open
-    // with no data, causing a MEDIA_ERR_SRC_NOT_SUPPORTED that bypasses all
-    // client-side guards and leads to a song skip.  Instead, fall straight through
-    // to the ADTS live-stream (which delivers data within ~200 ms) and let the
-    // existing stall-detection / re-request path pick up the finished M4A cache.
 
     // First request for this track and no cache available yet.
     //
