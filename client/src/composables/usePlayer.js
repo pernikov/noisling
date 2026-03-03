@@ -112,10 +112,57 @@ function _initTranscodeEvents() {
     try {
       const { trackId } = JSON.parse(e.data);
       const key = String(trackId);
+
+      // Fan out one-shot stall-recovery callbacks.
       const entries = _transcodeReadyCallbacks.get(key);
       if (entries) {
         for (const { cb } of [...entries]) cb();
         _transcodeReadyCallbacks.delete(key);
+      }
+
+      // Proactive switch: if this is the currently playing track and we're still
+      // streaming ADTS (seekable.length === 0), switch to the M4A immediately.
+      //
+      // Root cause this fixes: iOS cannot range-resume ADTS streams
+      // (Accept-Ranges: none).  When iOS's audio buffer drains it tries a range
+      // request, gets rejected, and silently restarts the download from byte 0 —
+      // restarting the song with no JS events whatsoever.  Switching to the
+      // seekable M4A as soon as it's ready eliminates this entirely.
+      if (
+        state.currentTrack &&
+        String(state.currentTrack._id) === key &&
+        needsTranscode(state.currentTrack) &&
+        state.isPlaying &&
+        audio.seekable.length === 0
+      ) {
+        const resumeAt = audio.currentTime;
+        const track = state.currentTrack;
+        const seq = ++stallRecoverySeq;
+        console.log(`[player] proactive M4A switch at ${resumeAt.toFixed(1)}s — "${track.title}"`);
+        ignoreNextEnded = true;
+        clearTimeout(ignoreEndedTimer);
+        ignoreEndedTimer = null;
+        audio.src = api.streamUrl(track._id, true);
+        audio.load();
+        audio.addEventListener('loadedmetadata', () => {
+          if (stallRecoverySeq !== seq) return;
+          ignoreNextEnded = false;
+          if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+            audio.currentTime = resumeAt;
+            console.log(`[player] proactive M4A switch seek to ${resumeAt.toFixed(1)}s — "${track.title}"`);
+          } else {
+            console.log(`[player] proactive M4A switch: M4A not seekable (seekable=${audio.seekable.length > 0 ? audio.seekable.end(0).toFixed(1) : 'none'}) — "${track.title}"`);
+          }
+          audio.play().catch(err => {
+            console.error('[player] proactive M4A switch play failed:', err);
+            if (err.name !== 'NotAllowedError') {
+              setTimeout(() => {
+                if (stallRecoverySeq !== seq) return;
+                audio.play().catch(e => console.error('[player] proactive M4A switch retry failed:', e));
+              }, 1000);
+            }
+          });
+        }, { once: true });
       }
     } catch (_) {}
   });
@@ -581,6 +628,9 @@ function play(track) {
   playedSeconds         = 0;
   _lastUpdateTime       = null;
   _transcodeAttempted   = false;
+  // Ensure the SSE listener is open so the proactive M4A switch fires as soon
+  // as the warm finishes — don't wait for a stall to initialise it.
+  if (needsTranscode(track)) _initTranscodeEvents();
   audio.src = api.streamUrl(track._id, needsTranscode(track));
 
   if (audio._vizCtx?.ctx?.state === 'suspended') {
