@@ -215,7 +215,12 @@ audio.addEventListener('ended', () => {
   if (ignoreNextEnded) {
     ignoreNextEnded = false;
     clearTimeout(ignoreEndedTimer);
-    return;
+    ignoreEndedTimer = null;
+    // Suppress only if this looks like the iOS Safari spurious 'ended' that fires
+    // immediately after audio.src is reassigned before any data has loaded.
+    // If audio has actually buffered content (readyState ≥ HAVE_CURRENT_DATA) and
+    // advanced past 0.5 s, it's a real event — fall through to stall detection.
+    if (audio.readyState <= 1 || audio.currentTime < 0.5) return;
   }
 
   // Detect premature 'ended' caused by iOS exhausting its audio buffer before
@@ -429,7 +434,10 @@ function play(track) {
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
-  ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, 500);
+  // For transcode tracks the ADTS live-stream can take several seconds for ffmpeg
+  // to start delivering data; keep the guard up longer so iOS doesn't fire a
+  // spurious 'ended' and trigger stall-recovery before playback has even begun.
+  ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, needsTranscode(track) ? 8000 : 500);
   state.currentTrack = track;
   state.currentTime  = 0;
   playReported          = false;
