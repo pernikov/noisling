@@ -7,9 +7,23 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --theme-bg-rgb: 15, 23, 42;
+  --theme-bg-dark-rgb: 9, 9, 11;
+}
+
 @layer base {
   body {
     font-family: 'Inter', sans-serif;
+    background-color: rgb(var(--theme-bg-dark-rgb));
+    background-image: radial-gradient(
+      120% 120% at 0% 0%,
+      rgba(var(--theme-bg-rgb), 0.55) 0%,
+      rgba(var(--theme-bg-dark-rgb), 0.7) 45%,
+      rgba(9, 9, 11, 1) 100%
+    );
+    background-attachment: fixed;
+    transition: background-color 0.25s ease;
   }
 }
 

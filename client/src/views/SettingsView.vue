@@ -27,13 +27,13 @@ const router = useRouter();
 const api = useApi();
 const appVersion = __APP_VERSION__;
 const {
-  accentColor, accentRgb, VALID_COLORS,
+  accentColor, accentRgb, themeColor, VALID_COLORS,
   density, showCoverArt, fontSize,
   lovedUseAccent, setLovedUseAccent,
   songsColumns, setSongsColumn,
   showArtistsNav, wideLayout,
   homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
-  setAccentColor, setDensity, setShowCoverArt, setFontSize,
+  setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
   setShowArtistsNav, setWideLayout, setHomeSection,
 } = useTheme();
 
@@ -232,6 +232,36 @@ onUnmounted(() => {
               :aria-label="`${color} accent`"
               :aria-pressed="accentColor === color"
             />
+            <span class="w-8 h-8 rounded-full opacity-0 pointer-events-none" aria-hidden="true" />
+          </div>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Theme/background color -->
+        <div>
+          <p class="text-sm font-medium text-zinc-200 mb-1">Background theme</p>
+          <p class="text-xs text-zinc-500 mb-3">Tint the app background, or keep the original default dark look.</p>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button
+              v-for="color in VALID_COLORS"
+              :key="`${color}-theme`"
+              @click="setThemeColor(color)"
+              class="w-8 h-8 rounded-full transition-all ring-offset-2 ring-offset-zinc-900"
+              :class="[`bg-${color}-500`, themeColor === color ? `ring-2 ring-${color}-400` : 'hover:scale-110']"
+              :aria-label="`${color} theme`"
+              :aria-pressed="themeColor === color"
+            />
+            <button
+              @click="setThemeColor('none')"
+              class="relative w-8 h-8 rounded-full ring-offset-2 ring-offset-zinc-900 transition-all border"
+              :class="themeColor === 'none' ? 'ring-2 ring-zinc-400 border-zinc-400 bg-zinc-700/30' : 'border-zinc-600 hover:scale-110 bg-zinc-900/30'"
+              aria-label="Default background theme"
+              :aria-pressed="themeColor === 'none'"
+              title="Default"
+            >
+              <span class="absolute left-[6px] right-[6px] top-1/2 h-px -translate-y-1/2 -rotate-45 bg-zinc-300/90" />
+            </button>
           </div>
         </div>
 

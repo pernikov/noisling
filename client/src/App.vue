@@ -16,7 +16,7 @@ import { useUpdateCheck } from "./composables/useUpdateCheck.js";
 import GlobalSearch from "./components/GlobalSearch.vue";
 import UpdateModal from "./components/UpdateModal.vue";
 
-const { loadTheme, showArtistsNav, wideLayout } = useTheme();
+const { loadTheme, showArtistsNav, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
 loadTheme();
 
 const { loadPlayerPrefs, restoreQueue } = usePlayer();
@@ -45,9 +45,15 @@ watch(
 const { accentColor } = useAccentColor();
 
 const navStyle = computed(() => {
-  if (!accentColor.value) return {};
+  const isDefaultTheme = themeColor.value === "none";
+  const baseBg = isDefaultTheme
+    ? `linear-gradient(to bottom, rgba(9, 9, 11, 0.95), rgba(9, 9, 11, 0.95))`
+    : `linear-gradient(to bottom, rgba(${themeBgRgb.value}, 0.9), rgba(${themeBgDarkRgb.value}, 0.95))`;
+  if (!accentColor.value) {
+    return { backgroundImage: baseBg };
+  }
   return {
-    background: `linear-gradient(to right, rgba(${accentColor.value}, 0.25), rgba(${accentColor.value}, 0.1) 60%, transparent)`,
+    backgroundImage: `linear-gradient(to right, rgba(${accentColor.value}, 0.25), rgba(${accentColor.value}, 0.1) 60%, transparent), ${baseBg}`,
   };
 });
 useKeyboardShortcuts();
@@ -82,7 +88,7 @@ watch(
 
     <!-- Top nav -->
     <nav
-      class="fixed top-0 left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 z-40 pt-[env(safe-area-inset-top)]"
+      class="fixed top-0 left-0 right-0 backdrop-blur-xl border-b border-zinc-800 z-40 pt-[env(safe-area-inset-top)]"
       :style="navStyle"
     >
       <div

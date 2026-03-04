@@ -2,6 +2,7 @@ import { ref, computed } from 'vue';
 import { useApi } from './useApi.js';
 
 const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
+const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 
 const COLOR_RGB = {
   rose:    [244, 63,  94 ],
@@ -29,10 +30,12 @@ const COLOR_RGB_DARK = {
 };
 
 const STORAGE_KEY  = 'noisling_accent';
+const THEME_KEY    = 'noisling_theme';
 const DENSITY_KEY  = 'noisling_density';
 const COVER_KEY    = 'noisling_cover';
 const FONT_KEY     = 'noisling_fontsize';
 const DEFAULT_COLOR = 'violet';
+const DEFAULT_THEME_COLOR = 'none';
 const VALID_FONT_SIZES = ['small', 'medium', 'large'];
 
 // Songs view keys
@@ -59,6 +62,8 @@ const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bu
 // flash of the wrong value before the API call returns.
 const stored = localStorage.getItem(STORAGE_KEY);
 const accentColor = ref(VALID_COLORS.includes(stored) ? stored : DEFAULT_COLOR);
+const storedTheme = localStorage.getItem(THEME_KEY);
+const themeColor = ref(VALID_THEME_COLORS.includes(storedTheme) ? storedTheme : DEFAULT_THEME_COLOR);
 
 const storedDensity = localStorage.getItem(DENSITY_KEY);
 const density = ref(storedDensity === 'compact' ? 'compact' : 'comfortable');
@@ -116,11 +121,53 @@ const homeVisibleCount = computed(
   () => [homeShowQuickPlay.value, homeShowRecent.value, homeShowAlbums.value].filter(Boolean).length
 );
 
+const THEME_BG_RGB = {
+  rose:    [28,  10, 16],
+  amber:   [31,  18, 8 ],
+  yellow:  [33,  24, 10],
+  emerald: [7,   24, 18],
+  teal:    [7,   23, 22],
+  sky:     [7,   18, 29],
+  indigo:  [12,  14, 31],
+  violet:  [18,  12, 31],
+  slate:   [15,  23, 42],
+  none:    [9,   9,  11],
+};
+
+const THEME_BG_DARK_RGB = {
+  rose:    [9,  4,  6 ],
+  amber:   [9,  5,  2 ],
+  yellow:  [9,  7,  2 ],
+  emerald: [2,  8,  6 ],
+  teal:    [2,  8,  8 ],
+  sky:     [2,  6,  10],
+  indigo:  [4,  4,  12],
+  violet:  [6,  4,  12],
+  slate:   [9,  9,  11],
+  none:    [9,  9,  11],
+};
+
+function applyThemeColor(color) {
+  if (typeof document === 'undefined') return;
+  const safeColor = VALID_THEME_COLORS.includes(color) ? color : DEFAULT_THEME_COLOR;
+  const root = document.documentElement;
+  root.style.setProperty('--theme-bg-rgb', THEME_BG_RGB[safeColor].join(', '));
+  root.style.setProperty('--theme-bg-dark-rgb', THEME_BG_DARK_RGB[safeColor].join(', '));
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  if (themeMeta) {
+    themeMeta.setAttribute('content', `rgb(${THEME_BG_DARK_RGB[safeColor].join(', ')})`);
+  }
+}
+
+applyThemeColor(themeColor.value);
+
 export function useTheme() {
   const api = useApi();
 
   const accentRgb     = computed(() => COLOR_RGB[accentColor.value].join(', '));
   const accentDarkRgb = computed(() => COLOR_RGB_DARK[accentColor.value].join(', '));
+  const themeBgRgb    = computed(() => THEME_BG_RGB[themeColor.value].join(', '));
+  const themeBgDarkRgb = computed(() => THEME_BG_DARK_RGB[themeColor.value].join(', '));
 
   async function loadTheme() {
     try {
@@ -128,6 +175,11 @@ export function useTheme() {
       if (VALID_COLORS.includes(data.accentColor)) {
         accentColor.value = data.accentColor;
         localStorage.setItem(STORAGE_KEY, data.accentColor);
+      }
+      if (VALID_THEME_COLORS.includes(data.themeColor)) {
+        themeColor.value = data.themeColor;
+        localStorage.setItem(THEME_KEY, data.themeColor);
+        applyThemeColor(data.themeColor);
       }
       if (data.density === 'compact' || data.density === 'comfortable') {
         density.value = data.density;
@@ -196,6 +248,14 @@ export function useTheme() {
     accentColor.value = color;
     localStorage.setItem(STORAGE_KEY, color);
     try { await api.saveSettings({ accentColor: color }); } catch {}
+  }
+
+  async function setThemeColor(color) {
+    if (!VALID_THEME_COLORS.includes(color)) return;
+    themeColor.value = color;
+    localStorage.setItem(THEME_KEY, color);
+    applyThemeColor(color);
+    try { await api.saveSettings({ themeColor: color }); } catch {}
   }
 
   async function setDensity(value) {
@@ -276,7 +336,8 @@ export function useTheme() {
   }
 
   return {
-    accentColor, accentRgb, accentDarkRgb, VALID_COLORS,
+    accentColor, accentRgb, accentDarkRgb,
+    themeColor, themeBgRgb, themeBgDarkRgb, VALID_COLORS, VALID_THEME_COLORS,
     density,
     showCoverArt,
     fontSize, VALID_FONT_SIZES,
@@ -286,7 +347,7 @@ export function useTheme() {
     wideLayout,
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
     vizMode, showBubbles, randomizeOnNewSong, VALID_VIZ_MODES,
-    loadTheme, setAccentColor, setDensity, setShowCoverArt, setFontSize,
+    loadTheme, setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
     setSongsColumn, setSongsSort,
     setShowArtistsNav, setWideLayout,

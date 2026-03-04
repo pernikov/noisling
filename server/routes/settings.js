@@ -3,6 +3,7 @@ import Settings from '../models/Settings.js';
 
 const router = Router();
 const VALID_COLORS    = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
+const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 const VALID_REPEAT    = ['off', 'all', 'one'];
 const VALID_DENSITY   = ['comfortable', 'compact'];
 const VALID_FONT      = ['small', 'medium', 'large'];
@@ -13,6 +14,7 @@ const VALID_COL_KEYS  = ['artist', 'album', 'plays', 'lastPlayed'];
 function buildResponse(s) {
   return {
     accentColor:        s.accentColor,
+    themeColor:         s.themeColor         ?? 'none',
     volume:             s.volume,
     shuffle:            s.shuffle,
     repeatMode:         s.repeatMode,
@@ -43,7 +45,7 @@ router.get('/settings', async (req, res) => {
 
 router.patch('/settings', async (req, res) => {
   const {
-    accentColor, volume, shuffle, repeatMode, density,
+    accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, songsColumns, songsSort,
     lovedAccent, showArtistsNav, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
     vizMode, showBubbles, randomizeOnNewSong,
@@ -53,6 +55,10 @@ router.patch('/settings', async (req, res) => {
   if (accentColor !== undefined) {
     if (!VALID_COLORS.includes(accentColor)) return res.status(400).json({ error: 'Invalid color' });
     update.accentColor = accentColor;
+  }
+  if (themeColor !== undefined) {
+    if (!VALID_THEME_COLORS.includes(themeColor)) return res.status(400).json({ error: 'Invalid themeColor' });
+    update.themeColor = themeColor;
   }
   if (volume !== undefined) {
     if (typeof volume !== 'number' || volume < 0 || volume > 1) return res.status(400).json({ error: 'Invalid volume' });
