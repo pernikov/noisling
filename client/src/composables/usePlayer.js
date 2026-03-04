@@ -419,16 +419,10 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => {
-    console.log('[mediasession] play');
-    resume();
-    setTimeout(syncPlaybackStateFromElement, 0);
-  });
-  navigator.mediaSession.setActionHandler('pause', () => {
-    console.log('[mediasession] pause');
-    pause();
-    setTimeout(syncPlaybackStateFromElement, 0);
-  });
+  // Let the UA perform native play/pause handling for the media element.
+  // On iOS lock screen, custom JS play handlers are less reliable than default behavior.
+  navigator.mediaSession.setActionHandler('play', null);
+  navigator.mediaSession.setActionHandler('pause', null);
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack t=${audio.currentTime.toFixed(1)}`); prev(); });
   navigator.mediaSession.setActionHandler('nexttrack', () => { console.log('[mediasession] nexttrack'); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
