@@ -218,6 +218,7 @@ function goToAlbum(album) {
         show-cover
         :show-artist="songsColumns.artist"
         :show-album="songsColumns.album"
+        :show-plays="songsColumns.plays"
         :show-last-played="songsColumns.lastPlayed"
         hide-controls
         @love-toggled="loadLoved"

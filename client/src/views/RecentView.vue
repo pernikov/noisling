@@ -2,10 +2,12 @@
 import { ref, watch, onMounted } from 'vue';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
+import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
 
 const api = useApi();
 const { state: playerState } = usePlayer();
+const { songsColumns } = useTheme();
 const tracks = ref([]);
 const loading = ref(true);
 
@@ -48,6 +50,6 @@ watch(() => playerState.playReportCount, (count) => {
       No recently played tracks yet. Start listening!
     </div>
 
-    <TrackList v-else :tracks="tracks" show-cover show-artist show-album show-last-played />
+    <TrackList v-else :tracks="tracks" show-cover show-artist show-album :show-plays="songsColumns.plays" show-last-played />
   </div>
 </template>

@@ -425,10 +425,10 @@ onUnmounted(() => {
         <div class="space-y-3">
           <div
             v-for="col in [
-              { key: 'artist',     label: 'Artist',      desc: 'Primary artist in track lists, the queue, and search results.' },
-              { key: 'album',      label: 'Album',       desc: 'Album the track belongs to, shown in track lists and search results.' },
-              { key: 'plays',      label: 'Plays',       desc: 'How many times you\'ve played it.' },
-              { key: 'lastPlayed', label: 'Last Played', desc: 'When you last listened.' },
+              { key: 'artist',     label: 'Artist',      desc: 'Primary artist column. Shown in Songs, Recents, the home page, the queue, and search results.' },
+              { key: 'album',      label: 'Album',       desc: 'Album column. Shown in Songs, Recents, the home page, and search results.' },
+              { key: 'plays',      label: 'Plays',       desc: 'Play count column. Shown in Songs, Recents, and the home page.' },
+              { key: 'lastPlayed', label: 'Last Played', desc: 'Last listened column. Shown in Songs, Recents, and the home page.' },
             ]"
             :key="col.key"
             class="flex items-center justify-between"
