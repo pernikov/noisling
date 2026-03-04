@@ -16,6 +16,7 @@ const settingsSchema = new mongoose.Schema({
   songsSort:          { type: mongoose.Schema.Types.Mixed, default: { field: 'artist', dir: 'asc' } },
   lovedAccent:        { type: Boolean, default: false },
   showArtistsNav:     { type: Boolean, default: true },
+  wideLayout:         { type: Boolean, default: false },
   homeShowQuickPlay:  { type: Boolean, default: true },
   homeShowRecent:     { type: Boolean, default: true },
   homeShowAlbums:     { type: Boolean, default: true },

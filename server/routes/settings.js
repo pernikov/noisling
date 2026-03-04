@@ -9,9 +9,17 @@ const VALID_DENSITY   = ['comfortable', 'compact'];
 const VALID_FONT      = ['small', 'medium', 'large'];
 const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bubbles'];
 const VALID_SORT_DIRS = ['asc', 'desc'];
+const VALID_SONG_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
 const VALID_COL_KEYS  = ['artist', 'album', 'plays', 'lastPlayed'];
 
 function buildResponse(s) {
+  const songsSortField = VALID_SONG_SORT_FIELDS.includes(s?.songsSort?.field)
+    ? s.songsSort.field
+    : 'artist';
+  const songsSortDir = VALID_SORT_DIRS.includes(s?.songsSort?.dir)
+    ? s.songsSort.dir
+    : 'asc';
+
   return {
     accentColor:        s.accentColor,
     themeColor:         s.themeColor         ?? 'none',
@@ -22,9 +30,10 @@ function buildResponse(s) {
     showCoverArt:       s.showCoverArt       ?? true,
     fontSize:           s.fontSize           ?? 'medium',
     songsColumns:       s.songsColumns       ?? { artist: true, album: true, plays: true, lastPlayed: true },
-    songsSort:          s.songsSort          ?? { field: 'artist', dir: 'asc' },
+    songsSort:          { field: songsSortField, dir: songsSortDir },
     lovedAccent:        s.lovedAccent        ?? false,
     showArtistsNav:     s.showArtistsNav     ?? true,
+    wideLayout:         s.wideLayout         ?? false,
     homeShowQuickPlay:  s.homeShowQuickPlay  ?? true,
     homeShowRecent:     s.homeShowRecent     ?? true,
     homeShowAlbums:     s.homeShowAlbums     ?? true,
@@ -47,7 +56,7 @@ router.patch('/settings', async (req, res) => {
   const {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, songsColumns, songsSort,
-    lovedAccent, showArtistsNav, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
+    lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
     vizMode, showBubbles, randomizeOnNewSong,
   } = req.body;
   const update = {};
@@ -92,7 +101,7 @@ router.patch('/settings', async (req, res) => {
   }
   if (songsSort !== undefined) {
     if (typeof songsSort !== 'object' || songsSort === null) return res.status(400).json({ error: 'Invalid songsSort' });
-    if (typeof songsSort.field !== 'string' || !VALID_SORT_DIRS.includes(songsSort.dir)) return res.status(400).json({ error: 'Invalid songsSort' });
+    if (typeof songsSort.field !== 'string' || !VALID_SONG_SORT_FIELDS.includes(songsSort.field) || !VALID_SORT_DIRS.includes(songsSort.dir)) return res.status(400).json({ error: 'Invalid songsSort' });
     update.songsSort = { field: songsSort.field, dir: songsSort.dir };
   }
   if (lovedAccent !== undefined) {
@@ -100,6 +109,9 @@ router.patch('/settings', async (req, res) => {
   }
   if (showArtistsNav !== undefined) {
     update.showArtistsNav = Boolean(showArtistsNav);
+  }
+  if (wideLayout !== undefined) {
+    update.wideLayout = Boolean(wideLayout);
   }
   if (homeShowQuickPlay !== undefined) {
     update.homeShowQuickPlay = Boolean(homeShowQuickPlay);

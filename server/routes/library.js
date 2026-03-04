@@ -263,7 +263,10 @@ router.get('/albums/recent', async (req, res) => {
   const albums = await Track.aggregate([
     {
       $group: {
-        _id: '$album',
+        _id: {
+          name: '$album',
+          artistNorm: { $arrayElemAt: ['$artistsNorm', 0] },
+        },
         artists: { $first: '$artists' },
         artistsNorm: { $first: '$artistsNorm' },
         year: { $first: '$year' },
@@ -276,7 +279,7 @@ router.get('/albums/recent', async (req, res) => {
     {
       $project: {
         _id: 0,
-        name: '$_id',
+        name: '$_id.name',
         artists: 1,
         artistsNorm: 1,
         year: 1,
@@ -297,8 +300,12 @@ router.get('/albums', async (req, res) => {
   const albums = await Track.aggregate([
     {
       $group: {
-        _id: '$album',
+        _id: {
+          name: '$album',
+          artistNorm: { $arrayElemAt: ['$artistsNorm', 0] },
+        },
         artists: { $first: '$artists' },
+        artistsNorm: { $first: '$artistsNorm' },
         year: { $first: '$year' },
         trackCount: { $sum: 1 },
         cover: { $first: '$cover' },
@@ -308,8 +315,9 @@ router.get('/albums', async (req, res) => {
     {
       $project: {
         _id: 0,
-        name: '$_id',
+        name: '$_id.name',
         artists: 1,
+        artistsNorm: 1,
         year: 1,
         trackCount: 1,
         cover: 1,
@@ -454,7 +462,10 @@ router.get('/stats', async (req, res) => {
           { $match: { playCount: { $gt: 0 } } },
           {
             $group: {
-              _id: '$album',
+              _id: {
+                name: '$album',
+                artistNorm: { $arrayElemAt: ['$artistsNorm', 0] },
+              },
               artists: { $first: '$artists' },
               cover: { $first: '$cover' },
               plays: { $sum: '$playCount' },
@@ -462,7 +473,7 @@ router.get('/stats', async (req, res) => {
           },
           { $sort: { plays: -1 } },
           { $limit: 10 },
-          { $project: { _id: 0, name: '$_id', artists: 1, cover: 1, plays: 1 } },
+          { $project: { _id: 0, name: '$_id.name', artists: 1, cover: 1, plays: 1 } },
         ],
       },
     },

@@ -114,7 +114,6 @@ async function scanLibrary() {
 }
 
 async function deleteLibrary() {
-  showDeleteConfirm.value = false;
   deleting.value = true;
   deleteResult.value = null;
   try {

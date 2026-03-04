@@ -5,12 +5,14 @@ import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useToast } from '../composables/useToast.js';
 import { useTheme } from '../composables/useTheme.js';
+import { usePlayer } from '../composables/usePlayer.js';
 import TrackList from '../components/TrackList.vue';
 import { mdiMagnify, mdiMusicNote } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
 const { songsColumns, songsSort, setSongsSort } = useTheme();
+const { state: playerState } = usePlayer();
 const { error: toastError } = useToast();
 const route = useRoute();
 const router = useRouter();
@@ -54,6 +56,16 @@ async function loadTracks() {
   }
 }
 
+async function refreshTracksLive() {
+  try {
+    const data = await api.getTracks(page.value, limit, search.value.trim(), songsSort.value.field, songsSort.value.dir);
+    allTracks.value = data.tracks;
+    total.value = data.total;
+  } catch (err) {
+    console.error('Failed to live-refresh tracks:', err);
+  }
+}
+
 function onSort({ field, dir }) {
   setSongsSort(field, dir);
   page.value = 1;
@@ -72,6 +84,10 @@ watch(search, () => {
 
 onMounted(loadTracks);
 useLibraryEvents(loadTracks);
+
+watch(() => playerState.playReportCount, (count) => {
+  if (count > 0) refreshTracksLive();
+});
 
 async function fetchAllTracks() {
   return api.getAllTracks(search.value.trim(), songsSort.value.field, songsSort.value.dir);
