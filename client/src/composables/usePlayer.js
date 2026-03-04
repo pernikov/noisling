@@ -370,6 +370,18 @@ audio.addEventListener('pause', () => {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
 
+function syncPlaybackStateFromElement() {
+  const isPlaying = !audio.paused && !audio.ended;
+  state.isPlaying = isPlaying;
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) syncPlaybackStateFromElement();
+});
+
 // Extra playback diagnostics.
 audio.addEventListener('stalled', () => {
   console.log(`[player] stalled — "${state.currentTrack?.title}" t=${audio.currentTime.toFixed(1)} rs=${audio.readyState}`);
@@ -403,8 +415,16 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => { console.log('[mediasession] play'); resume(); });
-  navigator.mediaSession.setActionHandler('pause', () => { console.log('[mediasession] pause'); pause(); });
+  navigator.mediaSession.setActionHandler('play', () => {
+    console.log('[mediasession] play');
+    resume();
+    setTimeout(syncPlaybackStateFromElement, 0);
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    console.log('[mediasession] pause');
+    pause();
+    setTimeout(syncPlaybackStateFromElement, 0);
+  });
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack t=${audio.currentTime.toFixed(1)}`); prev(); });
   navigator.mediaSession.setActionHandler('nexttrack', () => { console.log('[mediasession] nexttrack'); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {

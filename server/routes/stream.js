@@ -67,7 +67,7 @@ function startWarm(id, trackPath, label) {
     '-i', trackPath,
     '-vn',
     '-c:a', 'aac',
-    '-b:a', '192k',
+    '-b:a', '256k',
     '-ar', '44100',   // normalise to 44.1 kHz — iOS rejects unusual rates in AAC streams
     '-ac', '2',       // normalise to stereo
     '-movflags', '+faststart',
