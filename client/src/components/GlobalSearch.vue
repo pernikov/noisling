@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiMagnify, mdiClose } from '@mdi/js';
+import { mdiMagnify, mdiClose, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck } from '@mdi/js';
 import Icon from './Icon.vue';
 import CoverArt from './CoverArt.vue';
 import ArtistCover from './ArtistCover.vue';
@@ -11,8 +11,62 @@ import { useTheme } from '../composables/useTheme.js';
 
 const router = useRouter();
 const api = useApi();
-const { playAlbum } = usePlayer();
+const { playAlbum, playNext, addToQueue } = usePlayer();
 const { showCoverArt, density, songsColumns } = useTheme();
+
+// Track context menu
+const menuTrack = ref(null);
+const menuStyle = ref({});
+
+function openTrackMenu(e, track) {
+  e.stopPropagation();
+  menuTrack.value = track;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const menuW = 160, menuH = 72;
+  let top = rect.bottom + 4;
+  let left = rect.right - menuW;
+  if (top + menuH > window.innerHeight) top = rect.top - menuH - 4;
+  if (left < 8) left = 8;
+  menuStyle.value = { top: `${top}px`, left: `${left}px` };
+}
+
+let menuCloseTimer = null;
+
+function scheduleCloseTrackMenu() {
+  menuCloseTimer = setTimeout(() => { menuTrack.value = null; }, 120);
+}
+
+function cancelCloseTrackMenu() {
+  clearTimeout(menuCloseTimer);
+}
+
+function closeTrackMenu() {
+  clearTimeout(menuCloseTimer);
+  menuTrack.value = null;
+}
+
+const toastVisible = ref(false);
+const toastMessage = ref('');
+let toastTimer = null;
+
+function showToast(msg) {
+  toastMessage.value = msg;
+  toastVisible.value = true;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
+}
+
+function onMenuPlayNext() {
+  playNext(menuTrack.value);
+  showToast('Playing next');
+  closeTrackMenu();
+}
+
+function onMenuAddToQueue() {
+  addToQueue(menuTrack.value);
+  showToast('Added to queue');
+  closeTrackMenu();
+}
 
 const open = ref(false);
 const query = ref('');
@@ -38,6 +92,7 @@ function closeSearch() {
   focusedIndex.value = -1;
   loading.value = false;
   clearTimeout(debounceTimer);
+  closeTrackMenu();
 }
 
 function isTyping(e) {
@@ -186,13 +241,14 @@ function formatDuration(seconds) {
               <!-- Tracks -->
               <template v-if="results.tracks.length">
                 <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Songs</p>
-                <button
+                <div
                   v-for="(track, i) in results.tracks"
                   :key="track._id"
-                  class="w-full flex items-center gap-3 px-4 text-left transition-colors"
+                  class="group flex items-center gap-3 px-4 text-left transition-colors cursor-pointer"
                   :class="[rowPy, focusedIndex === flatIndex('track', i) ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/50']"
                   @click="selectItem({ type: 'track', data: track })"
                   @mouseenter="focusedIndex = flatIndex('track', i)"
+                  @mouseleave="scheduleCloseTrackMenu"
                 >
                   <CoverArt v-if="showCoverArt" :cover="track.cover" :size="`${coverSize} shrink-0`" />
                   <div class="min-w-0 flex-1">
@@ -203,8 +259,14 @@ function formatDuration(seconds) {
                       <template v-else-if="songsColumns.album">{{ track.album }}</template>
                     </div>
                   </div>
-                  <span class="text-xs text-zinc-600 shrink-0 tabular-nums">{{ formatDuration(track.duration) }}</span>
-                </button>
+                  <span class="text-xs text-zinc-600 shrink-0 tabular-nums group-hover:hidden">{{ formatDuration(track.duration) }}</span>
+                  <button
+                    class="hidden group-hover:flex items-center justify-center shrink-0 text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
+                    @click.stop="openTrackMenu($event, track)"
+                  >
+                    <Icon :path="mdiDotsVertical" class="w-4 h-4" />
+                  </button>
+                </div>
               </template>
 
               <!-- Artists -->
@@ -277,9 +339,57 @@ function formatDuration(seconds) {
       </div>
     </Transition>
   </Teleport>
+
+  <!-- Track context menu -->
+  <Teleport to="body">
+    <div v-if="menuTrack" class="fixed inset-0 z-40" @click="closeTrackMenu" />
+    <Transition name="menu">
+      <div
+        v-if="menuTrack"
+        class="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
+        :style="menuStyle"
+        @mouseenter="cancelCloseTrackMenu"
+        @mouseleave="closeTrackMenu"
+      >
+        <button
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          @click="onMenuPlayNext"
+        >
+          <Icon :path="mdiPlaylistPlay" class="w-4 h-4 text-zinc-400" />
+          Play next
+        </button>
+        <button
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          @click="onMenuAddToQueue"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
+          Add to queue
+        </button>
+      </div>
+    </Transition>
+
+    <Transition name="menu">
+      <div
+        v-if="toastVisible"
+        class="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full text-sm shadow-lg whitespace-nowrap"
+      >
+        <Icon :path="mdiCheck" class="w-4 h-4 text-green-400 shrink-0" />
+        {{ toastMessage }}
+      </div>
+    </Transition>
+  </Teleport>
 </template>
 
 <style scoped>
+.menu-enter-active, .menu-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform-origin: top left;
+}
+.menu-enter-from, .menu-leave-to {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
 .search-fade-enter-active,
 .search-fade-leave-active {
   transition: opacity 0.15s ease;
