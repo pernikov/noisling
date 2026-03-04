@@ -1,4 +1,4 @@
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/pernikov/noisling/main/package.json';
 const CHECK_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
@@ -29,10 +29,18 @@ async function checkForUpdate() {
 }
 
 export function useUpdateCheck() {
+  let timer = null;
+
   onMounted(() => {
     checkForUpdate();
-    const timer = setInterval(checkForUpdate, CHECK_INTERVAL_MS);
-    return () => clearInterval(timer);
+    timer = setInterval(checkForUpdate, CHECK_INTERVAL_MS);
+  });
+
+  onUnmounted(() => {
+    if (timer) {
+      clearInterval(timer);
+      timer = null;
+    }
   });
 
   return { hasUpdate, latestVersion, localVersion: __APP_VERSION__ };

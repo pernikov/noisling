@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { useApi } from './useApi.js';
+import { useToast } from './useToast.js';
 
 const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
@@ -163,6 +164,7 @@ applyThemeColor(themeColor.value);
 
 export function useTheme() {
   const api = useApi();
+  const { error: toastError } = useToast();
 
   const accentRgb     = computed(() => COLOR_RGB[accentColor.value].join(', '));
   const accentDarkRgb = computed(() => COLOR_RGB_DARK[accentColor.value].join(', '));
@@ -243,96 +245,221 @@ export function useTheme() {
     }
   }
 
+  async function saveOrRollback(body, rollback, message = 'Failed to save setting.') {
+    try {
+      await api.saveSettings(body);
+      return true;
+    } catch {
+      rollback?.();
+      toastError(message);
+      return false;
+    }
+  }
+
   async function setAccentColor(color) {
     if (!VALID_COLORS.includes(color)) return;
+    const prev = accentColor.value;
     accentColor.value = color;
     localStorage.setItem(STORAGE_KEY, color);
-    try { await api.saveSettings({ accentColor: color }); } catch {}
+    await saveOrRollback(
+      { accentColor: color },
+      () => {
+        accentColor.value = prev;
+        localStorage.setItem(STORAGE_KEY, prev);
+      },
+      'Failed to save accent color.'
+    );
   }
 
   async function setThemeColor(color) {
     if (!VALID_THEME_COLORS.includes(color)) return;
+    const prev = themeColor.value;
     themeColor.value = color;
     localStorage.setItem(THEME_KEY, color);
     applyThemeColor(color);
-    try { await api.saveSettings({ themeColor: color }); } catch {}
+    await saveOrRollback(
+      { themeColor: color },
+      () => {
+        themeColor.value = prev;
+        localStorage.setItem(THEME_KEY, prev);
+        applyThemeColor(prev);
+      },
+      'Failed to save background theme.'
+    );
   }
 
   async function setDensity(value) {
     if (value !== 'comfortable' && value !== 'compact') return;
+    const prev = density.value;
     density.value = value;
     localStorage.setItem(DENSITY_KEY, value);
-    try { await api.saveSettings({ density: value }); } catch {}
+    await saveOrRollback(
+      { density: value },
+      () => {
+        density.value = prev;
+        localStorage.setItem(DENSITY_KEY, prev);
+      },
+      'Failed to save list density.'
+    );
   }
 
   async function setShowCoverArt(value) {
+    const prev = showCoverArt.value;
     showCoverArt.value = Boolean(value);
     localStorage.setItem(COVER_KEY, String(showCoverArt.value));
-    try { await api.saveSettings({ showCoverArt: showCoverArt.value }); } catch {}
+    await saveOrRollback(
+      { showCoverArt: showCoverArt.value },
+      () => {
+        showCoverArt.value = prev;
+        localStorage.setItem(COVER_KEY, String(prev));
+      },
+      'Failed to save cover art setting.'
+    );
   }
 
   async function setFontSize(value) {
     if (!VALID_FONT_SIZES.includes(value)) return;
+    const prev = fontSize.value;
     fontSize.value = value;
     localStorage.setItem(FONT_KEY, value);
     applyFontSize(value);
-    try { await api.saveSettings({ fontSize: value }); } catch {}
+    await saveOrRollback(
+      { fontSize: value },
+      () => {
+        fontSize.value = prev;
+        localStorage.setItem(FONT_KEY, prev);
+        applyFontSize(prev);
+      },
+      'Failed to save font size.'
+    );
   }
 
   async function setSongsColumn(key, value) {
+    const prev = { ...songsColumns.value };
     songsColumns.value = { ...songsColumns.value, [key]: Boolean(value) };
     localStorage.setItem(SONGS_COLS_KEY, JSON.stringify(songsColumns.value));
-    try { await api.saveSettings({ songsColumns: songsColumns.value }); } catch {}
+    await saveOrRollback(
+      { songsColumns: songsColumns.value },
+      () => {
+        songsColumns.value = prev;
+        localStorage.setItem(SONGS_COLS_KEY, JSON.stringify(prev));
+      },
+      'Failed to save visible song columns.'
+    );
   }
 
   async function setSongsSort(field, dir) {
+    const prev = { ...songsSort.value };
     songsSort.value = { field, dir };
     localStorage.setItem(SONGS_SORT_KEY, JSON.stringify({ field, dir }));
-    try { await api.saveSettings({ songsSort: { field, dir } }); } catch {}
+    await saveOrRollback(
+      { songsSort: { field, dir } },
+      () => {
+        songsSort.value = prev;
+        localStorage.setItem(SONGS_SORT_KEY, JSON.stringify(prev));
+      },
+      'Failed to save songs sort.'
+    );
   }
 
   async function setLovedUseAccent(value) {
+    const prev = lovedUseAccent.value;
     lovedUseAccent.value = Boolean(value);
     localStorage.setItem(LOVED_ACCENT_KEY, String(lovedUseAccent.value));
-    try { await api.saveSettings({ lovedAccent: lovedUseAccent.value }); } catch {}
+    await saveOrRollback(
+      { lovedAccent: lovedUseAccent.value },
+      () => {
+        lovedUseAccent.value = prev;
+        localStorage.setItem(LOVED_ACCENT_KEY, String(prev));
+      },
+      'Failed to save loved-track color setting.'
+    );
   }
 
   async function setShowArtistsNav(value) {
+    const prev = showArtistsNav.value;
     showArtistsNav.value = Boolean(value);
     localStorage.setItem(ARTISTS_NAV_KEY, String(showArtistsNav.value));
-    try { await api.saveSettings({ showArtistsNav: showArtistsNav.value }); } catch {}
+    await saveOrRollback(
+      { showArtistsNav: showArtistsNav.value },
+      () => {
+        showArtistsNav.value = prev;
+        localStorage.setItem(ARTISTS_NAV_KEY, String(prev));
+      },
+      'Failed to save artists navigation visibility.'
+    );
   }
 
   async function setWideLayout(value) {
+    const prev = wideLayout.value;
     wideLayout.value = Boolean(value);
     localStorage.setItem(WIDE_LAYOUT_KEY, String(wideLayout.value));
-    try { await api.saveSettings({ wideLayout: wideLayout.value }); } catch {}
+    await saveOrRollback(
+      { wideLayout: wideLayout.value },
+      () => {
+        wideLayout.value = prev;
+        localStorage.setItem(WIDE_LAYOUT_KEY, String(prev));
+      },
+      'Failed to save wide layout setting.'
+    );
   }
 
   async function _setHomeSection(ref, storageKey, serverKey, value) {
     if (!value && homeVisibleCount.value <= 1) return;
+    const prev = ref.value;
     ref.value = Boolean(value);
     localStorage.setItem(storageKey, String(ref.value));
-    try { await api.saveSettings({ [serverKey]: ref.value }); } catch {}
+    await saveOrRollback(
+      { [serverKey]: ref.value },
+      () => {
+        ref.value = prev;
+        localStorage.setItem(storageKey, String(prev));
+      },
+      'Failed to save home section visibility.'
+    );
   }
 
   async function setVizMode(value) {
     if (!VALID_VIZ_MODES.includes(value)) return;
+    const prev = vizMode.value;
     vizMode.value = value;
     localStorage.setItem(VIZ_MODE_KEY, value);
-    try { await api.saveSettings({ vizMode: value }); } catch {}
+    await saveOrRollback(
+      { vizMode: value },
+      () => {
+        vizMode.value = prev;
+        localStorage.setItem(VIZ_MODE_KEY, prev);
+      },
+      'Failed to save visualizer mode.'
+    );
   }
 
   async function setShowBubbles(value) {
+    const prev = showBubbles.value;
     showBubbles.value = Boolean(value);
     localStorage.setItem(BUBBLES_KEY, String(showBubbles.value));
-    try { await api.saveSettings({ showBubbles: showBubbles.value }); } catch {}
+    await saveOrRollback(
+      { showBubbles: showBubbles.value },
+      () => {
+        showBubbles.value = prev;
+        localStorage.setItem(BUBBLES_KEY, String(prev));
+      },
+      'Failed to save bubbles visibility.'
+    );
   }
 
   async function setRandomizeOnNewSong(value) {
+    const prev = randomizeOnNewSong.value;
     randomizeOnNewSong.value = Boolean(value);
     localStorage.setItem(RANDOMIZE_KEY, String(randomizeOnNewSong.value));
-    try { await api.saveSettings({ randomizeOnNewSong: randomizeOnNewSong.value }); } catch {}
+    await saveOrRollback(
+      { randomizeOnNewSong: randomizeOnNewSong.value },
+      () => {
+        randomizeOnNewSong.value = prev;
+        localStorage.setItem(RANDOMIZE_KEY, String(prev));
+      },
+      'Failed to save randomize-on-new-song setting.'
+    );
   }
 
   return {
