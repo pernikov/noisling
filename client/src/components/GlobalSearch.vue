@@ -259,9 +259,10 @@ function formatDuration(seconds) {
                       <template v-else-if="songsColumns.album">{{ track.album }}</template>
                     </div>
                   </div>
-                  <span class="text-xs text-zinc-600 shrink-0 tabular-nums group-hover:hidden">{{ formatDuration(track.duration) }}</span>
+                  <span :class="menuTrack === track ? 'hidden' : 'group-hover:hidden'" class="text-xs text-zinc-600 shrink-0 tabular-nums">{{ formatDuration(track.duration) }}</span>
                   <button
-                    class="hidden group-hover:flex items-center justify-center shrink-0 text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
+                    :class="menuTrack === track ? 'flex' : 'hidden group-hover:flex'"
+                    class="items-center justify-end shrink-0 text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
                     @click.stop="openTrackMenu($event, track)"
                   >
                     <Icon :path="mdiDotsVertical" class="w-4 h-4" />

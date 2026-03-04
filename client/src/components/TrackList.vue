@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
@@ -75,13 +75,18 @@ function closeMenu() {
   menuRowIndex.value = null;
 }
 
-function handleClickOutside() {
-  if (menuTrack.value) closeMenu();
+let menuCloseTimer = null;
+
+function scheduleCloseMenu() {
+  menuCloseTimer = setTimeout(() => { menuTrack.value = null; menuRowIndex.value = null; }, 120);
 }
 
-onMounted(() => document.addEventListener('click', handleClickOutside));
+function cancelCloseMenu() {
+  clearTimeout(menuCloseTimer);
+}
+
 onBeforeUnmount(() => {
-  document.removeEventListener('click', handleClickOutside);
+  clearTimeout(menuCloseTimer);
   clearTimeout(toastTimer);
 });
 
@@ -285,7 +290,6 @@ defineExpose({ playAll, playShuffle });
             </span>
           </th>
           <th class="w-8"></th>
-          <th class="w-8"></th>
           <th
             class="text-right py-2 px-3 w-16"
             :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
@@ -308,8 +312,10 @@ defineExpose({ playAll, playShuffle });
               ? 'cursor-default opacity-40'
               : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
             { [`text-${accentColor}-400`]: isCurrentTrack(track) },
+            { '[&>td]:bg-zinc-800/50': menuRowIndex === i },
           ]"
           @click="!track.deleted && playTrack(i)"
+          @mouseleave="scheduleCloseMenu"
         >
           <td :class="[rowPy, 'px-1 text-zinc-500 text-center']">
             <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
@@ -363,28 +369,30 @@ defineExpose({ playAll, playShuffle });
               <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />
             </button>
           </td>
-          <td :class="[rowPy, 'px-1 align-middle']">
+          <td :class="[rowPy, 'px-3 text-right text-zinc-500']">
+            <span :class="menuRowIndex === i ? 'hidden' : 'group-hover:hidden'" class="tabular-nums">{{ formatDuration(track.duration) }}</span>
             <button
               v-if="!track.deleted"
-              class="flex items-center justify-center w-full opacity-0 group-hover:opacity-100 transition-opacity text-zinc-500 hover:text-zinc-300"
+              :class="menuRowIndex === i ? 'flex' : 'hidden group-hover:flex'"
+              class="items-center justify-end w-full text-zinc-500 hover:text-zinc-300"
               @click.stop="openMenu($event, i, track)"
             >
               <Icon :path="mdiDotsVertical" class="w-3.5 h-3.5" />
             </button>
           </td>
-          <td :class="[rowPy, 'px-3 text-right text-zinc-500']">{{ formatDuration(track.duration) }}</td>
         </tr>
       </tbody>
     </table>
   </div>
 
   <Teleport to="body">
-    <div v-if="menuTrack" class="fixed inset-0 z-40" @click="closeMenu" />
     <Transition name="menu">
       <div
         v-if="menuTrack"
         class="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
         :style="menuStyle"
+        @mouseenter="cancelCloseMenu"
+        @mouseleave="closeMenu"
       >
         <button
           class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
