@@ -25,14 +25,40 @@ const vizModes = [
 
 function ensureAudioContext() {
   if (audio._vizCtx) return audio._vizCtx;
+
+  const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS) {
+    audio._vizCtx = { ctx: null, analyser: null, src: null, sourceType: 'disabled' };
+    return audio._vizCtx;
+  }
+
   const ctx = new AudioContext();
-  const src = ctx.createMediaElementSource(audio);
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.75;
+  let src = null;
+
+  // Prefer tapping the element output stream so playback stays on the native
+  // media element path (critical for iOS lock-screen reliability).
+  const capture = audio.captureStream || audio.mozCaptureStream;
+  if (typeof capture === 'function') {
+    try {
+      const stream = capture.call(audio);
+      src = ctx.createMediaStreamSource(stream);
+      src.connect(analyser);
+      audio._vizCtx = { ctx, analyser, src, sourceType: 'stream' };
+      return audio._vizCtx;
+    } catch (_) {
+      // Fall back to MediaElementSource below.
+    }
+  }
+
+  // Fallback path for browsers without element stream capture support.
+  src = ctx.createMediaElementSource(audio);
   src.connect(analyser);
   analyser.connect(ctx.destination);
-  audio._vizCtx = { ctx, analyser };
+  audio._vizCtx = { ctx, analyser, src, sourceType: 'element' };
   return audio._vizCtx;
 }
 
@@ -803,7 +829,7 @@ function draw() {
 
 onMounted(() => {
   vizCtx = ensureAudioContext();
-  if (vizCtx.ctx.state === 'suspended') {
+  if (vizCtx.ctx?.state === 'suspended') {
     vizCtx.ctx.resume();
   }
   document.addEventListener('fullscreenchange', onFullscreenChange);

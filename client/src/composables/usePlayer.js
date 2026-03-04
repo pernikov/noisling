@@ -108,6 +108,13 @@ function _setTrackSource(track, { forceTranscode = false, markWaiting = true } =
   return transcode;
 }
 
+function maybeResumeVizContext() {
+  const ctx = audio._vizCtx?.ctx;
+  if (!ctx || ctx.state !== 'suspended') return;
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+  ctx.resume().catch(() => {});
+}
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -540,9 +547,7 @@ function play(track) {
   _transcodeAttempted   = false;
   _setTrackSource(track);
 
-  if (audio._vizCtx?.ctx?.state === 'suspended') {
-    audio._vizCtx.ctx.resume();
-  }
+  maybeResumeVizContext();
 
   const trackId = track._id;
   audio.play().catch(err => {
@@ -674,9 +679,7 @@ function pause() {
 }
 
 function resume() {
-  if (audio._vizCtx?.ctx?.state === 'suspended') {
-    audio._vizCtx.ctx.resume();
-  }
+  maybeResumeVizContext();
   // If the element is stuck in an error state (e.g. previous network drop),
   // calling play() throws NotSupportedError. Reload the track first.
   if (audio.error && state.currentTrack) {
