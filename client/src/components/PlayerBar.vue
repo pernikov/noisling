@@ -27,6 +27,7 @@ const {
   toggle,
   pause,
   resume,
+  audio,
   next,
   prev,
   seek,
@@ -85,7 +86,7 @@ function onProgressMouseDown(e) {
   const rect = e.currentTarget.getBoundingClientRect();
   const clamp = (x) => Math.max(0, Math.min(100, (x - rect.left) / rect.width * 100));
 
-  const wasPlaying = state.isPlaying;
+  const wasPlaying = !audio.paused && !audio.ended;
   if (wasPlaying) pause();
   isScrubbing.value = true;
   scrubPercent.value = clamp(e.clientX);
@@ -152,21 +153,23 @@ const hoverTime = computed(() => {
         </Transition>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="text-sm font-medium truncate">
-          {{ state.currentTrack.title }}
+        <div class="flex items-center gap-1 min-w-0 text-sm font-medium">
+          <span class="truncate">{{ state.currentTrack.title }}</span>
+          <span
+            v-if="state.transcodeWaiting || state.transcodeActive"
+            class="inline-flex flex-none items-center gap-1 text-[10px] font-semibold tracking-[0.08em]"
+            :class="state.transcodeWaiting ? 'text-amber-300' : 'text-emerald-300'"
+            aria-label="Transcode status"
+            :title="state.transcodeWaiting ? 'Transcoding' : 'Transcoded'"
+          >
+            <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
+            T
+          </span>
         </div>
         <span class="text-xs text-zinc-400 truncate block">
           <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
             <span v-if="ai > 0">, </span>{{ artist }}
           </template>
-        </span>
-        <span
-          v-if="state.transcodeWaiting || state.transcodeActive"
-          class="mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
-          :class="state.transcodeWaiting ? 'border-amber-400/40 text-amber-300' : 'border-emerald-400/40 text-emerald-300'"
-        >
-          <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
-          {{ state.transcodeWaiting ? 'Transcoding' : 'Transcoded' }}
         </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
@@ -225,10 +228,20 @@ const hoverTime = computed(() => {
       <Transition name="track-fade" mode="out-in">
       <div class="min-w-0" :key="state.currentTrack._id">
         <div
-          class="text-sm font-medium truncate cursor-pointer hover:text-zinc-300 transition-colors"
+          class="flex items-center gap-1 min-w-0 text-sm font-medium cursor-pointer hover:text-zinc-300 transition-colors"
           @click="toggleNowPlaying"
         >
-          {{ state.currentTrack.title }}
+          <span class="truncate">{{ state.currentTrack.title }}</span>
+          <span
+            v-if="state.transcodeWaiting || state.transcodeActive"
+            class="inline-flex flex-none items-center gap-1 text-[10px] font-semibold tracking-[0.08em]"
+            :class="state.transcodeWaiting ? 'text-amber-300' : 'text-emerald-300'"
+            aria-label="Transcode status"
+            :title="state.transcodeWaiting ? 'Transcoding' : 'Transcoded'"
+          >
+            <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
+            T
+          </span>
         </div>
         <span class="text-xs text-zinc-400 truncate block">
           <template
@@ -242,14 +255,6 @@ const hoverTime = computed(() => {
               >{{ artist }}</router-link
             >
           </template>
-        </span>
-        <span
-          v-if="state.transcodeWaiting || state.transcodeActive"
-          class="mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
-          :class="state.transcodeWaiting ? 'border-amber-400/40 text-amber-300' : 'border-emerald-400/40 text-emerald-300'"
-        >
-          <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
-          {{ state.transcodeWaiting ? 'Transcoding' : 'Transcoded' }}
         </span>
       </div>
       </Transition>

@@ -71,7 +71,8 @@ let playedSeconds = 0;
 let _lastUpdateTime = null;
 
 // One-time seek target after a page-reload restore.
-let _pendingRestoreTime = null;
+// Bound to a specific track so it cannot leak into a different song.
+let _pendingRestore = null;
 
 // Guard against iOS Safari firing a spurious 'ended' event immediately after
 // audio.src is reassigned.
@@ -241,12 +242,15 @@ audio.addEventListener('loadedmetadata', () => {
   state.transcodeWaiting = false;
   updateMediaSessionPositionState();
 
-  if (_pendingRestoreTime !== null) {
-    const t = _pendingRestoreTime;
-    _pendingRestoreTime = null;
-    if (audio.seekable.length > 0 && state.duration > 0 && t < state.duration - 3) {
-      audio.currentTime = t;
+  if (_pendingRestore) {
+    const { trackId, time } = _pendingRestore;
+    const currentId = state.currentTrack?._id?.toString?.();
+    if (trackId && currentId && trackId === currentId) {
+      if (audio.seekable.length > 0 && state.duration > 0 && time < state.duration - 3) {
+        audio.currentTime = time;
+      }
     }
+    _pendingRestore = null;
   }
 });
 
@@ -483,7 +487,10 @@ export async function restoreQueue() {
     _setTrackSource(tracks[currentIndex], { markWaiting: false });
 
     if (typeof currentTime === 'number' && currentTime > 5) {
-      _pendingRestoreTime = currentTime;
+      _pendingRestore = {
+        trackId: tracks[currentIndex]?._id?.toString?.() || null,
+        time: currentTime,
+      };
       const track = tracks[currentIndex];
       if (track?.duration > 0) {
         const threshold = Math.min(track.duration * 0.5, 240);
@@ -522,6 +529,8 @@ async function loadPlayerPrefs() {
 
 function play(track) {
   console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
+  // Explicit user playback should always start fresh for the selected track.
+  _pendingRestore = null;
   audio.pause();
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
@@ -696,11 +705,41 @@ function resume() {
     }, { once: true });
     return;
   }
-  audio.play().catch(err => console.error('[player] resume() failed:', err));
+  audio.play().catch(err => {
+    console.error('[player] resume() failed:', err);
+    if (!state.currentTrack) return;
+
+    // iOS can occasionally reject lock-screen resume even when no error is
+    // exposed on the element. Reload the same source and retry from position.
+    const recoverable = (
+      err?.name === 'AbortError' ||
+      err?.name === 'NotSupportedError' ||
+      audio.networkState === audio.NETWORK_NO_SOURCE ||
+      audio.readyState === 0
+    );
+    if (!recoverable) return;
+
+    const track = state.currentTrack;
+    const resumeAt = state.currentTime;
+    const seq = ++stallRecoverySeq;
+    ignoreNextEnded = true;
+    clearTimeout(ignoreEndedTimer);
+    ignoreEndedTimer = null;
+    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
+    audio.load();
+    audio.addEventListener('loadedmetadata', () => {
+      if (stallRecoverySeq !== seq) return;
+      ignoreNextEnded = false;
+      if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+        audio.currentTime = resumeAt;
+      }
+      audio.play().catch(e => console.error('[player] resume() reload retry failed:', e));
+    }, { once: true });
+  });
 }
 
 function toggle() {
-  if (state.isPlaying) pause();
+  if (!audio.paused && !audio.ended) pause();
   else resume();
 }
 
