@@ -31,9 +31,10 @@ const {
   density, showCoverArt, fontSize,
   lovedUseAccent, setLovedUseAccent,
   songsColumns, setSongsColumn,
-  showArtistsNav, homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
+  showArtistsNav, wideLayout,
+  homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
   setAccentColor, setDensity, setShowCoverArt, setFontSize,
-  setShowArtistsNav, setHomeSection,
+  setShowArtistsNav, setWideLayout, setHomeSection,
 } = useTheme();
 
 const VALID_TABS = ['library', 'appearance', 'stats'];
@@ -307,6 +308,28 @@ onUnmounted(() => {
         <div>
           <p class="text-sm font-medium text-zinc-200">Layout</p>
           <p class="text-xs text-zinc-500 mt-1">Choose which sections and navigation links are visible.</p>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Wide layout -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Wide layout</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Remove the width cap and use the full browser window.</p>
+          </div>
+          <button
+            @click="setWideLayout(!wideLayout)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="wideLayout ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="wideLayout"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="wideLayout ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
         </div>
 
         <div class="border-t border-zinc-800" />

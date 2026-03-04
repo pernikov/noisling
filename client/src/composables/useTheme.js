@@ -47,6 +47,7 @@ const ARTISTS_NAV_KEY = 'noisling_artists_nav';
 const HOME_QUICK_KEY  = 'noisling_home_quick';
 const HOME_RECENT_KEY = 'noisling_home_recent';
 const HOME_ALBUMS_KEY = 'noisling_home_albums';
+const WIDE_LAYOUT_KEY = 'noisling_wide_layout';
 
 // Visualizer keys
 const VIZ_MODE_KEY  = 'noisling_vizmode';
@@ -100,6 +101,7 @@ function storedBool(key, defaultVal = true) {
 
 const lovedUseAccent    = ref(storedBool(LOVED_ACCENT_KEY, false));
 const showArtistsNav    = ref(storedBool(ARTISTS_NAV_KEY));
+const wideLayout        = ref(storedBool(WIDE_LAYOUT_KEY, false));
 const homeShowQuickPlay = ref(storedBool(HOME_QUICK_KEY));
 const homeShowRecent    = ref(storedBool(HOME_RECENT_KEY));
 const homeShowAlbums    = ref(storedBool(HOME_ALBUMS_KEY));
@@ -155,6 +157,10 @@ export function useTheme() {
       if (typeof data.showArtistsNav === 'boolean') {
         showArtistsNav.value = data.showArtistsNav;
         localStorage.setItem(ARTISTS_NAV_KEY, String(data.showArtistsNav));
+      }
+      if (typeof data.wideLayout === 'boolean') {
+        wideLayout.value = data.wideLayout;
+        localStorage.setItem(WIDE_LAYOUT_KEY, String(data.wideLayout));
       }
       if (typeof data.homeShowQuickPlay === 'boolean') {
         homeShowQuickPlay.value = data.homeShowQuickPlay;
@@ -237,6 +243,12 @@ export function useTheme() {
     try { await api.saveSettings({ showArtistsNav: showArtistsNav.value }); } catch {}
   }
 
+  async function setWideLayout(value) {
+    wideLayout.value = Boolean(value);
+    localStorage.setItem(WIDE_LAYOUT_KEY, String(wideLayout.value));
+    try { await api.saveSettings({ wideLayout: wideLayout.value }); } catch {}
+  }
+
   async function _setHomeSection(ref, storageKey, serverKey, value) {
     if (!value && homeVisibleCount.value <= 1) return;
     ref.value = Boolean(value);
@@ -271,12 +283,13 @@ export function useTheme() {
     lovedUseAccent,
     songsColumns, songsSort,
     showArtistsNav,
+    wideLayout,
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
     vizMode, showBubbles, randomizeOnNewSong, VALID_VIZ_MODES,
     loadTheme, setAccentColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
     setSongsColumn, setSongsSort,
-    setShowArtistsNav,
+    setShowArtistsNav, setWideLayout,
     setVizMode, setShowBubbles, setRandomizeOnNewSong,
     setHomeSection: (key, value) => {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);

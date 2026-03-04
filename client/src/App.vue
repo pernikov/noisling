@@ -16,7 +16,7 @@ import { useUpdateCheck } from "./composables/useUpdateCheck.js";
 import GlobalSearch from "./components/GlobalSearch.vue";
 import UpdateModal from "./components/UpdateModal.vue";
 
-const { loadTheme, showArtistsNav } = useTheme();
+const { loadTheme, showArtistsNav, wideLayout } = useTheme();
 loadTheme();
 
 const { loadPlayerPrefs, restoreQueue } = usePlayer();
@@ -86,7 +86,8 @@ watch(
       :style="navStyle"
     >
       <div
-        class="max-w-6xl mx-auto px-4 flex items-center justify-between h-14"
+        class="mx-auto px-4 flex items-center justify-between h-14"
+        :class="wideLayout ? 'w-full' : 'max-w-6xl'"
       >
         <div class="flex items-center gap-6">
           <router-link
@@ -156,7 +157,8 @@ watch(
       <main
         v-if="!playerState.showVisualizer"
         key="main"
-        class="w-full max-w-6xl mx-auto px-4 py-6"
+        class="w-full mx-auto px-4 py-6"
+        :class="wideLayout ? '' : 'max-w-6xl'"
       >
         <RouterView v-slot="{ Component }">
           <Transition name="page" mode="out-in">
