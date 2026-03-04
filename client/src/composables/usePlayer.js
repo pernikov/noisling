@@ -59,6 +59,8 @@ const state = reactive({
   showQueue:         false,
   showShortcuts:     false,
   playReportCount:   0,
+  transcodeWaiting:  false,
+  transcodeActive:   false,
 });
 
 // Apply saved volume to the audio element immediately.
@@ -76,7 +78,7 @@ let _pendingRestoreTime = null;
 let ignoreNextEnded = false;
 let ignoreEndedTimer = null;
 
-// Monotonic counter used to cancel stale stall-recovery loadedmetadata callbacks.
+// Monotonic counter used to cancel stale recovery loadedmetadata callbacks.
 let stallRecoverySeq = 0;
 
 // Throttle MediaSession position updates to once per second.
@@ -97,106 +99,12 @@ let _transcodeAttempted = false;
 // Count consecutive error-induced skips so we stop looping if everything fails.
 let _consecutiveErrors = 0;
 
-// Track whether the current transcoded stream is ADTS (live, non-seekable) vs
-// faststart M4A (seekable). Set at loadedmetadata time — checking
-// audio.seekable.length at SSE event time is unreliable because iOS buffers
-// ADTS data and reports a non-zero seekable range before the switch fires.
-let _isAdts = false;
-
-// ─── Transcode-ready SSE listener ─────────────────────────────────────────────
-// The server broadcasts 'transcode_ready' when a warm M4A finishes encoding.
-// We use this to interrupt an ADTS fallback stream and immediately re-seek to
-// the correct position once the seekable M4A becomes available.
-
-let _transcodeEventSource = null;
-const _transcodeReadyCallbacks = new Map(); // trackId → Set<{ cb, cancel }>
-
-function _initTranscodeEvents() {
-  if (_transcodeEventSource) return;
-  _transcodeEventSource = new EventSource('/api/events');
-  _transcodeEventSource.addEventListener('transcode_ready', (e) => {
-    try {
-      const { trackId } = JSON.parse(e.data);
-      const key = String(trackId);
-
-      // Fan out one-shot stall-recovery callbacks.
-      const entries = _transcodeReadyCallbacks.get(key);
-      if (entries) {
-        for (const { cb } of [...entries]) cb();
-        _transcodeReadyCallbacks.delete(key);
-      }
-
-      // Proactive switch: if this is the currently playing track and we're still
-      // streaming ADTS, switch to the M4A immediately.
-      //
-      // Root cause this fixes: iOS cannot range-resume ADTS streams
-      // (Accept-Ranges: none).  When iOS's audio buffer drains it tries a range
-      // request, gets rejected, and silently restarts the download from byte 0 —
-      // restarting the song with no JS events whatsoever.  Switching to the
-      // seekable M4A as soon as it's ready eliminates this entirely.
-      //
-      // We use _isAdts (set at loadedmetadata time) rather than checking
-      // audio.seekable.length here: by the time the SSE event fires, iOS has
-      // already buffered some ADTS data and reports a non-zero seekable range,
-      // causing the old audio.seekable.length === 0 check to silently fail.
-      if (
-        state.currentTrack &&
-        String(state.currentTrack._id) === key &&
-        needsTranscode(state.currentTrack) &&
-        state.isPlaying &&
-        _isAdts
-      ) {
-        const resumeAt = audio.currentTime;
-        const track = state.currentTrack;
-        const seq = ++stallRecoverySeq;
-        console.log(`[player] proactive M4A switch at ${resumeAt.toFixed(1)}s — "${track.title}"`);
-        ignoreNextEnded = true;
-        clearTimeout(ignoreEndedTimer);
-        ignoreEndedTimer = null;
-        audio.src = api.streamUrl(track._id, true);
-        audio.load();
-        audio.addEventListener('loadedmetadata', () => {
-          if (stallRecoverySeq !== seq) return;
-          ignoreNextEnded = false;
-          _isAdts = audio.seekable.length === 0;
-          if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-            audio.currentTime = resumeAt;
-            console.log(`[player] proactive M4A switch seek to ${resumeAt.toFixed(1)}s — "${track.title}"`);
-          } else {
-            console.log(`[player] proactive M4A switch: M4A not seekable (seekable=${audio.seekable.length > 0 ? audio.seekable.end(0).toFixed(1) : 'none'}) — "${track.title}"`);
-          }
-          audio.play().catch(err => {
-            console.error('[player] proactive M4A switch play failed:', err);
-            if (err.name !== 'NotAllowedError') {
-              setTimeout(() => {
-                if (stallRecoverySeq !== seq) return;
-                audio.play().catch(e => console.error('[player] proactive M4A switch retry failed:', e));
-              }, 1000);
-            }
-          });
-        }, { once: true });
-      }
-    } catch (_) {}
-  });
-  _transcodeEventSource.onerror = () => {
-    _transcodeEventSource.close();
-    _transcodeEventSource = null;
-    setTimeout(_initTranscodeEvents, 3000);
-  };
-}
-
-// Register a one-shot callback for when a specific track's M4A is ready.
-// Returns a cancel function to de-register it (e.g. if the track changes).
-function _whenTranscodeReady(trackId, cb) {
-  _initTranscodeEvents();
-  const key = String(trackId);
-  if (!_transcodeReadyCallbacks.has(key)) _transcodeReadyCallbacks.set(key, new Set());
-  const entry = { cb };
-  _transcodeReadyCallbacks.get(key).add(entry);
-  return () => {
-    const entries = _transcodeReadyCallbacks.get(key);
-    if (entries) { entries.delete(entry); if (!entries.size) _transcodeReadyCallbacks.delete(key); }
-  };
+function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
+  const transcode = forceTranscode || needsTranscode(track);
+  state.transcodeActive = transcode;
+  state.transcodeWaiting = transcode && markWaiting;
+  audio.src = api.streamUrl(track._id, transcode);
+  return transcode;
 }
 
 
@@ -207,39 +115,6 @@ audio.addEventListener('timeupdate', () => {
   if (!audio.paused && _lastUpdateTime !== null) {
     const delta = audio.currentTime - _lastUpdateTime;
     if (delta > 0 && delta < 2) playedSeconds += delta;
-
-    // Detect iOS silent restart: time jumped backward while on an ADTS stream.
-    // iOS can silently restart a non-seekable ADTS download from byte 0 without
-    // firing any JS events (no 'ended', no 'error'), so this timeupdate backward
-    // jump is the only reliable signal.
-    if (_isAdts && delta < -5 && state.currentTrack) {
-      const track = state.currentTrack;
-      const resumeAt = _lastUpdateTime;
-      console.log(`[player] silent restart detected — "${track.title}" jumped from ${resumeAt.toFixed(1)}s to ${audio.currentTime.toFixed(1)}s`);
-      const seq = ++stallRecoverySeq;
-      ignoreNextEnded = true;
-      clearTimeout(ignoreEndedTimer);
-      ignoreEndedTimer = null;
-      _lastUpdateTime = null;
-      audio.src = api.streamUrl(track._id, true);
-      audio.load();
-      audio.addEventListener('loadedmetadata', () => {
-        if (stallRecoverySeq !== seq) return;
-        ignoreNextEnded = false;
-        _isAdts = audio.seekable.length === 0;
-        if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-          audio.currentTime = resumeAt;
-          console.log(`[player] silent restart recovery seek to ${resumeAt.toFixed(1)}s — "${track.title}"`);
-        } else {
-          console.log(`[player] silent restart recovery: M4A not ready, resuming ADTS from start — "${track.title}"`);
-        }
-        audio.play().catch(err => {
-          console.error('[player] silent restart recovery play failed:', err);
-          if (err.name !== 'NotAllowedError') setTimeout(() => { if (stallRecoverySeq !== seq) return; audio.play().catch(() => {}); }, 1000);
-        });
-      }, { once: true });
-      return;
-    }
   }
   _lastUpdateTime = audio.currentTime;
 
@@ -294,12 +169,11 @@ audio.addEventListener('error', () => {
     ignoreEndedTimer = null;
     setTimeout(() => {
       if (stallRecoverySeq !== seq) return;
-      audio.src = api.streamUrl(track._id, needsTranscode(track));
+      _setTrackSource(track);
       audio.load();
       audio.addEventListener('loadedmetadata', () => {
         if (stallRecoverySeq !== seq) return;
         ignoreNextEnded = false;
-        if (needsTranscode(track)) _isAdts = audio.seekable.length === 0;
         if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
           audio.currentTime = resumeAt;
         }
@@ -314,19 +188,16 @@ audio.addEventListener('error', () => {
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
-    audio.src = api.streamUrl(track._id, true);
+    _setTrackSource(track, { forceTranscode: true });
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
       ignoreNextEnded = false;
-      _isAdts = audio.seekable.length === 0;
       audio.play().catch(e => console.error('[player] transcode-fallback play failed:', e));
     }, { once: true });
 
   } else if (err.code === MediaError.MEDIA_ERR_DECODE && needsTranscode(track) && !_transcodeAttempted) {
-    // ADTS live-stream decode error — typically a transient framing issue at the
-    // start of the ffmpeg pipe.  Poll the warm endpoint until the faststart M4A is
-    // ready (or 10 s timeout), then retry — gets the stable M4A instead of ADTS.
+    // Retry once on decode errors for transcoded tracks.
     _transcodeAttempted = true;
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
@@ -340,12 +211,11 @@ audio.addEventListener('error', () => {
         await new Promise(r => setTimeout(r, 300));
       }
       if (stallRecoverySeq !== seq) return;
-      audio.src = api.streamUrl(track._id, true);
+      _setTrackSource(track, { forceTranscode: true });
       audio.load();
       audio.addEventListener('loadedmetadata', () => {
         if (stallRecoverySeq !== seq) return;
         ignoreNextEnded = false;
-        _isAdts = audio.seekable.length === 0;
         audio.play().catch(e => console.error('[player] decode-retry play failed:', e));
       }, { once: true });
     })();
@@ -368,6 +238,7 @@ audio.addEventListener('loadedmetadata', () => {
   const audioDuration = isFinite(audio.duration) ? audio.duration : 0;
   const trackDuration = state.currentTrack?.duration ?? 0;
   state.duration = Math.max(audioDuration, trackDuration) || 0;
+  state.transcodeWaiting = false;
   updateMediaSessionPositionState();
 
   if (_pendingRestoreTime !== null) {
@@ -377,6 +248,10 @@ audio.addEventListener('loadedmetadata', () => {
       audio.currentTime = t;
     }
   }
+});
+
+audio.addEventListener('playing', () => {
+  state.transcodeWaiting = false;
 });
 
 audio.addEventListener('ended', () => {
@@ -399,8 +274,7 @@ audio.addEventListener('ended', () => {
     console.log(`[player] ended not suppressed (real) — "${_title}" t=${_t} rs=${audio.readyState}`);
   }
 
-  // Detect premature 'ended' caused by iOS exhausting its audio buffer before
-  // the track is actually over (transcoded tracks stall recovery).
+  // Detect premature 'ended' when playback stops before the known track duration.
   const trackDuration = state.currentTrack?.duration ?? 0;
   const knownDuration = Math.max(
     (isFinite(audio.duration) && audio.duration > 0) ? audio.duration : 0,
@@ -413,7 +287,7 @@ audio.addEventListener('ended', () => {
 
   if (knownDuration > 5 && resumeAt < knownDuration - 3 && state.currentTrack) {
     const track = state.currentTrack;
-    console.log(`[player] stall detected at ${resumeAt.toFixed(1)}s / ${knownDuration.toFixed(1)}s — "${_title}" — starting recovery`);
+    console.log(`[player] premature ended at ${resumeAt.toFixed(1)}s / ${knownDuration.toFixed(1)}s — "${_title}" — starting recovery`);
     // Keep ignoreNextEnded true for the entire recovery window — do NOT reset it
     // on a short timer. iOS will fire 'ended' again when audio.src changes and
     // nothing is playing yet; a 500 ms timer expires before the server responds
@@ -434,7 +308,7 @@ audio.addEventListener('ended', () => {
       next();
     }, 15000);
 
-    audio.src = api.streamUrl(track._id, needsTranscode(track));
+    _setTrackSource(track);
     // iOS Safari requires an explicit load() call after setting src on an
     // element that was in the 'ended' state to trigger metadata loading.
     audio.load();
@@ -442,48 +316,13 @@ audio.addEventListener('ended', () => {
       if (stallRecoverySeq !== seq) return;
       clearTimeout(recoveryTimeout);
       ignoreNextEnded = false;
-      _isAdts = audio.seekable.length === 0;
       const seekable = audio.seekable.length > 0 ? audio.seekable.end(0).toFixed(1) : 'none';
       console.log(`[player] recovery loadedmetadata — "${_title}" seekable=${seekable} resumeAt=${resumeAt.toFixed(1)}`);
       if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
         console.log(`[player] recovery seek to ${resumeAt.toFixed(1)}s — "${_title}"`);
         audio.currentTime = resumeAt;
       } else {
-        // Got ADTS (not seekable) — warm M4A not ready yet.  Register a callback
-        // so that when the server finishes encoding and broadcasts 'transcode_ready',
-        // we immediately interrupt the ADTS replay and re-seek to the right spot.
-        // We only honour the callback if it fires within 5 s: after that the user
-        // has already re-engaged with the beginning of the track and interrupting
-        // would be more jarring than helpful.
-        console.log(`[player] recovery got ADTS (not seekable) — waiting for transcode_ready — "${_title}"`);
-        const registeredAt = Date.now();
-        _whenTranscodeReady(track._id, () => {
-          if (stallRecoverySeq !== seq) return; // player has moved on
-          const elapsed = Date.now() - registeredAt;
-          if (elapsed > 5000) {
-            console.log(`[player] transcode_ready too late (${elapsed}ms) — "${_title}"`);
-            return;
-          }
-          console.log(`[player] transcode_ready fired (${elapsed}ms) — re-seeking to ${resumeAt.toFixed(1)}s — "${_title}"`);
-          const newSeq = ++stallRecoverySeq;
-          ignoreNextEnded = true;
-          clearTimeout(ignoreEndedTimer);
-          ignoreEndedTimer = null;
-          audio.src = api.streamUrl(track._id, true);
-          audio.load();
-          audio.addEventListener('loadedmetadata', () => {
-            if (stallRecoverySeq !== newSeq) return;
-            ignoreNextEnded = false;
-            _isAdts = audio.seekable.length === 0;
-            if (audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-              audio.currentTime = resumeAt;
-              console.log(`[player] transcode-ready seek succeeded — "${_title}"`);
-            } else {
-              console.log(`[player] transcode-ready seek failed (still not seekable) — "${_title}"`);
-            }
-            audio.play().catch(e => console.error('[player] transcode-ready re-seek failed:', e));
-          }, { once: true });
-        });
+        console.log(`[player] recovery: stream not seekable yet — "${_title}"`);
       }
       audio.play().catch(err => {
         console.error('[player] resume after stall:', err);
@@ -531,8 +370,7 @@ audio.addEventListener('pause', () => {
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
 
-// These fire when iOS silently suspends a stream — without 'ended' or 'error' —
-// which is the suspected cause of mid-song restarts with no other logs.
+// Extra playback diagnostics.
 audio.addEventListener('stalled', () => {
   console.log(`[player] stalled — "${state.currentTrack?.title}" t=${audio.currentTime.toFixed(1)} rs=${audio.readyState}`);
 });
@@ -622,7 +460,7 @@ export async function restoreQueue() {
     state.queue        = tracks;
     state.queueIndex   = currentIndex;
     state.currentTrack = tracks[currentIndex];
-    audio.src = api.streamUrl(tracks[currentIndex]._id, needsTranscode(tracks[currentIndex]));
+    _setTrackSource(tracks[currentIndex], { markWaiting: false });
 
     if (typeof currentTime === 'number' && currentTime > 5) {
       _pendingRestoreTime = currentTime;
@@ -668,9 +506,8 @@ function play(track) {
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
-  // For transcode tracks the ADTS live-stream can take several seconds for ffmpeg
-  // to start delivering data; keep the guard up longer so iOS doesn't fire a
-  // spurious 'ended' and trigger stall-recovery before playback has even begun.
+  // For transcode tracks waiting for warm M4A can take several seconds; keep
+  // the guard up longer so iOS doesn't fire a spurious 'ended' before playback starts.
   ignoreEndedTimer = setTimeout(() => { ignoreNextEnded = false; }, needsTranscode(track) ? 8000 : 500);
   state.currentTrack = track;
   state.currentTime  = 0;
@@ -678,11 +515,7 @@ function play(track) {
   playedSeconds         = 0;
   _lastUpdateTime       = null;
   _transcodeAttempted   = false;
-  _isAdts               = needsTranscode(track);
-  // Ensure the SSE listener is open so the proactive M4A switch fires as soon
-  // as the warm finishes — don't wait for a stall to initialise it.
-  if (needsTranscode(track)) _initTranscodeEvents();
-  audio.src = api.streamUrl(track._id, needsTranscode(track));
+  _setTrackSource(track);
 
   if (audio._vizCtx?.ctx?.state === 'suspended') {
     audio._vizCtx.ctx.resume();
@@ -831,7 +664,7 @@ function resume() {
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
-    audio.src = api.streamUrl(track._id, needsTranscode(track));
+    _setTrackSource(track);
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
@@ -924,6 +757,8 @@ function _clearQueue() {
   state.currentTime      = 0;
   state.duration         = 0;
   state.showQueue        = false;
+  state.transcodeWaiting = false;
+  state.transcodeActive  = false;
   // Mark the DB queue as ended so it won't restore on next page load.
   api.updateQueue({ currentIndex: endIndex, currentTime: 0 }).catch(() => {});
 }

@@ -160,6 +160,14 @@ const hoverTime = computed(() => {
             <span v-if="ai > 0">, </span>{{ artist }}
           </template>
         </span>
+        <span
+          v-if="state.transcodeWaiting || state.transcodeActive"
+          class="mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+          :class="state.transcodeWaiting ? 'border-amber-400/40 text-amber-300' : 'border-emerald-400/40 text-emerald-300'"
+        >
+          <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
+          {{ state.transcodeWaiting ? 'Transcoding' : 'Transcoded' }}
+        </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
         <button
@@ -234,6 +242,14 @@ const hoverTime = computed(() => {
               >{{ artist }}</router-link
             >
           </template>
+        </span>
+        <span
+          v-if="state.transcodeWaiting || state.transcodeActive"
+          class="mt-0.5 inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] uppercase tracking-wide"
+          :class="state.transcodeWaiting ? 'border-amber-400/40 text-amber-300' : 'border-emerald-400/40 text-emerald-300'"
+        >
+          <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
+          {{ state.transcodeWaiting ? 'Transcoding' : 'Transcoded' }}
         </span>
       </div>
       </Transition>

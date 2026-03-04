@@ -169,58 +169,26 @@ router.get('/stream/:id', async (req, res) => {
         if (await serveCachedTranscode(id, req, res)) return;
       } catch { /* not on disk yet */ }
     } else {
-      console.log(`[stream] warm in progress, falling to ADTS — ${label}`);
+      console.log(`[stream] warm in progress, waiting for M4A — ${label}`);
     }
 
-    // First request for this track and no cache available yet.
-    //
-    // Strategy: stream ADTS live to the client for immediate playback, while
-    // simultaneously kicking off the warm process (faststart M4A) in the background.
-    //
-    // Why ADTS for the live stream:
-    //   - ADTS gives a stable "unknown" duration display on iOS — better UX than
-    //     the flickering/changing duration caused by fMP4 with empty_moov.
-    //   - The warm process writes a proper faststart M4A with accurate duration and
-    //     full seek support.  iOS typically stalls after 30–60 s; by then the warm
-    //     is usually complete, so the stall-recovery re-request gets the good file.
-    //
-    // The live-stream ffmpeg does NOT write to tempPath — only startWarm does.
-    // This keeps the cache exclusively faststart M4A (never a broken fMP4).
-    console.log(`[stream] starting ADTS live stream — ${label}`);
-    startWarm(id, track.path, label);
+    // No ready cache yet: start warm and wait for the finished faststart M4A.
+    // This avoids mid-playback source switches and audible gaps.
+    if (!transcodeInProgress.has(id)) startWarm(id, track.path, label);
+    const inFlight = transcodeInProgress.get(id);
+    if (!inFlight) return res.status(500).json({ error: 'Transcode did not start' });
 
-    const ff = spawn('ffmpeg', [
-      '-i', track.path,
-      '-vn',
-      '-c:a', 'aac',
-      '-b:a', '192k',
-      '-ar', '44100',   // normalise to 44.1 kHz — iOS rejects unusual rates in AAC streams
-      '-ac', '2',       // normalise to stereo
-      '-f', 'adts',
-      'pipe:1',
-    ], { stdio: ['ignore', 'pipe', 'ignore'] });
-
-    res.setHeader('Content-Type', 'audio/aac');
-    res.setHeader('Cache-Control', 'no-cache');
-    // Live pipe — not seekable. The stall-recovery re-request will get the
-    // faststart M4A cache which is fully seekable.
-    res.setHeader('Accept-Ranges', 'none');
-
-    ff.stdout.on('data', (chunk) => {
-      if (!res.writableEnded) res.write(chunk);
-    });
-    ff.stdout.on('end', () => {
-      if (!res.writableEnded) res.end();
-    });
-
-    ff.on('error', (err) => {
-      console.error('[transcode] live stream ffmpeg error:', err);
-      if (!res.headersSent) res.status(500).json({ error: 'Transcoding failed' });
-    });
-
-    // Do NOT kill the live-stream ffmpeg on client disconnect — the warm process
-    // is already running independently and will finish regardless.
-    return;
+    try {
+      await inFlight;
+      transcodeReady.add(id);
+      console.log(`[stream] warm completed during request — ${label}`);
+      if (await serveCachedTranscode(id, req, res)) return;
+      transcodeReady.delete(id);
+      return res.status(500).json({ error: 'Transcoded file unavailable' });
+    } catch (err) {
+      console.error(`[stream] warm failed while waiting — ${label}:`, err.message);
+      return res.status(500).json({ error: 'Transcoding failed' });
+    }
   }
 
   const range = req.headers.range;

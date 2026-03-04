@@ -422,6 +422,14 @@ onUnmounted(() => {
                   >{{ artist }}</router-link>
                 </template>
               </div>
+              <span
+                v-if="state.transcodeWaiting || state.transcodeActive"
+                class="mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wide"
+                :class="state.transcodeWaiting ? 'border-amber-400/40 text-amber-200' : 'border-emerald-400/40 text-emerald-200'"
+              >
+                <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-200 animate-pulse' : 'bg-emerald-200'" />
+                {{ state.transcodeWaiting ? 'Transcoding audio' : 'Transcoded stream' }}
+              </span>
             </div>
 
             <!-- Progress scrubber -->
