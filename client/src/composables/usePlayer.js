@@ -101,9 +101,6 @@ let _transcodeAttempted = false;
 let _consecutiveErrors = 0;
 let _deferredStartSeq = 0;
 let _lastMediaPlayAt = 0;
-let _softPaused = false;
-let _softPauseTime = 0;
-let _softPauseRate = 1;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true, cacheBust = false } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -289,10 +286,6 @@ audio.addEventListener('playing', () => {
 });
 
 audio.addEventListener('ended', () => {
-  if (_softPaused) {
-    console.log('[player] ended ignored while soft-paused');
-    return;
-  }
   const _t = audio.currentTime.toFixed(1);
   const _d = isFinite(audio.duration) ? audio.duration.toFixed(1) : '∞';
   const _title = state.currentTrack?.title ?? '?';
@@ -464,17 +457,13 @@ if ('mediaSession' in navigator) {
   navigator.mediaSession.setActionHandler('play', () => {
     console.log(`[mediasession] play — ${playerDbgContext()}`);
     _lastMediaPlayAt = Date.now();
-    if (_softPaused) {
-      _softPaused = false;
-      audio.muted = false;
-      audio.playbackRate = _softPauseRate || 1;
-      if (audio.seekable.length > 0 && audio.seekable.end(0) >= _softPauseTime) {
-        audio.currentTime = _softPauseTime;
-      }
-      audio.play().catch(err => {
-        console.error('[mediasession] play() after soft-pause failed, fallback resume:', err);
-        resume(true);
-      });
+    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    // Background resume for transcoded streams can get stuck on iOS.
+    // Restarting the same track is more reliable (same behavior as next/prev).
+    if (isHidden && state.transcodeActive && state.currentTrack) {
+      const currentIndex = state.queue.findIndex(t => t._id === state.currentTrack._id);
+      if (currentIndex >= 0) state.queueIndex = currentIndex;
+      play(state.currentTrack);
       return;
     }
     // In iOS background, direct play() can report playing while audio remains
@@ -483,20 +472,6 @@ if ('mediaSession' in navigator) {
   });
   navigator.mediaSession.setActionHandler('pause', () => {
     console.log(`[mediasession] pause — ${playerDbgContext()}`);
-    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-    if (isHidden && state.transcodeActive && !audio.paused) {
-      // iOS can fail to resume a truly paused transcoded stream in background.
-      // Keep the media pipeline alive and emulate pause for lock-screen controls.
-      _softPaused = true;
-      _softPauseTime = audio.currentTime;
-      _softPauseRate = audio.playbackRate || 1;
-      audio.muted = true;
-      audio.playbackRate = 0.01;
-      state.isPlaying = false;
-      navigator.mediaSession.playbackState = 'paused';
-      console.log(`[mediasession] soft-pause at ${_softPauseTime.toFixed(1)}s`);
-      return;
-    }
     audio.pause();
   });
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
@@ -601,9 +576,6 @@ function play(track) {
   console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
   // Explicit user playback should always start fresh for the selected track.
   _pendingRestore = null;
-  _softPaused = false;
-  audio.muted = false;
-  audio.playbackRate = 1;
   // Do not call pause() before src swap: on iOS background playback this can
   // tear down the active media session and stall manual next-track starts.
   // load() after assigning src is enough to abort/reset the previous resource.
@@ -764,9 +736,6 @@ function toggleShuffle() {
 
 function pause() {
   console.log(`[player] pause() — ${playerDbgContext()}`);
-  _softPaused = false;
-  audio.muted = false;
-  audio.playbackRate = 1;
   audio.pause();
 }
 
