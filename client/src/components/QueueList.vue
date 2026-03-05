@@ -189,7 +189,7 @@ function formatDuration(seconds) {
     <div
       v-else
       ref="scrollContainer"
-      class="flex-1 min-h-0 overflow-y-auto"
+      class="flex-1 min-h-0 overflow-y-auto overscroll-contain"
       :style="{ maskImage: scrollMask, WebkitMaskImage: scrollMask }"
       @scroll="onScroll"
     >

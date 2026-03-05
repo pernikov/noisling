@@ -320,29 +320,30 @@ onUnmounted(() => {
         <!-- Base background -->
         <div class="absolute inset-0 bg-zinc-900" />
 
-        <!-- Decorative layers: blurred art + scrim + accent — fade in/out on tab switch -->
-        <Transition name="bg-fade">
-          <div v-if="activeTab === 'nowplaying'" class="absolute inset-0 overflow-hidden">
-            <img
-              v-if="prevCoverUrl"
-              :src="prevCoverUrl"
-              alt=""
-              aria-hidden="true"
-              class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-              :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0 : 0.9 }"
-            />
-            <img
-              v-if="displayedCoverUrl"
-              :src="displayedCoverUrl"
-              alt=""
-              aria-hidden="true"
-              class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-              :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0.9 : 0 }"
-            />
-            <div class="absolute inset-0 bg-black/40" />
-            <div class="absolute inset-0" :style="{ background: accentOverlay }" />
-          </div>
-        </Transition>
+        <!-- Decorative layers: always mounted, fade via CSS opacity on tab switch -->
+        <div
+          class="absolute inset-0 overflow-hidden transition-opacity duration-[350ms]"
+          :class="activeTab === 'nowplaying' ? 'opacity-100' : 'opacity-0'"
+        >
+          <img
+            v-if="prevCoverUrl"
+            :src="prevCoverUrl"
+            alt=""
+            aria-hidden="true"
+            class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0 : 0.9 }"
+          />
+          <img
+            v-if="displayedCoverUrl"
+            :src="displayedCoverUrl"
+            alt=""
+            aria-hidden="true"
+            class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+            :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0.9 : 0 }"
+          />
+          <div class="absolute inset-0 bg-black/40" />
+          <div class="absolute inset-0" :style="{ background: accentOverlay }" />
+        </div>
 
         <!-- Content -->
         <div class="relative z-10 flex flex-col h-full px-6">
@@ -600,14 +601,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.bg-fade-enter-active,
-.bg-fade-leave-active {
-  transition: opacity 0.35s ease;
-}
-.bg-fade-enter-from,
-.bg-fade-leave-to {
-  opacity: 0;
-}
 
 .slide-up-enter-active,
 .slide-up-leave-active {
