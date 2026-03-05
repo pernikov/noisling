@@ -1,11 +1,12 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useApi } from '../composables/useApi.js';
 import Icon from './Icon.vue';
 import Spinner from './Spinner.vue';
+import QueueList from './QueueList.vue';
 import {
   mdiChevronDown,
   mdiSkipPrevious,
@@ -15,6 +16,8 @@ import {
   mdiShuffle,
   mdiRepeat,
   mdiRepeatOnce,
+  mdiHeart,
+  mdiHeartOutline,
 } from '@mdi/js';
 
 const {
@@ -26,17 +29,29 @@ const {
   toggleShuffle,
   toggleNowPlaying,
   cycleRepeat,
+  toggleLove,
   hasNext,
   hasPrev,
 } = usePlayer();
 
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor } = useTheme();
+const { accentColor, lovedUseAccent } = useTheme();
 const api = useApi();
 
 const coverUrl = computed(() =>
   state.currentTrack?.cover ? api.coverUrl(state.currentTrack.cover) : null
 );
+
+// --- Tab state ---
+const activeTab = ref('nowplaying');
+const queueList = ref(null);
+
+watch(activeTab, async (tab) => {
+  if (tab === 'queue') {
+    await nextTick();
+    queueList.value?.scrollToCurrent();
+  }
+});
 
 // Cover crossfade: hold the previous cover visible until the new one finishes loading,
 // then crossfade both simultaneously (fade-out old, fade-in new).
@@ -165,6 +180,7 @@ let swipeActive = false;
 let swipeDirection = null; // 'vertical' | 'horizontal' | null — locked after first 10px
 
 function onTouchStart(e) {
+  if (activeTab.value === 'queue') { swipeActive = false; return; }
   if (e.target.closest('[data-no-swipe]')) { swipeActive = false; return; }
   touchStartY = e.touches[0].clientY;
   touchStartX = e.touches[0].clientX;
@@ -224,10 +240,11 @@ function onTouchEnd() {
   swipeDirection = null;
 }
 
-const dragStyle = computed(() => {
-  if (isClosingByDrag.value) return { transform: `translateY(${dragY.value}px)`, transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)' };
-  if (dragY.value > 0) return { transform: `translateY(${dragY.value}px)`, transition: 'none' };
-  return {};
+const outerStyle = computed(() => {
+  const base = { zIndex: 60, touchAction: activeTab.value === 'queue' ? 'pan-y' : 'none' };
+  if (isClosingByDrag.value) return { ...base, transform: `translateY(${dragY.value}px)`, transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)' };
+  if (dragY.value > 0) return { ...base, transform: `translateY(${dragY.value}px)`, transition: 'none' };
+  return base;
 });
 
 // Cover-specific drag physics: slide + tilt + slight scale-up while dragging horizontally
@@ -263,6 +280,7 @@ watch(
   () => state.showNowPlaying,
   (open) => {
     document.body.style.overflow = open ? 'hidden' : '';
+    if (open) activeTab.value = 'nowplaying';
   }
 );
 
@@ -291,7 +309,7 @@ onUnmounted(() => {
       <div
         v-if="state.showNowPlaying && state.currentTrack"
         class="fixed inset-0 flex flex-col overflow-hidden"
-        :style="[{ zIndex: 60, touchAction: 'none' }, dragStyle]"
+        :style="outerStyle"
         role="dialog"
         aria-modal="true"
         aria-label="Now Playing"
@@ -342,12 +360,42 @@ onUnmounted(() => {
             >
               <Icon :path="mdiChevronDown" class="w-7 h-7" />
             </button>
-            <span class="text-xs uppercase tracking-widest text-zinc-400 font-medium">Now Playing</span>
-            <div class="w-7 h-7" />
+
+            <!-- Tab switcher (mobile only — desktop has the queue drawer) -->
+            <div class="sm:hidden flex bg-white/10 rounded-full p-0.5">
+              <button
+                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                :class="activeTab === 'nowplaying' ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white'"
+                @click="activeTab = 'nowplaying'"
+              >Playing</button>
+              <button
+                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                :class="activeTab === 'queue' ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white'"
+                @click="activeTab = 'queue'"
+              >Queue</button>
+            </div>
+            <span class="hidden sm:block text-xs uppercase tracking-widest text-zinc-400 font-medium">Now Playing</span>
+
+            <!-- Love button (hidden in queue tab) -->
+            <button
+              v-if="activeTab === 'nowplaying'"
+              class="p-1 -mr-1 rounded-full hover:bg-white/10 transition-colors"
+              :class="state.currentTrack.isLoved
+                ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-red-400')
+                : 'text-zinc-300 hover:text-white'"
+              @click="toggleLove"
+              aria-label="Love track"
+            >
+              <Transition name="icon-swap" mode="out-in">
+                <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-6 h-6" :key="'loved'" />
+                <Icon v-else :path="mdiHeartOutline" class="w-6 h-6" :key="'unloved'" />
+              </Transition>
+            </button>
+            <div v-else class="w-7 h-7" />
           </div>
 
-          <!-- Album art -->
-          <div class="flex-1 flex items-center justify-center py-2 min-h-0">
+          <!-- Album art (Now Playing tab) -->
+          <div v-if="activeTab === 'nowplaying'" class="flex-1 flex items-center justify-center py-2 min-h-0">
             <div
               class="relative w-full"
               style="max-width: min(100%, 60vh, 400px);"
@@ -410,8 +458,16 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Bottom section -->
-          <div class="flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
+          <!-- Queue tab (mobile only) -->
+          <div
+            v-else
+            class="sm:hidden flex-1 min-h-0 flex flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]"
+          >
+            <QueueList ref="queueList" rowPaddingClass="px-3" @navigate="toggleNowPlaying" />
+          </div>
+
+          <!-- Bottom section (Now Playing tab) -->
+          <div v-if="activeTab === 'nowplaying'" class="flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
 
             <!-- Track info -->
             <div>
