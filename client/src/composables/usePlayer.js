@@ -538,7 +538,9 @@ function play(track) {
   console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
   // Explicit user playback should always start fresh for the selected track.
   _pendingRestore = null;
-  if (!audio.paused && !audio.ended) audio.pause();
+  // Do not call pause() before src swap: on iOS background playback this can
+  // tear down the active media session and stall manual next-track starts.
+  // load() after assigning src is enough to abort/reset the previous resource.
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
