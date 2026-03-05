@@ -115,6 +115,11 @@ function maybeResumeVizContext() {
   ctx.resume().catch(() => {});
 }
 
+function playerDbgContext() {
+  const visibility = typeof document !== 'undefined' ? document.visibilityState : 'unknown';
+  return `track="${state.currentTrack?.title ?? '?'}" t=${audio.currentTime.toFixed(1)} paused=${audio.paused} ended=${audio.ended} rs=${audio.readyState} ns=${audio.networkState} vis=${visibility} transcode=${state.transcodeActive}/${state.transcodeWaiting}`;
+}
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -350,24 +355,22 @@ audio.addEventListener('ended', () => {
 
   console.log(`[player] natural end — "${_title}" — advancing queue`);
 
-  // Defer play/next out of the ended handler. When audio.src is reassigned and
-  // audio.play() is called synchronously inside the 'ended' event on iOS Safari,
-  // the element hasn't fully exited the ended state yet and play() immediately
-  // rejects with NotSupportedError. Calling next() from a queued task (after the
-  // handler returns) lets iOS settle first — this is why pressing Prev manually
-  // works but automatic queue advancement doesn't without the defer.
+  // Defer play/next out of the ended handler so we don't call play() while the
+  // element is still completing the ended transition.
+  // Use a microtask instead of setTimeout(0) to avoid iOS background timer
+  // throttling that can delay queue advancement until foreground.
   // Set ignoreNextEnded now so any spurious ended iOS fires in the gap is swallowed.
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
   ignoreEndedTimer = null;
-  setTimeout(() => {
+  queueMicrotask(() => {
     // play() will immediately reinstall its own ignoreNextEnded guard.
     if (state.repeat === 'one') {
       play(state.currentTrack);
     } else {
       next();
     }
-  }, 0);
+  });
 });
 
 audio.addEventListener('play', () => {
@@ -426,18 +429,22 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  // Let the UA perform native play/pause handling for the media element.
-  // On iOS lock screen, custom JS play handlers are less reliable than default behavior.
-  navigator.mediaSession.setActionHandler('play', null);
-  navigator.mediaSession.setActionHandler('pause', null);
-  navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack t=${audio.currentTime.toFixed(1)}`); prev(); });
-  navigator.mediaSession.setActionHandler('nexttrack', () => { console.log('[mediasession] nexttrack'); next(); });
+  navigator.mediaSession.setActionHandler('play', () => {
+    console.log(`[mediasession] play — ${playerDbgContext()}`);
+    resume();
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    console.log(`[mediasession] pause — ${playerDbgContext()}`);
+    pause();
+  });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { console.log(`[mediasession] nexttrack — ${playerDbgContext()}`); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
-    console.log(`[mediasession] seekto ${details.seekTime?.toFixed(1)}`);
+    console.log(`[mediasession] seekto ${details.seekTime?.toFixed(1)} — ${playerDbgContext()}`);
     if (details.seekTime != null) seek(details.seekTime);
   });
-  navigator.mediaSession.setActionHandler('seekbackward', (details) => { console.log(`[mediasession] seekbackward offset=${details?.seekOffset}`); prev(); });
-  navigator.mediaSession.setActionHandler('seekforward', (details) => { console.log(`[mediasession] seekforward offset=${details?.seekOffset}`); next(); });
+  navigator.mediaSession.setActionHandler('seekbackward', (details) => { console.log(`[mediasession] seekbackward offset=${details?.seekOffset} — ${playerDbgContext()}`); prev(); });
+  navigator.mediaSession.setActionHandler('seekforward', (details) => { console.log(`[mediasession] seekforward offset=${details?.seekOffset} — ${playerDbgContext()}`); next(); });
 }
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
@@ -532,7 +539,7 @@ function play(track) {
   console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
   // Explicit user playback should always start fresh for the selected track.
   _pendingRestore = null;
-  audio.pause();
+  if (!audio.paused && !audio.ended) audio.pause();
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
@@ -546,21 +553,35 @@ function play(track) {
   _lastUpdateTime       = null;
   _transcodeAttempted   = false;
   _setTrackSource(track);
+  // Explicit load() clears stale ended/error state before play() on iOS.
+  audio.load();
 
   maybeResumeVizContext();
 
   const trackId = track._id;
   audio.play().catch(err => {
-    console.error('[player] play() failed:', err);
-    if (err.name !== 'NotAllowedError') {
-      setTimeout(() => {
-        // If the error handler already took over (changed stallRecoverySeq), bail out.
-        if (stallRecoverySeq !== playSeq) return;
-        if (state.currentTrack?._id !== trackId) return;
-        if (audio.error) return;
-        audio.play().catch(e => console.error('[player] play() retry failed:', e));
-      }, 500);
-    }
+    console.error(`[player] play() failed — ${playerDbgContext()}:`, err);
+    if (err.name === 'NotAllowedError') return;
+
+    let retryDone = false;
+    const retryPlay = (reason) => {
+      if (retryDone) return;
+      retryDone = true;
+      console.log(`[player] play() retry via ${reason} — ${playerDbgContext()}`);
+      // If the error handler already took over (changed stallRecoverySeq), bail out.
+      if (stallRecoverySeq !== playSeq) return;
+      if (state.currentTrack?._id !== trackId) return;
+      if (audio.error) return;
+      audio.play().catch(e => console.error('[player] play() retry failed:', e));
+    };
+
+    // For transcoded/background starts, metadata/canplay often arrives after
+    // the first play() attempt. Retry on readiness events instead of depending
+    // only on timers, which iOS can throttle in background.
+    audio.addEventListener('loadedmetadata', () => retryPlay('loadedmetadata'), { once: true });
+    audio.addEventListener('canplay', () => retryPlay('canplay'), { once: true });
+    queueMicrotask(() => retryPlay('microtask'));
+    setTimeout(() => retryPlay('timeout-500ms'), 500);
   });
   updateMediaSession(track);
 
@@ -675,10 +696,12 @@ function toggleShuffle() {
 }
 
 function pause() {
+  console.log(`[player] pause() — ${playerDbgContext()}`);
   audio.pause();
 }
 
 function resume() {
+  console.log(`[player] resume() start — ${playerDbgContext()}`);
   maybeResumeVizContext();
   // If the element is stuck in an error state (e.g. previous network drop),
   // calling play() throws NotSupportedError. Reload the track first.
@@ -703,7 +726,7 @@ function resume() {
     return;
   }
   audio.play().catch(err => {
-    console.error('[player] resume() failed:', err);
+    console.error(`[player] resume() failed — ${playerDbgContext()}:`, err);
     if (!state.currentTrack) return;
 
     // iOS can occasionally reject lock-screen resume even when no error is
