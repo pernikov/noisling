@@ -350,24 +350,26 @@ audio.addEventListener('ended', () => {
 
   console.log(`[player] natural end — "${_title}" — advancing queue`);
 
-  // Defer play/next out of the ended handler. When audio.src is reassigned and
-  // audio.play() is called synchronously inside the 'ended' event on iOS Safari,
-  // the element hasn't fully exited the ended state yet and play() immediately
-  // rejects with NotSupportedError. Calling next() from a queued task (after the
-  // handler returns) lets iOS settle first — this is why pressing Prev manually
-  // works but automatic queue advancement doesn't without the defer.
+  // Defer play/next out of the ended handler so the browser can process any
+  // final state from the ended event before we reassign audio.src.
+  // Using queueMicrotask (rather than setTimeout) so this fires immediately
+  // within the current task — iOS background timer throttling can delay
+  // setTimeout(0) by seconds after the audio session goes quiet, which is why
+  // the next track wouldn't start until the app was foregrounded.
+  // audio.load() inside play() explicitly resets the ended state so
+  // audio.play() doesn't reject with NotSupportedError.
   // Set ignoreNextEnded now so any spurious ended iOS fires in the gap is swallowed.
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
   ignoreEndedTimer = null;
-  setTimeout(() => {
+  queueMicrotask(() => {
     // play() will immediately reinstall its own ignoreNextEnded guard.
     if (state.repeat === 'one') {
       play(state.currentTrack);
     } else {
       next();
     }
-  }, 0);
+  });
 });
 
 audio.addEventListener('play', () => {
@@ -544,6 +546,11 @@ function play(track) {
   _lastUpdateTime       = null;
   _transcodeAttempted   = false;
   _setTrackSource(track);
+  // Explicit load() resets the ended state (and any error state) on the element
+  // before play() is called. Without this, calling play() from a microtask
+  // inside the 'ended' handler can still hit NotSupportedError on iOS because
+  // the element hasn't exited ended state yet when the microtask runs.
+  audio.load();
 
   maybeResumeVizContext();
 
