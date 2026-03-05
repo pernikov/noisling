@@ -99,6 +99,7 @@ let _transcodeAttempted = false;
 
 // Count consecutive error-induced skips so we stop looping if everything fails.
 let _consecutiveErrors = 0;
+let _deferredStartSeq = 0;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -374,12 +375,14 @@ audio.addEventListener('ended', () => {
 });
 
 audio.addEventListener('play', () => {
+  console.log(`[player] audio play event — ${playerDbgContext()}`);
   state.isPlaying = true;
   _consecutiveErrors = 0;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 });
 
 audio.addEventListener('pause', () => {
+  console.log(`[player] audio pause event — ${playerDbgContext()}`);
   state.isPlaying = false;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
@@ -429,14 +432,10 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => {
-    console.log(`[mediasession] play — ${playerDbgContext()}`);
-    resume();
-  });
-  navigator.mediaSession.setActionHandler('pause', () => {
-    console.log(`[mediasession] pause — ${playerDbgContext()}`);
-    pause();
-  });
+  // Let the UA handle play/pause natively on iOS lock screen.
+  // Custom handlers can get into inconsistent toggle state when backgrounded.
+  navigator.mediaSession.setActionHandler('play', null);
+  navigator.mediaSession.setActionHandler('pause', null);
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
   navigator.mediaSession.setActionHandler('nexttrack', () => { console.log(`[mediasession] nexttrack — ${playerDbgContext()}`); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
@@ -859,7 +858,7 @@ function next() {
   if (nextIndex < state.queue.length) {
     // Track is already in the buffer.
     state.queueIndex = nextIndex;
-    play(state.queue[nextIndex]);
+    playWithWarmupIfNeeded(state.queue[nextIndex], nextIndex);
     saveProgress();
     if (state.isLargeQueue) prefetchIfNeeded();
   } else if (state.isLargeQueue && virtualNext < state.queueTotal) {
@@ -876,6 +875,27 @@ function next() {
   } else {
     _clearQueue();
   }
+}
+
+async function playWithWarmupIfNeeded(track, expectedIndex) {
+  const seq = ++_deferredStartSeq;
+  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  const shouldWarmFirst = isHidden && needsTranscode(track);
+  if (shouldWarmFirst) {
+    console.log(`[player] deferred start: waiting for warm transcode — "${track?.title}"`);
+    const deadline = Date.now() + 12000;
+    while (Date.now() < deadline) {
+      if (seq !== _deferredStartSeq) return;
+      if (state.queueIndex !== expectedIndex || state.currentTrack?._id === track?._id) return;
+      const { status } = await api.warmTranscode(track._id);
+      if (status === 'ready') break;
+      await new Promise(r => setTimeout(r, 250));
+    }
+  }
+
+  if (seq !== _deferredStartSeq) return;
+  if (state.queueIndex !== expectedIndex) return;
+  play(track);
 }
 
 async function _fetchAndPlayAt(virtualIndex) {
