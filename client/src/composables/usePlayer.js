@@ -103,6 +103,7 @@ let _deferredStartSeq = 0;
 let _lastMediaPlayAt = 0;
 let _explicitPauseUntil = 0;
 let _pauseAutoResumeSeq = 0;
+let _backgroundPlayAssistSeq = 0;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -122,6 +123,34 @@ function maybeResumeVizContext() {
 function playerDbgContext() {
   const visibility = typeof document !== 'undefined' ? document.visibilityState : 'unknown';
   return `track="${state.currentTrack?.title ?? '?'}" t=${audio.currentTime.toFixed(1)} paused=${audio.paused} ended=${audio.ended} rs=${audio.readyState} ns=${audio.networkState} vis=${visibility} transcode=${state.transcodeActive}/${state.transcodeWaiting}`;
+}
+
+function startBackgroundPlayAssist(reason = 'unknown') {
+  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  if (!isHidden) return;
+  const seq = ++_backgroundPlayAssistSeq;
+  const startedAt = Date.now();
+  let lastTime = audio.currentTime;
+  let checks = 0;
+  const tick = () => {
+    if (seq !== _backgroundPlayAssistSeq) return;
+    if (Date.now() - startedAt > 4000) return;
+    if (audio.ended) return;
+    if (Date.now() <= _explicitPauseUntil) return;
+    checks++;
+    const nowTime = audio.currentTime;
+    const advanced = nowTime > lastTime + 0.05;
+    lastTime = nowTime;
+
+    if (audio.paused || (!advanced && audio.readyState >= 2)) {
+      console.log(`[player] background play assist (${reason}) check=${checks} paused=${audio.paused} advanced=${advanced} — ${playerDbgContext()}`);
+      audio.play().catch(err => {
+        console.error('[player] background play assist play() failed:', err);
+      });
+    }
+    setTimeout(tick, 350);
+  };
+  setTimeout(tick, 250);
 }
 
 
@@ -465,6 +494,7 @@ if ('mediaSession' in navigator) {
       console.error('[mediasession] play() failed, falling back to resume():', err);
       resume();
     });
+    startBackgroundPlayAssist('mediasession-play');
   });
   navigator.mediaSession.setActionHandler('pause', () => {
     console.log(`[mediasession] pause — ${playerDbgContext()}`);
