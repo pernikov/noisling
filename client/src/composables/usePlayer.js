@@ -100,6 +100,7 @@ let _transcodeAttempted = false;
 // Count consecutive error-induced skips so we stop looping if everything fails.
 let _consecutiveErrors = 0;
 let _deferredStartSeq = 0;
+let _lastMediaPlayAt = 0;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -436,6 +437,7 @@ if ('mediaSession' in navigator) {
   // Keep this path lightweight (no source reload) for better background behavior.
   navigator.mediaSession.setActionHandler('play', () => {
     console.log(`[mediasession] play — ${playerDbgContext()}`);
+    _lastMediaPlayAt = Date.now();
     audio.play().catch(err => {
       console.error('[mediasession] play() failed, falling back to resume():', err);
       resume();
@@ -443,6 +445,14 @@ if ('mediaSession' in navigator) {
   });
   navigator.mediaSession.setActionHandler('pause', () => {
     console.log(`[mediasession] pause — ${playerDbgContext()}`);
+    // iOS lock screen can emit an immediate spurious pause right after play.
+    // Ignore only this narrow window to keep user-initiated pauses responsive.
+    const sincePlay = Date.now() - _lastMediaPlayAt;
+    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+    if (isHidden && sincePlay >= 0 && sincePlay < 900 && !audio.paused) {
+      console.log(`[mediasession] pause ignored as spurious (${sincePlay}ms after play)`);
+      return;
+    }
     audio.pause();
   });
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
