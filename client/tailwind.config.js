@@ -13,6 +13,9 @@ export default {
       },
     },
   },
+  future: {
+    hoverOnlyWhenSupported: true,
+  },
   plugins: [],
   safelist: [
     { pattern: /^text-(rose|amber|yellow|emerald|teal|sky|indigo|violet|slate)-400$/ },

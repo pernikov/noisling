@@ -16,11 +16,31 @@ function onLoad() {
 </script>
 
 <template>
-  <img
-    :src="api.coverUrl(props.cover)"
-    :class="[props.size, 'rounded object-cover bg-zinc-800 flex-shrink-0 transition-opacity duration-300', loaded ? 'opacity-100' : 'opacity-0']"
-    alt="Cover"
-    loading="lazy"
-    @load="onLoad"
-  />
+  <div :class="[props.size, 'relative rounded overflow-hidden flex-shrink-0 bg-zinc-800']">
+    <!-- Spinner while loading -->
+    <div
+      v-if="props.cover && !loaded"
+      class="absolute inset-0 flex items-center justify-center"
+    >
+      <div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+    </div>
+    <!-- Music note when no cover -->
+    <div
+      v-if="!props.cover"
+      class="absolute inset-0 flex items-center justify-center"
+    >
+      <svg class="w-1/2 h-1/2 text-zinc-600" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+      </svg>
+    </div>
+    <img
+      v-if="props.cover"
+      :src="api.coverUrl(props.cover)"
+      class="w-full h-full object-cover transition-opacity duration-300"
+      :class="loaded ? 'opacity-100' : 'opacity-0'"
+      alt="Cover"
+      loading="eager"
+      @load="onLoad"
+    />
+  </div>
 </template>
