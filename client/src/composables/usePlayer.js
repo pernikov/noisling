@@ -733,7 +733,8 @@ function resume(forceReload = false) {
   if ((audio.error || shouldForceReload) && state.currentTrack) {
     _consecutiveErrors = 0;
     const track = state.currentTrack;
-    const resumeAt = state.currentTime;
+    const allowSeekResume = !(isHidden && state.transcodeActive);
+    const resumeAt = allowSeekResume ? state.currentTime : 0;
     const seq = ++stallRecoverySeq;
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
@@ -761,7 +762,7 @@ function resume(forceReload = false) {
         resolved = true;
         if (stallRecoverySeq !== seq) return;
         ignoreNextEnded = false;
-        if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+        if (allowSeekResume && resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
           audio.currentTime = resumeAt;
         }
         audio.play().catch(e => console.error('[player] resume after reload failed:', e));
@@ -778,7 +779,7 @@ function resume(forceReload = false) {
           resolved = true;
           if (stallRecoverySeq !== seq) return;
           ignoreNextEnded = false;
-          if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+          if (allowSeekResume && resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
             audio.currentTime = resumeAt;
           }
           audio.play().catch(e => console.error('[player] resume second reload failed:', e));
