@@ -128,6 +128,47 @@ router.get('/stream/:id/warm', async (req, res) => {
   res.json({ status: 'started' });
 });
 
+// GET /api/stream/:id/transcoded — serve a stable, cached faststart M4A URL.
+// Unlike /stream/:id?transcode=1, this endpoint always resolves to the same URL
+// for a given track id and only serves the completed cached file.
+router.get('/stream/:id/transcoded', async (req, res) => {
+  const track = await Track.findById(req.params.id).lean();
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+
+  const id = req.params.id;
+  const label = `"${track.title || id}"`;
+
+  if (transcodeReady.has(id)) {
+    if (await serveCachedTranscode(id, req, res)) return;
+    transcodeReady.delete(id);
+  }
+
+  // Check for a completed cache file left from a previous server run.
+  if (!transcodeInProgress.has(id)) {
+    try {
+      await statAsync(tempPath(id));
+      transcodeReady.add(id);
+      if (await serveCachedTranscode(id, req, res)) return;
+      transcodeReady.delete(id);
+    } catch { /* not on disk yet */ }
+  }
+
+  if (!transcodeInProgress.has(id)) startWarm(id, track.path, label);
+  const inFlight = transcodeInProgress.get(id);
+  if (!inFlight) return res.status(500).json({ error: 'Transcode did not start' });
+
+  try {
+    await inFlight;
+    transcodeReady.add(id);
+    if (await serveCachedTranscode(id, req, res)) return;
+    transcodeReady.delete(id);
+    return res.status(500).json({ error: 'Transcoded file unavailable' });
+  } catch (err) {
+    console.error(`[stream] transcoded endpoint warm failed — ${label}:`, err.message);
+    return res.status(500).json({ error: 'Transcoding failed' });
+  }
+});
+
 // GET /api/stream/:id — stream audio with range support
 router.get('/stream/:id', async (req, res) => {
   const track = await Track.findById(req.params.id).lean();

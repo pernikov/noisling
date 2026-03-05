@@ -106,7 +106,9 @@ function _setTrackSource(track, { forceTranscode = false, markWaiting = true, ca
   const transcode = forceTranscode || needsTranscode(track);
   state.transcodeActive = transcode;
   state.transcodeWaiting = transcode && markWaiting;
-  const url = api.streamUrl(track._id, transcode);
+  const url = transcode
+    ? api.transcodedStreamUrl(track._id)
+    : api.streamUrl(track._id, false);
   audio.src = cacheBust ? `${url}${url.includes('?') ? '&' : '?'}r=${Date.now()}` : url;
   return transcode;
 }
@@ -730,7 +732,7 @@ function resume(forceReload = false) {
     // background decode path when lock-screen play resumes the same track.
     audio.removeAttribute('src');
     audio.load();
-    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false, cacheBust: true });
+    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
