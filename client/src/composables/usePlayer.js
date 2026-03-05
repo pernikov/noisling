@@ -125,6 +125,16 @@ function playerDbgContext() {
   return `track="${state.currentTrack?.title ?? '?'}" t=${audio.currentTime.toFixed(1)} paused=${audio.paused} ended=${audio.ended} rs=${audio.readyState} ns=${audio.networkState} vis=${visibility} transcode=${state.transcodeActive}/${state.transcodeWaiting}`;
 }
 
+async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const { status } = await api.warmTranscode(trackId);
+    if (status === 'ready') return true;
+    await new Promise(r => setTimeout(r, 250));
+  }
+  return false;
+}
+
 
 audio.addEventListener('timeupdate', () => {
   state.currentTime = audio.currentTime;
@@ -728,20 +738,53 @@ function resume(forceReload = false) {
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
-    // Full src reset + cache-busted URL helps iOS break out of a stuck
-    // background decode path when lock-screen play resumes the same track.
-    audio.removeAttribute('src');
-    audio.load();
-    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
-    audio.load();
-    audio.addEventListener('loadedmetadata', () => {
-      if (stallRecoverySeq !== seq) return;
-      ignoreNextEnded = false;
-      if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-        audio.currentTime = resumeAt;
+    (async () => {
+      if (state.transcodeActive) {
+        const ready = await waitForTranscodeReady(track._id, 12000);
+        console.log(`[player] resume warm check ready=${ready} — "${track?.title}"`);
       }
-      audio.play().catch(e => console.error('[player] resume after reload failed:', e));
-    }, { once: true });
+      if (stallRecoverySeq !== seq) return;
+
+      const attemptReload = (attemptLabel) => {
+        console.log(`[player] resume reload attempt=${attemptLabel} — "${track?.title}"`);
+        audio.removeAttribute('src');
+        audio.load();
+        _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false, cacheBust: true });
+        audio.load();
+      };
+
+      attemptReload('1');
+
+      let resolved = false;
+      const onMeta = () => {
+        if (resolved) return;
+        resolved = true;
+        if (stallRecoverySeq !== seq) return;
+        ignoreNextEnded = false;
+        if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+          audio.currentTime = resumeAt;
+        }
+        audio.play().catch(e => console.error('[player] resume after reload failed:', e));
+      };
+
+      audio.addEventListener('loadedmetadata', onMeta, { once: true });
+
+      setTimeout(() => {
+        if (resolved) return;
+        if (stallRecoverySeq !== seq) return;
+        attemptReload('2');
+        audio.addEventListener('loadedmetadata', () => {
+          if (resolved) return;
+          resolved = true;
+          if (stallRecoverySeq !== seq) return;
+          ignoreNextEnded = false;
+          if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+            audio.currentTime = resumeAt;
+          }
+          audio.play().catch(e => console.error('[player] resume second reload failed:', e));
+        }, { once: true });
+      }, 2500);
+    })();
     return;
   }
   audio.play().catch(err => {
