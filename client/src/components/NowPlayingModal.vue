@@ -317,31 +317,32 @@ onUnmounted(() => {
         @touchmove.passive="onTouchMove"
         @touchend="onTouchEnd"
       >
-        <!-- Layer 1: Blurred album art — the actual background -->
-        <div class="absolute inset-0 overflow-hidden bg-zinc-900">
-          <img
-            v-if="prevCoverUrl"
-            :src="prevCoverUrl"
-            alt=""
-            aria-hidden="true"
-            class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-            :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0 : 0.9 }"
-          />
-          <img
-            v-if="displayedCoverUrl"
-            :src="displayedCoverUrl"
-            alt=""
-            aria-hidden="true"
-            class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-            :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0.9 : 0 }"
-          />
-        </div>
+        <!-- Base background -->
+        <div class="absolute inset-0 bg-zinc-900" />
 
-        <!-- Layer 2: Dark scrim so text is always readable -->
-        <div class="absolute inset-0 bg-black/40" />
-
-        <!-- Layer 3: Subtle accent color gradient -->
-        <div class="absolute inset-0" :style="{ background: accentOverlay }" />
+        <!-- Decorative layers: blurred art + scrim + accent — fade in/out on tab switch -->
+        <Transition name="bg-fade">
+          <div v-if="activeTab === 'nowplaying'" class="absolute inset-0 overflow-hidden">
+            <img
+              v-if="prevCoverUrl"
+              :src="prevCoverUrl"
+              alt=""
+              aria-hidden="true"
+              class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+              :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0 : 0.9 }"
+            />
+            <img
+              v-if="displayedCoverUrl"
+              :src="displayedCoverUrl"
+              alt=""
+              aria-hidden="true"
+              class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+              :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0.9 : 0 }"
+            />
+            <div class="absolute inset-0 bg-black/40" />
+            <div class="absolute inset-0" :style="{ background: accentOverlay }" />
+          </div>
+        </Transition>
 
         <!-- Content -->
         <div class="relative z-10 flex flex-col h-full px-6">
@@ -394,8 +395,17 @@ onUnmounted(() => {
             <div v-else class="w-7 h-7" />
           </div>
 
-          <!-- Album art (Now Playing tab) -->
-          <div v-if="activeTab === 'nowplaying'" class="flex-1 flex items-center justify-center py-2 min-h-0">
+          <!-- Tab content: both panels always mounted, crossfade via CSS opacity -->
+          <div class="relative flex-1 min-h-0">
+
+          <!-- Now Playing content -->
+          <div
+            class="absolute inset-0 flex flex-col transition-opacity duration-200"
+            :class="activeTab === 'nowplaying' ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+          >
+
+            <!-- Album art -->
+            <div class="flex-1 flex items-center justify-center py-2 min-h-0">
             <div
               class="relative w-full"
               style="max-width: min(100%, 60vh, 400px);"
@@ -456,18 +466,10 @@ onUnmounted(() => {
                 />
               </div>
             </div>
-          </div>
+            </div>
 
-          <!-- Queue tab (mobile only) -->
-          <div
-            v-else
-            class="sm:hidden flex-1 min-h-0 flex flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]"
-          >
-            <QueueList ref="queueList" rowPaddingClass="px-3" @navigate="toggleNowPlaying" />
-          </div>
-
-          <!-- Bottom section (Now Playing tab) -->
-          <div v-if="activeTab === 'nowplaying'" class="flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
+            <!-- Bottom section -->
+            <div class="flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
 
             <!-- Track info -->
             <div>
@@ -579,6 +581,18 @@ onUnmounted(() => {
 
 
           </div>
+          </div>
+
+          <!-- Queue tab (mobile only, always mounted) -->
+          <div
+            class="sm:hidden absolute inset-0 flex flex-col pb-[env(safe-area-inset-bottom)] transition-opacity duration-200"
+            :class="activeTab === 'queue' ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+          >
+            <QueueList ref="queueList" rowPaddingClass="px-3" @navigate="toggleNowPlaying" />
+          </div>
+
+          </div><!-- end tab panels wrapper -->
+
         </div>
       </div>
     </Transition>
@@ -586,6 +600,15 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.bg-fade-enter-active,
+.bg-fade-leave-active {
+  transition: opacity 0.35s ease;
+}
+.bg-fade-enter-from,
+.bg-fade-leave-to {
+  opacity: 0;
+}
+
 .slide-up-enter-active,
 .slide-up-leave-active {
   transition: transform 0.35s cubic-bezier(0.32, 0.72, 0, 1);

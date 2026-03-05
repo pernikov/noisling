@@ -28,7 +28,18 @@ const containerHeight = ref(0);
 
 function onScroll(e) {
   scrollTop.value = e.target.scrollTop;
+  containerHeight.value = e.target.clientHeight;
 }
+
+const atTop = computed(() => scrollTop.value <= 0);
+const atBottom = computed(() => scrollTop.value + containerHeight.value >= totalHeight.value - 1);
+
+const scrollMask = computed(() => {
+  if (atTop.value && atBottom.value) return 'none';
+  if (atTop.value) return 'linear-gradient(to bottom, black 0%, black calc(100% - 1.5rem), transparent 100%)';
+  if (atBottom.value) return 'linear-gradient(to bottom, transparent 0%, black 1.5rem, black 100%)';
+  return 'linear-gradient(to bottom, transparent 0%, black 1.5rem, black calc(100% - 1.5rem), transparent 100%)';
+});
 
 onMounted(() => {
   if (scrollContainer.value) {
@@ -179,7 +190,7 @@ function formatDuration(seconds) {
       v-else
       ref="scrollContainer"
       class="flex-1 min-h-0 overflow-y-auto"
-      style="mask-image: linear-gradient(to bottom, transparent 0%, black 1.5rem, black calc(100% - 1.5rem), transparent 100%); -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 1.5rem, black calc(100% - 1.5rem), transparent 100%);"
+      :style="{ maskImage: scrollMask, WebkitMaskImage: scrollMask }"
       @scroll="onScroll"
     >
       <div :style="{ height: totalHeight + 'px', position: 'relative' }">
