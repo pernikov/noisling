@@ -432,10 +432,19 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  // Let the UA handle play/pause natively on iOS lock screen.
-  // Custom handlers can get into inconsistent toggle state when backgrounded.
-  navigator.mediaSession.setActionHandler('play', null);
-  navigator.mediaSession.setActionHandler('pause', null);
+  // Handle play/pause explicitly so lock-screen controls stay deterministic.
+  // Keep this path lightweight (no source reload) for better background behavior.
+  navigator.mediaSession.setActionHandler('play', () => {
+    console.log(`[mediasession] play — ${playerDbgContext()}`);
+    audio.play().catch(err => {
+      console.error('[mediasession] play() failed, falling back to resume():', err);
+      resume();
+    });
+  });
+  navigator.mediaSession.setActionHandler('pause', () => {
+    console.log(`[mediasession] pause — ${playerDbgContext()}`);
+    audio.pause();
+  });
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
   navigator.mediaSession.setActionHandler('nexttrack', () => { console.log(`[mediasession] nexttrack — ${playerDbgContext()}`); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
