@@ -44,7 +44,7 @@ const prevCoverUrl = ref(null);
 const currLoaded = ref(false);
 
 watch(coverUrl, (newUrl) => {
-  prevCoverUrl.value = displayedCoverUrl.value;
+  prevCoverUrl.value = null; // immediately hide old cover; show skeleton instead
   displayedCoverUrl.value = newUrl;
   currLoaded.value = !newUrl; // no image → nothing to wait for
 }, { immediate: true });
@@ -380,15 +380,13 @@ onUnmounted(() => {
                   </svg>
                 </div>
 
-                <!-- Previous cover fading out -->
-                <img
-                  v-if="prevCoverUrl"
-                  :src="prevCoverUrl"
-                  alt=""
-                  aria-hidden="true"
-                  class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
-                  :class="currLoaded ? 'opacity-0' : 'opacity-100'"
-                />
+                <!-- Skeleton shown while new cover is loading -->
+                <div
+                  v-if="displayedCoverUrl && !currLoaded"
+                  class="absolute inset-0 bg-zinc-800 flex items-center justify-center"
+                >
+                  <div class="w-10 h-10 rounded-full border-4 border-white/20 border-t-white/60 animate-spin" />
+                </div>
 
                 <!-- Current cover fading in when loaded -->
                 <img

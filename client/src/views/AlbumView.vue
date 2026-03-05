@@ -1,15 +1,22 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
+import { useTheme } from '../composables/useTheme.js';
 import CoverArt from '../components/CoverArt.vue';
 import TrackList from '../components/TrackList.vue';
 import NotFoundPage from '../components/NotFoundPage.vue';
 
 const api = useApi();
+const { wideLayout } = useTheme();
 const route = useRoute();
 const router = useRouter();
+const coverSize = computed(() =>
+  wideLayout.value
+    ? 'w-full aspect-square sm:w-72 sm:h-72 sm:aspect-auto'
+    : 'w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto'
+);
 const albumInfo = ref(null);
 const tracks = ref([]);
 const loading = ref(true);
@@ -55,7 +62,7 @@ function formatDuration(seconds) {
     <div v-if="loading" class="animate-pulse">
       <!-- Album header -->
       <div class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 mb-8">
-        <div class="w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto bg-zinc-800 rounded-lg shrink-0"></div>
+        <div :class="[coverSize, 'bg-zinc-800 rounded-lg shrink-0']"></div>
         <div class="flex-1 space-y-3 py-1">
           <div class="h-2.5 bg-zinc-800/60 rounded w-10"></div>
           <div class="h-8 bg-zinc-800 rounded w-3/4"></div>
@@ -77,7 +84,7 @@ function formatDuration(seconds) {
     <template v-else-if="albumInfo">
       <!-- Album header -->
       <div class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 mb-8">
-        <CoverArt :cover="albumInfo.cover" size="w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto" />
+        <CoverArt :cover="albumInfo.cover" :size="coverSize" />
         <div>
           <div class="text-xs uppercase text-zinc-500 mb-1">Album</div>
           <h1 class="text-2xl sm:text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>

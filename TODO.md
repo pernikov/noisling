@@ -1,5 +1,8 @@
 # TODO
 ## Known issues
-+ Fix mobile playback issues (kinda fixed) - slight gap still when switching, play/pause control issues
++ Fix mobile playback issues (kinda fixed) - play/pause control issues on locked phone screen (tested on iOS) controls also doesnt work when not in app in some cases
 
-+ Auto refresh the song lists after each listen - mainly plays count
++ easy love toggle for mobile
+
++ more user friendly song clicks on rows for mobile
+

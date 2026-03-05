@@ -157,14 +157,11 @@ const hoverTime = computed(() => {
           <span class="truncate">{{ state.currentTrack.title }}</span>
           <span
             v-if="state.transcodeWaiting || state.transcodeActive"
-            class="inline-flex flex-none items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold tracking-[0.08em]"
-            :class="state.transcodeWaiting ? 'border-amber-400/40 text-amber-300 bg-amber-500/10' : 'border-emerald-400/40 text-emerald-300 bg-emerald-500/10'"
+            class="inline-flex flex-none h-1.5 w-1.5 rounded-full"
+            :class="state.transcodeWaiting ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"
             aria-label="Transcode status"
             :title="state.transcodeWaiting ? 'Transcoding' : 'Transcoded'"
-          >
-            <span class="h-1.5 w-1.5 rounded-full" :class="state.transcodeWaiting ? 'bg-amber-300 animate-pulse' : 'bg-emerald-300'" />
-            T
-          </span>
+          />
         </div>
         <span class="text-xs text-zinc-400 truncate block">
           <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
