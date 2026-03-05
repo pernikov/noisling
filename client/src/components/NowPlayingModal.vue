@@ -158,6 +158,7 @@ const dragY = ref(0);
 const dragX = ref(0);
 const isDragging = ref(false);
 const isReleasingHorizontal = ref(false);
+const isClosingByDrag = ref(false);
 let touchStartY = 0;
 let touchStartX = 0;
 let swipeActive = false;
@@ -198,8 +199,13 @@ function onTouchEnd() {
 
   if (swipeDirection === 'vertical') {
     if (dragY.value > 80) {
-      dragY.value = 0;
-      toggleNowPlaying();
+      isClosingByDrag.value = true;
+      dragY.value = window.innerHeight;
+      setTimeout(() => {
+        isClosingByDrag.value = false;
+        dragY.value = 0;
+        toggleNowPlaying();
+      }, 280);
     } else {
       dragY.value = 0;
     }
@@ -219,6 +225,7 @@ function onTouchEnd() {
 }
 
 const dragStyle = computed(() => {
+  if (isClosingByDrag.value) return { transform: `translateY(${dragY.value}px)`, transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)' };
   if (dragY.value > 0) return { transform: `translateY(${dragY.value}px)`, transition: 'none' };
   return {};
 });

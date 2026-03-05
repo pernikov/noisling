@@ -370,10 +370,10 @@ defineExpose({ playAll, playShuffle });
             </button>
           </td>
           <td :class="[rowPy, 'px-3 text-right text-zinc-500']">
-            <span :class="menuRowIndex === i ? 'hidden' : 'group-hover:hidden'" class="tabular-nums">{{ formatDuration(track.duration) }}</span>
+            <span :class="menuRowIndex === i ? 'hidden' : 'group-hover:hidden sm:block hidden'" class="tabular-nums">{{ formatDuration(track.duration) }}</span>
             <button
               v-if="!track.deleted"
-              :class="menuRowIndex === i ? 'flex' : 'hidden group-hover:flex'"
+              :class="menuRowIndex === i ? 'flex' : 'flex sm:hidden sm:group-hover:flex'"
               class="items-center justify-end w-full text-zinc-500 hover:text-zinc-300"
               @click.stop="openMenu($event, i, track)"
             >
