@@ -101,6 +101,8 @@ let _transcodeAttempted = false;
 let _consecutiveErrors = 0;
 let _deferredStartSeq = 0;
 let _lastMediaPlayAt = 0;
+let _explicitPauseUntil = 0;
+let _pauseAutoResumeSeq = 0;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -384,6 +386,27 @@ audio.addEventListener('play', () => {
 
 audio.addEventListener('pause', () => {
   console.log(`[player] audio pause event — ${playerDbgContext()}`);
+  const now = Date.now();
+  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  const shouldAutoResume = (
+    isHidden &&
+    !audio.ended &&
+    !audio.error &&
+    now > _explicitPauseUntil &&
+    (now - _lastMediaPlayAt) >= 0 &&
+    (now - _lastMediaPlayAt) < 2000
+  );
+  if (shouldAutoResume) {
+    const seq = ++_pauseAutoResumeSeq;
+    console.log(`[player] auto-resume after background pause (${now - _lastMediaPlayAt}ms after play)`);
+    setTimeout(() => {
+      if (seq !== _pauseAutoResumeSeq) return;
+      if (!audio.paused || audio.ended || audio.error) return;
+      audio.play().catch(err => {
+        console.error('[player] auto-resume play() failed:', err);
+      });
+    }, 80);
+  }
   state.isPlaying = false;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
@@ -445,6 +468,7 @@ if ('mediaSession' in navigator) {
   });
   navigator.mediaSession.setActionHandler('pause', () => {
     console.log(`[mediasession] pause — ${playerDbgContext()}`);
+    _explicitPauseUntil = Date.now() + 1500;
     // iOS lock screen can emit an immediate spurious pause right after play.
     // Ignore only this narrow window to keep user-initiated pauses responsive.
     const sincePlay = Date.now() - _lastMediaPlayAt;
@@ -717,6 +741,7 @@ function toggleShuffle() {
 
 function pause() {
   console.log(`[player] pause() — ${playerDbgContext()}`);
+  _explicitPauseUntil = Date.now() + 1500;
   audio.pause();
 }
 
