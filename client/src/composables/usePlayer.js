@@ -102,11 +102,12 @@ let _consecutiveErrors = 0;
 let _deferredStartSeq = 0;
 let _lastMediaPlayAt = 0;
 
-function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
+function _setTrackSource(track, { forceTranscode = false, markWaiting = true, cacheBust = false } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
   state.transcodeActive = transcode;
   state.transcodeWaiting = transcode && markWaiting;
-  audio.src = api.streamUrl(track._id, transcode);
+  const url = api.streamUrl(track._id, transcode);
+  audio.src = cacheBust ? `${url}${url.includes('?') ? '&' : '?'}r=${Date.now()}` : url;
   return transcode;
 }
 
@@ -725,7 +726,11 @@ function resume(forceReload = false) {
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
-    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
+    // Full src reset + cache-busted URL helps iOS break out of a stuck
+    // background decode path when lock-screen play resumes the same track.
+    audio.removeAttribute('src');
+    audio.load();
+    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false, cacheBust: true });
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
