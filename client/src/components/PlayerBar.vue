@@ -149,7 +149,7 @@ const hoverTime = computed(() => {
     <div class="flex items-center gap-3 px-4 py-2">
       <div class="relative w-10 h-10 flex-shrink-0">
         <Transition name="cover-fade">
-          <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-10 h-10" />
+          <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-10 h-10" show-spinner />
         </Transition>
       </div>
       <div class="flex-1 min-w-0">
@@ -219,6 +219,7 @@ const hoverTime = computed(() => {
             :key="state.currentTrack._id"
             :cover="state.currentTrack.cover"
             size="w-9 h-9 sm:w-10 sm:h-10"
+            show-spinner
           />
         </Transition>
       </button>

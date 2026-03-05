@@ -6,6 +6,7 @@ import Spinner from './Spinner.vue';
 const props = defineProps({
   cover: { type: String, default: '' },
   size: { type: String, default: 'w-12 h-12' },
+  showSpinner: { type: Boolean, default: false },
 });
 
 const api = useApi();
@@ -20,7 +21,7 @@ function onLoad() {
   <div :class="[props.size, 'relative rounded overflow-hidden flex-shrink-0 bg-zinc-800']">
     <!-- Spinner while loading -->
     <div
-      v-if="props.cover && !loaded"
+      v-if="props.showSpinner && props.cover && !loaded"
       class="absolute inset-0 flex items-center justify-center"
     >
       <Spinner class="w-4 h-4 text-white/60" />
