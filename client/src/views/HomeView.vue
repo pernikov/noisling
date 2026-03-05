@@ -9,6 +9,7 @@ import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
 import Icon from '../components/Icon.vue';
+import Spinner from '../components/Spinner.vue';
 
 const api = useApi();
 const router = useRouter();
@@ -131,10 +132,7 @@ function goToAlbum(album) {
           class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingShuffleAll" class="absolute inset-0 flex items-center justify-center bg-black/20">
-            <svg class="w-8 h-8 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
+            <Spinner class="w-8 h-8 text-white" />
           </div>
           <Icon :path="mdiShuffle" class="w-8 h-8 mb-3 text-white/90" />
           <div class="text-lg font-bold font-display text-white">Shuffle All</div>
@@ -148,10 +146,7 @@ function goToAlbum(album) {
           class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingTopTracks" class="absolute inset-0 flex items-center justify-center bg-black/20">
-            <svg class="w-8 h-8 animate-spin text-white" viewBox="0 0 24 24" fill="none">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
+            <Spinner class="w-8 h-8 text-white" />
           </div>
           <Icon :path="mdiFire" class="w-8 h-8 mb-3 text-white/90" />
           <div class="text-lg font-bold font-display text-white">Top Songs</div>
@@ -176,10 +171,7 @@ function goToAlbum(album) {
               mode="out-in"
             >
               <span v-if="loadingLoved" key="loading" class="flex items-center">
-                <svg class="w-4 h-4 animate-spin text-white/70" viewBox="0 0 24 24" fill="none">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-                </svg>
+                <Spinner class="w-4 h-4 text-white/70" />
               </span>
               <span v-else-if="lovedTracks.length === 0" key="empty">Love some songs to play them here</span>
               <span v-else key="count">{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</span>

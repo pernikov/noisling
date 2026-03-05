@@ -5,6 +5,7 @@ import { useAccentColor } from '../composables/useAccentColor.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useApi } from '../composables/useApi.js';
 import Icon from './Icon.vue';
+import Spinner from './Spinner.vue';
 import {
   mdiChevronDown,
   mdiSkipPrevious,
@@ -385,7 +386,7 @@ onUnmounted(() => {
                   v-if="displayedCoverUrl && !currLoaded"
                   class="absolute inset-0 bg-zinc-800 flex items-center justify-center"
                 >
-                  <div class="w-10 h-10 rounded-full border-4 border-white/20 border-t-white/60 animate-spin" />
+                  <Spinner class="w-10 h-10 text-white/60" />
                 </div>
 
                 <!-- Current cover fading in when loaded -->

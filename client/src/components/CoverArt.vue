@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue';
 import { useApi } from '../composables/useApi.js';
+import Spinner from './Spinner.vue';
 
 const props = defineProps({
   cover: { type: String, default: '' },
@@ -22,7 +23,7 @@ function onLoad() {
       v-if="props.cover && !loaded"
       class="absolute inset-0 flex items-center justify-center"
     >
-      <div class="w-4 h-4 rounded-full border-2 border-white/20 border-t-white/60 animate-spin" />
+      <Spinner class="w-4 h-4 text-white/60" />
     </div>
     <!-- Music note when no cover -->
     <div

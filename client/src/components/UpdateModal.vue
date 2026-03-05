@@ -1,5 +1,6 @@
 <script setup>
 import { ref, nextTick } from 'vue';
+import Spinner from './Spinner.vue';
 
 const props = defineProps({
   latestVersion: String,
@@ -205,9 +206,7 @@ function reload() {
               >{{ line.text }}<br /></span>
             </div>
             <div class="flex items-center gap-2 text-sm text-zinc-400">
-              <svg class="w-4 h-4 animate-spin shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-              </svg>
+              <Spinner class="w-4 h-4 shrink-0" />
               Waiting for the server to come back online...
             </div>
           </div>

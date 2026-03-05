@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router';
 import {
   mdiFolderOpen,
   mdiMagnify,
-  mdiLoading,
   mdiCheck,
   mdiAlertCircle,
   mdiTrashCan,
@@ -16,6 +15,7 @@ import {
   mdiViewHeadline,
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
+import Spinner from '../components/Spinner.vue';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
@@ -504,7 +504,7 @@ onUnmounted(() => {
               class="text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
             >
               <Icon v-if="!scanning" :path="mdiMagnify" class="w-4 h-4" />
-              <Icon v-else :path="mdiLoading" class="w-4 h-4 animate-spin" />
+              <Spinner v-else class="w-4 h-4" />
               {{ scanning ? 'Scanning...' : 'Scan Library' }}
             </button>
           </div>
@@ -512,7 +512,7 @@ onUnmounted(() => {
           <!-- Scan progress -->
           <div v-if="scanning" class="bg-zinc-800/50 rounded-lg p-4 space-y-3">
             <div v-if="scanPhase === 'walking'" class="flex items-center gap-2 text-sm text-zinc-300">
-              <Icon :path="mdiLoading" class="w-4 h-4 animate-spin text-zinc-400" />
+              <Spinner class="w-4 h-4 text-zinc-400" />
               Discovering files...
             </div>
             <div v-if="scanPhase === 'processing' && scanProgress?.total && scanProgress?.toProcess != null" class="flex items-center gap-4 text-xs text-zinc-400">
@@ -617,7 +617,7 @@ onUnmounted(() => {
               class="text-sm px-4 py-2 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600/20 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
             >
               <Icon v-if="!deleting" :path="mdiTrashCan" class="w-4 h-4" />
-              <Icon v-else :path="mdiLoading" class="w-4 h-4 animate-spin" />
+              <Spinner v-else class="w-4 h-4" />
               {{ deleting ? 'Deleting...' : 'Delete Library' }}
             </button>
           </div>
