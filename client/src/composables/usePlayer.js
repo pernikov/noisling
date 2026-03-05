@@ -881,20 +881,38 @@ async function playWithWarmupIfNeeded(track, expectedIndex) {
   const seq = ++_deferredStartSeq;
   const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
   const shouldWarmFirst = isHidden && needsTranscode(track);
+  let warmReady = false;
   if (shouldWarmFirst) {
     console.log(`[player] deferred start: waiting for warm transcode — "${track?.title}"`);
-    const deadline = Date.now() + 12000;
+    const startedAt = Date.now();
+    const deadline = startedAt + 60000;
+    let polls = 0;
     while (Date.now() < deadline) {
       if (seq !== _deferredStartSeq) return;
       if (state.queueIndex !== expectedIndex || state.currentTrack?._id === track?._id) return;
       const { status } = await api.warmTranscode(track._id);
-      if (status === 'ready') break;
+      polls++;
+      if (status === 'ready') {
+        warmReady = true;
+        console.log(`[player] deferred start: warm ready after ${Date.now() - startedAt}ms polls=${polls} — "${track?.title}"`);
+        break;
+      }
+      if (polls % 8 === 0) {
+        console.log(`[player] deferred start: warm status=${status || 'unknown'} elapsed=${Date.now() - startedAt}ms — "${track?.title}"`);
+      }
       await new Promise(r => setTimeout(r, 250));
+    }
+    if (!warmReady) {
+      console.log(`[player] deferred start: warm timeout after ${Date.now() - startedAt}ms — "${track?.title}"`);
     }
   }
 
   if (seq !== _deferredStartSeq) return;
   if (state.queueIndex !== expectedIndex) return;
+  if (shouldWarmFirst && !warmReady) {
+    // Keep existing behavior as fallback: start anyway if warm-up didn't complete.
+    // Logs above tell us whether this was due to long transcode or failed polls.
+  }
   play(track);
 }
 
