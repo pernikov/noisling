@@ -71,7 +71,9 @@ Play counts and last-played timestamps are stored directly on the track. If a fi
 
 ## Known issues
 
-- **Mobile playback** — playback on mobile devices has known issues and needs more work. Audio may stall, skip, or behave unexpectedly on iOS and Android browsers.
+- **iOS lock-screen playback (transcoded formats)** — on iOS Safari/PWA, lock-screen `pause` then `play` for transcoded tracks (for example FLAC/OGG) can stall or fail to resume reliably in background.
+- **iOS lock-screen next/previous** — `next`/`previous` actions are generally more reliable than `pause`/`play` for transcoded tracks.
+- **Natural queue advance** — when a track ends naturally, advancing to the next track is typically reliable, even in background.
 
 ## Environment variables
 

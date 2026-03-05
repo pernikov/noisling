@@ -100,7 +100,6 @@ let _transcodeAttempted = false;
 // Count consecutive error-induced skips so we stop looping if everything fails.
 let _consecutiveErrors = 0;
 let _deferredStartSeq = 0;
-let _lastMediaPlayAt = 0;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true, cacheBust = false } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -118,11 +117,6 @@ function maybeResumeVizContext() {
   if (!ctx || ctx.state !== 'suspended') return;
   if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
   ctx.resume().catch(() => {});
-}
-
-function playerDbgContext() {
-  const visibility = typeof document !== 'undefined' ? document.visibilityState : 'unknown';
-  return `track="${state.currentTrack?.title ?? '?'}" t=${audio.currentTime.toFixed(1)} paused=${audio.paused} ended=${audio.ended} rs=${audio.readyState} ns=${audio.networkState} vis=${visibility} transcode=${state.transcodeActive}/${state.transcodeWaiting}`;
 }
 
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
@@ -389,14 +383,12 @@ audio.addEventListener('ended', () => {
 });
 
 audio.addEventListener('play', () => {
-  console.log(`[player] audio play event — ${playerDbgContext()}`);
   state.isPlaying = true;
   _consecutiveErrors = 0;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
 });
 
 audio.addEventListener('pause', () => {
-  console.log(`[player] audio pause event — ${playerDbgContext()}`);
   state.isPlaying = false;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
@@ -455,8 +447,6 @@ function updateMediaSessionPositionState() {
 if ('mediaSession' in navigator) {
   // Handle play/pause explicitly so lock-screen controls stay deterministic.
   navigator.mediaSession.setActionHandler('play', () => {
-    console.log(`[mediasession] play — ${playerDbgContext()}`);
-    _lastMediaPlayAt = Date.now();
     const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
     // Background resume for transcoded streams can get stuck on iOS.
     // Restarting the same track is more reliable (same behavior as next/prev).
@@ -471,17 +461,15 @@ if ('mediaSession' in navigator) {
     resume(true);
   });
   navigator.mediaSession.setActionHandler('pause', () => {
-    console.log(`[mediasession] pause — ${playerDbgContext()}`);
     audio.pause();
   });
-  navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
-  navigator.mediaSession.setActionHandler('nexttrack', () => { console.log(`[mediasession] nexttrack — ${playerDbgContext()}`); next(); });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { prev(); });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
-    console.log(`[mediasession] seekto ${details.seekTime?.toFixed(1)} — ${playerDbgContext()}`);
     if (details.seekTime != null) seek(details.seekTime);
   });
-  navigator.mediaSession.setActionHandler('seekbackward', (details) => { console.log(`[mediasession] seekbackward offset=${details?.seekOffset} — ${playerDbgContext()}`); prev(); });
-  navigator.mediaSession.setActionHandler('seekforward', (details) => { console.log(`[mediasession] seekforward offset=${details?.seekOffset} — ${playerDbgContext()}`); next(); });
+  navigator.mediaSession.setActionHandler('seekbackward', () => { prev(); });
+  navigator.mediaSession.setActionHandler('seekforward', () => { next(); });
 }
 
 // ─── Persistence helpers ──────────────────────────────────────────────────────
@@ -599,14 +587,13 @@ function play(track) {
 
   const trackId = track._id;
   audio.play().catch(err => {
-    console.error(`[player] play() failed — ${playerDbgContext()}:`, err);
+    console.error('[player] play() failed:', err);
     if (err.name === 'NotAllowedError') return;
 
     let retryDone = false;
-    const retryPlay = (reason) => {
+    const retryPlay = () => {
       if (retryDone) return;
       retryDone = true;
-      console.log(`[player] play() retry via ${reason} — ${playerDbgContext()}`);
       // If the error handler already took over (changed stallRecoverySeq), bail out.
       if (stallRecoverySeq !== playSeq) return;
       if (state.currentTrack?._id !== trackId) return;
@@ -617,10 +604,10 @@ function play(track) {
     // For transcoded/background starts, metadata/canplay often arrives after
     // the first play() attempt. Retry on readiness events instead of depending
     // only on timers, which iOS can throttle in background.
-    audio.addEventListener('loadedmetadata', () => retryPlay('loadedmetadata'), { once: true });
-    audio.addEventListener('canplay', () => retryPlay('canplay'), { once: true });
-    queueMicrotask(() => retryPlay('microtask'));
-    setTimeout(() => retryPlay('timeout-500ms'), 500);
+    audio.addEventListener('loadedmetadata', retryPlay, { once: true });
+    audio.addEventListener('canplay', retryPlay, { once: true });
+    queueMicrotask(retryPlay);
+    setTimeout(retryPlay, 500);
   });
   updateMediaSession(track);
 
@@ -735,12 +722,10 @@ function toggleShuffle() {
 }
 
 function pause() {
-  console.log(`[player] pause() — ${playerDbgContext()}`);
   audio.pause();
 }
 
 function resume(forceReload = false) {
-  console.log(`[player] resume() start forceReload=${forceReload} — ${playerDbgContext()}`);
   maybeResumeVizContext();
   const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
   const shouldForceReload = forceReload || (isHidden && state.transcodeActive);
@@ -758,19 +743,17 @@ function resume(forceReload = false) {
     (async () => {
       if (state.transcodeActive) {
         const ready = await waitForTranscodeReady(track._id, 12000);
-        console.log(`[player] resume warm check ready=${ready} — "${track?.title}"`);
       }
       if (stallRecoverySeq !== seq) return;
 
-      const attemptReload = (attemptLabel) => {
-        console.log(`[player] resume reload attempt=${attemptLabel} — "${track?.title}"`);
+      const attemptReload = () => {
         audio.removeAttribute('src');
         audio.load();
         _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false, cacheBust: true });
         audio.load();
       };
 
-      attemptReload('1');
+      attemptReload();
 
       let resolved = false;
       const onMeta = () => {
@@ -789,7 +772,7 @@ function resume(forceReload = false) {
       setTimeout(() => {
         if (resolved) return;
         if (stallRecoverySeq !== seq) return;
-        attemptReload('2');
+        attemptReload();
         audio.addEventListener('loadedmetadata', () => {
           if (resolved) return;
           resolved = true;
@@ -805,7 +788,7 @@ function resume(forceReload = false) {
     return;
   }
   audio.play().catch(err => {
-    console.error(`[player] resume() failed — ${playerDbgContext()}:`, err);
+    console.error('[player] resume() failed:', err);
     if (!state.currentTrack) return;
 
     // iOS can occasionally reject lock-screen resume even when no error is
