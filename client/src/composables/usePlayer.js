@@ -101,9 +101,6 @@ let _transcodeAttempted = false;
 let _consecutiveErrors = 0;
 let _deferredStartSeq = 0;
 let _lastMediaPlayAt = 0;
-let _explicitPauseUntil = 0;
-let _pauseAutoResumeSeq = 0;
-let _backgroundPlayAssistSeq = 0;
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -123,57 +120,6 @@ function maybeResumeVizContext() {
 function playerDbgContext() {
   const visibility = typeof document !== 'undefined' ? document.visibilityState : 'unknown';
   return `track="${state.currentTrack?.title ?? '?'}" t=${audio.currentTime.toFixed(1)} paused=${audio.paused} ended=${audio.ended} rs=${audio.readyState} ns=${audio.networkState} vis=${visibility} transcode=${state.transcodeActive}/${state.transcodeWaiting}`;
-}
-
-function startBackgroundPlayAssist(reason = 'unknown') {
-  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-  if (!isHidden) return;
-  const seq = ++_backgroundPlayAssistSeq;
-  const startedAt = Date.now();
-  let lastTime = audio.currentTime;
-  let checks = 0;
-  let recovered = false;
-  const tick = () => {
-    if (seq !== _backgroundPlayAssistSeq) return;
-    if (Date.now() - startedAt > 4000) return;
-    if (audio.ended) return;
-    if (Date.now() <= _explicitPauseUntil) return;
-    checks++;
-    const nowTime = audio.currentTime;
-    const advanced = nowTime > lastTime + 0.05;
-    lastTime = nowTime;
-
-    if (audio.paused || (!advanced && audio.readyState >= 2)) {
-      console.log(`[player] background play assist (${reason}) check=${checks} paused=${audio.paused} advanced=${advanced} — ${playerDbgContext()}`);
-      audio.play().catch(err => {
-        console.error('[player] background play assist play() failed:', err);
-      });
-      if (!recovered && checks >= 3 && !advanced && state.currentTrack) {
-        recovered = true;
-        const track = state.currentTrack;
-        const resumeAt = audio.currentTime;
-        const recoverSeq = ++stallRecoverySeq;
-        ignoreNextEnded = true;
-        clearTimeout(ignoreEndedTimer);
-        ignoreEndedTimer = null;
-        console.log(`[player] background play assist hard-recover at ${resumeAt.toFixed(1)}s — "${track?.title}"`);
-        _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
-        audio.load();
-        audio.addEventListener('loadedmetadata', () => {
-          if (stallRecoverySeq !== recoverSeq) return;
-          ignoreNextEnded = false;
-          if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-            audio.currentTime = resumeAt;
-          }
-          audio.play().catch(err => {
-            console.error('[player] background play assist hard-recover play() failed:', err);
-          });
-        }, { once: true });
-      }
-    }
-    setTimeout(tick, 350);
-  };
-  setTimeout(tick, 250);
 }
 
 
@@ -438,27 +384,6 @@ audio.addEventListener('play', () => {
 
 audio.addEventListener('pause', () => {
   console.log(`[player] audio pause event — ${playerDbgContext()}`);
-  const now = Date.now();
-  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-  const shouldAutoResume = (
-    isHidden &&
-    !audio.ended &&
-    !audio.error &&
-    now > _explicitPauseUntil &&
-    (now - _lastMediaPlayAt) >= 0 &&
-    (now - _lastMediaPlayAt) < 2000
-  );
-  if (shouldAutoResume) {
-    const seq = ++_pauseAutoResumeSeq;
-    console.log(`[player] auto-resume after background pause (${now - _lastMediaPlayAt}ms after play)`);
-    setTimeout(() => {
-      if (seq !== _pauseAutoResumeSeq) return;
-      if (!audio.paused || audio.ended || audio.error) return;
-      audio.play().catch(err => {
-        console.error('[player] auto-resume play() failed:', err);
-      });
-    }, 80);
-  }
   state.isPlaying = false;
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
 });
@@ -509,27 +434,15 @@ function updateMediaSessionPositionState() {
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
   // Handle play/pause explicitly so lock-screen controls stay deterministic.
-  // Keep this path lightweight (no source reload) for better background behavior.
   navigator.mediaSession.setActionHandler('play', () => {
     console.log(`[mediasession] play — ${playerDbgContext()}`);
     _lastMediaPlayAt = Date.now();
-    audio.play().catch(err => {
-      console.error('[mediasession] play() failed, falling back to resume():', err);
-      resume();
-    });
-    startBackgroundPlayAssist('mediasession-play');
+    // In iOS background, direct play() can report playing while audio remains
+    // stalled. Force the resume reload path for deterministic recovery.
+    resume(true);
   });
   navigator.mediaSession.setActionHandler('pause', () => {
     console.log(`[mediasession] pause — ${playerDbgContext()}`);
-    _explicitPauseUntil = Date.now() + 1500;
-    // iOS lock screen can emit an immediate spurious pause right after play.
-    // Ignore only this narrow window to keep user-initiated pauses responsive.
-    const sincePlay = Date.now() - _lastMediaPlayAt;
-    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-    if (isHidden && sincePlay >= 0 && sincePlay < 900 && !audio.paused) {
-      console.log(`[mediasession] pause ignored as spurious (${sincePlay}ms after play)`);
-      return;
-    }
     audio.pause();
   });
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack — ${playerDbgContext()}`); prev(); });
@@ -794,16 +707,17 @@ function toggleShuffle() {
 
 function pause() {
   console.log(`[player] pause() — ${playerDbgContext()}`);
-  _explicitPauseUntil = Date.now() + 1500;
   audio.pause();
 }
 
-function resume() {
-  console.log(`[player] resume() start — ${playerDbgContext()}`);
+function resume(forceReload = false) {
+  console.log(`[player] resume() start forceReload=${forceReload} — ${playerDbgContext()}`);
   maybeResumeVizContext();
+  const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
+  const shouldForceReload = forceReload || (isHidden && state.transcodeActive);
   // If the element is stuck in an error state (e.g. previous network drop),
   // calling play() throws NotSupportedError. Reload the track first.
-  if (audio.error && state.currentTrack) {
+  if ((audio.error || shouldForceReload) && state.currentTrack) {
     _consecutiveErrors = 0;
     const track = state.currentTrack;
     const resumeAt = state.currentTime;
@@ -811,7 +725,7 @@ function resume() {
     ignoreNextEnded = true;
     clearTimeout(ignoreEndedTimer);
     ignoreEndedTimer = null;
-    _setTrackSource(track);
+    _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
     audio.load();
     audio.addEventListener('loadedmetadata', () => {
       if (stallRecoverySeq !== seq) return;
