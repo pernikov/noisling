@@ -444,11 +444,18 @@ function updateMediaSessionPositionState() {
   if (!('mediaSession' in navigator)) return;
   const duration = state.duration;
   if (!duration || !isFinite(duration)) return;
-  navigator.mediaSession.setPositionState({
-    duration,
-    playbackRate: audio.playbackRate,
-    position: Math.min(audio.currentTime, duration),
-  });
+  const playbackRate = Number.isFinite(audio.playbackRate) && audio.playbackRate > 0
+    ? audio.playbackRate
+    : 0.01;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration,
+      playbackRate,
+      position: Math.min(audio.currentTime, duration),
+    });
+  } catch (_) {
+    // iOS can throw TypeError here for transient invalid states; ignore.
+  }
 }
 
 // Register media session action handlers for OS-level media controls
@@ -484,11 +491,7 @@ if ('mediaSession' in navigator) {
       _softPauseTime = audio.currentTime;
       _softPauseRate = audio.playbackRate || 1;
       audio.muted = true;
-      try {
-        audio.playbackRate = 0;
-      } catch (_) {
-        audio.playbackRate = 0.01;
-      }
+      audio.playbackRate = 0.01;
       state.isPlaying = false;
       navigator.mediaSession.playbackState = 'paused';
       console.log(`[mediasession] soft-pause at ${_softPauseTime.toFixed(1)}s`);
