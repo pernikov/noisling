@@ -132,6 +132,7 @@ function startBackgroundPlayAssist(reason = 'unknown') {
   const startedAt = Date.now();
   let lastTime = audio.currentTime;
   let checks = 0;
+  let recovered = false;
   const tick = () => {
     if (seq !== _backgroundPlayAssistSeq) return;
     if (Date.now() - startedAt > 4000) return;
@@ -147,6 +148,28 @@ function startBackgroundPlayAssist(reason = 'unknown') {
       audio.play().catch(err => {
         console.error('[player] background play assist play() failed:', err);
       });
+      if (!recovered && checks >= 3 && !advanced && state.currentTrack) {
+        recovered = true;
+        const track = state.currentTrack;
+        const resumeAt = audio.currentTime;
+        const recoverSeq = ++stallRecoverySeq;
+        ignoreNextEnded = true;
+        clearTimeout(ignoreEndedTimer);
+        ignoreEndedTimer = null;
+        console.log(`[player] background play assist hard-recover at ${resumeAt.toFixed(1)}s — "${track?.title}"`);
+        _setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
+        audio.load();
+        audio.addEventListener('loadedmetadata', () => {
+          if (stallRecoverySeq !== recoverSeq) return;
+          ignoreNextEnded = false;
+          if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+            audio.currentTime = resumeAt;
+          }
+          audio.play().catch(err => {
+            console.error('[player] background play assist hard-recover play() failed:', err);
+          });
+        }, { once: true });
+      }
     }
     setTimeout(tick, 350);
   };
