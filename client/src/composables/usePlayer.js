@@ -426,10 +426,8 @@ function updateMediaSessionPositionState() {
 
 // Register media session action handlers for OS-level media controls
 if ('mediaSession' in navigator) {
-  // Let the UA perform native play/pause handling for the media element.
-  // On iOS lock screen, custom JS play handlers are less reliable than default behavior.
-  navigator.mediaSession.setActionHandler('play', null);
-  navigator.mediaSession.setActionHandler('pause', null);
+  navigator.mediaSession.setActionHandler('play', () => resume());
+  navigator.mediaSession.setActionHandler('pause', () => pause());
   navigator.mediaSession.setActionHandler('previoustrack', () => { console.log(`[mediasession] previoustrack t=${audio.currentTime.toFixed(1)}`); prev(); });
   navigator.mediaSession.setActionHandler('nexttrack', () => { console.log('[mediasession] nexttrack'); next(); });
   navigator.mediaSession.setActionHandler('seekto', (details) => {
@@ -532,7 +530,7 @@ function play(track) {
   console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
   // Explicit user playback should always start fresh for the selected track.
   _pendingRestore = null;
-  audio.pause();
+  if (!audio.ended) audio.pause();
   const playSeq = ++stallRecoverySeq;
   ignoreNextEnded = true;
   clearTimeout(ignoreEndedTimer);
