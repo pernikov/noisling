@@ -442,7 +442,7 @@ router.get('/stats', async (req, res) => {
           { $match: { playCount: { $gt: 0 } } },
           { $sort: { playCount: -1 } },
           { $limit: 10 },
-          { $project: { title: 1, artists: 1, album: 1, cover: 1, duration: 1, playCount: 1 } },
+          { $project: { title: 1, artists: 1, album: 1, cover: 1, duration: 1, playCount: 1, isLoved: 1 } },
         ],
         topArtists: [
           { $match: { playCount: { $gt: 0 } } },
