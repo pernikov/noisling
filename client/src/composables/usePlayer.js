@@ -39,11 +39,15 @@ const state = reactive({
   currentTrack:      null,
   queue:             [],
   queueIndex:        -1,
-  // For DB-backed large queues (e.g. Shuffle All):
-  //   queueTotal        = total tracks in the DB queue
-  //   queueBufferOffset = virtual index of state.queue[0] in the full DB queue
+  // For large queues (e.g. Shuffle All):
+  //   largeQueueIds     = all shuffled IDs held client-side (no server state)
+  //   queueLoading      = true while background batch-fetch is in progress
+  //   queueTotal        = total expected tracks (shown while loading)
+  //   queueBufferOffset = virtual index of state.queue[0] in the full list
   //   isLargeQueue      = true when buffer mode is active
-  // For normal queues all three are 0 / false and state.queue holds everything.
+  // For normal queues all are 0 / false and state.queue holds everything.
+  largeQueueIds:     [],
+  queueLoading:      false,
   queueTotal:        0,
   queueBufferOffset: 0,
   isLargeQueue:      false,
@@ -84,9 +88,6 @@ let stallRecoverySeq = 0;
 
 // Throttle MediaSession position updates to once per second.
 let positionStateTimer = null;
-
-// Throttle queue progress saves to once every 5 s during playback.
-let _queueSaveTimer = null;
 
 // Debounce volume server saves.
 let _volumeSaveTimer = null;
@@ -159,10 +160,6 @@ audio.addEventListener('timeupdate', () => {
     }, 1000);
   }
 
-  // Throttled queue progress save.
-  if (!_queueSaveTimer) {
-    _queueSaveTimer = setTimeout(() => { saveProgress(); _queueSaveTimer = null; }, 5000);
-  }
 });
 
 audio.addEventListener('error', () => {
@@ -481,59 +478,6 @@ function savePrefs(updates) {
   try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch (_) {}
 }
 
-// Persist the current playback position to the DB queue (throttled via caller).
-function saveProgress() {
-  const virtualIndex = state.queueBufferOffset + state.queueIndex;
-  api.updateQueue({ currentIndex: virtualIndex, currentTime: state.currentTime }).catch(() => {});
-}
-
-// Persist the full queue order to DB (called when queue structure changes).
-// No-op for large queues — the DB already holds the authoritative shuffled list.
-function saveQueueOrder() {
-  if (state.isLargeQueue) return;
-  api.setQueue({
-    trackIds:     state.queue.map(t => t._id.toString()),
-    currentIndex: state.queueIndex,
-    currentTime:  state.currentTime,
-  }).catch(() => {});
-}
-
-// Restore queue state from the DB on page load.
-export async function restoreQueue() {
-  try {
-    const meta = await api.getQueue();
-    if (!meta || meta.total === 0) return;
-
-    const { total, currentIndex, currentTime } = meta;
-    if (currentIndex >= total) return; // queue ended naturally
-
-    const tracks = await api.getQueueTracks(0, total);
-    if (!tracks.length) return;
-    state.isLargeQueue      = false;
-    state.queueTotal        = 0;
-    state.queueBufferOffset = 0;
-    state.originalQueue     = [...tracks];
-
-    state.queue        = tracks;
-    state.queueIndex   = currentIndex;
-    state.currentTrack = tracks[currentIndex];
-    _setTrackSource(tracks[currentIndex], { markWaiting: false });
-
-    if (typeof currentTime === 'number' && currentTime > 5) {
-      _pendingRestore = {
-        trackId: tracks[currentIndex]?._id?.toString?.() || null,
-        time: currentTime,
-      };
-      const track = tracks[currentIndex];
-      if (track?.duration > 0) {
-        const threshold = Math.min(track.duration * 0.5, 240);
-        if (currentTime >= threshold) playReported = true;
-      }
-    }
-  } catch (_) {
-    // graceful fallback — no queue restoration
-  }
-}
 
 async function loadPlayerPrefs() {
   try {
@@ -645,24 +589,40 @@ function playAlbum(tracks, startIndex = 0) {
   }
 
   play(state.queue[state.queueIndex]);
-  saveQueueOrder();
 }
 
-// Shuffle All: server shuffles and persists all IDs, client fetches the full list.
+// Shuffle All: server shuffles all IDs and returns them to the client.
+// Playback starts immediately with the first 50 tracks; the rest are loaded
+// in background batches of 200 so the full queue is available quickly.
 async function shuffleAll() {
-  const { total, tracks } = await api.shuffleQueue();
+  const { total, ids, tracks } = await api.shuffleQueue();
   if (!total || !tracks.length) return;
 
-  const allTracks = await api.getQueueTracks(0, total);
-
   state.isLargeQueue      = false;
-  state.queueTotal        = 0;
+  state.largeQueueIds     = ids;
+  state.queueTotal        = total;
   state.queueBufferOffset = 0;
-  state.queue             = allTracks.length ? allTracks : tracks;
-  state.originalQueue     = [...state.queue];
+  state.queue             = [...tracks];
+  state.originalQueue     = [];
   state.queueIndex        = 0;
+  state.queueLoading      = total > tracks.length;
 
   play(state.queue[0]);
+
+  if (!state.queueLoading) return;
+
+  // Load remaining tracks in background batches of 200.
+  const BATCH = 200;
+  try {
+    for (let offset = tracks.length; offset < total; offset += BATCH) {
+      const batchIds = ids.slice(offset, offset + BATCH);
+      const more = await api.getTracksByIds(batchIds);
+      state.queue.push(...more);
+    }
+  } finally {
+    state.queueLoading = false;
+    state.queueTotal   = 0;
+  }
 }
 
 // Extend the sliding-window buffer when running low on tracks ahead (large queues only).
@@ -676,7 +636,8 @@ async function prefetchIfNeeded() {
 
   _prefetching = true;
   try {
-    const more = await api.getQueueTracks(nextOffset, 50);
+    const nextIds = state.largeQueueIds.slice(nextOffset, nextOffset + 50);
+    const more = await api.getTracksByIds(nextIds);
     if (!more.length) return;
     state.queue.push(...more);
 
@@ -697,8 +658,8 @@ async function prefetchIfNeeded() {
 function toggleShuffle() {
   state.shuffle = !state.shuffle;
 
-  // For large queues (Shuffle All), just persist the pref — the queue is already
-  // DB-managed and re-shuffling the local buffer is meaningless.
+  // For large queues (Shuffle All), just persist the pref — re-shuffling the
+  // local buffer is meaningless since the ID list is already randomised.
   if (state.queue.length === 0 || state.isLargeQueue) {
     savePrefs({ shuffle: state.shuffle });
     api.saveSettings({ shuffle: state.shuffle }).catch(() => {});
@@ -718,7 +679,6 @@ function toggleShuffle() {
 
   savePrefs({ shuffle: state.shuffle });
   api.saveSettings({ shuffle: state.shuffle }).catch(() => {});
-  saveQueueOrder();
 }
 
 function pause() {
@@ -891,6 +851,8 @@ function _clearQueue() {
   state.currentTrack     = null;
   state.queue            = [];
   state.originalQueue    = [];
+  state.largeQueueIds    = [];
+  state.queueLoading     = false;
   state.queueIndex       = -1;
   state.queueTotal       = 0;
   state.queueBufferOffset = 0;
@@ -900,8 +862,6 @@ function _clearQueue() {
   state.showQueue        = false;
   state.transcodeWaiting = false;
   state.transcodeActive  = false;
-  // Mark the DB queue as ended so it won't restore on next page load.
-  api.updateQueue({ currentIndex: endIndex, currentTime: 0 }).catch(() => {});
 }
 
 function next() {
@@ -922,7 +882,6 @@ function next() {
     // Track is already in the buffer.
     state.queueIndex = nextIndex;
     playWithWarmupIfNeeded(state.queue[nextIndex], nextIndex);
-    saveProgress();
     if (state.isLargeQueue) prefetchIfNeeded();
   } else if (state.isLargeQueue && virtualNext < state.queueTotal) {
     // End of buffer but there are more tracks in the DB queue — fetch them.
@@ -933,7 +892,6 @@ function next() {
     } else {
       state.queueIndex = 0;
       play(state.queue[0]);
-      saveProgress();
     }
   } else {
     _clearQueue();
@@ -981,26 +939,26 @@ async function playWithWarmupIfNeeded(track, expectedIndex) {
 
 async function _fetchAndPlayAt(virtualIndex) {
   try {
-    const tracks = await api.getQueueTracks(virtualIndex, 50);
+    const ids    = state.largeQueueIds.slice(virtualIndex, virtualIndex + 50);
+    const tracks = await api.getTracksByIds(ids);
     if (!tracks.length) { _clearQueue(); return; }
     state.queueBufferOffset = virtualIndex;
     state.queue             = tracks;
     state.queueIndex        = 0;
     play(tracks[0]);
-    saveProgress();
     prefetchIfNeeded();
   } catch (_) {}
 }
 
 async function _restartLargeQueue() {
   try {
-    const tracks = await api.getQueueTracks(0, 50);
+    const ids    = state.largeQueueIds.slice(0, 50);
+    const tracks = await api.getTracksByIds(ids);
     if (!tracks.length) return;
     state.queue             = tracks;
     state.queueIndex        = 0;
     state.queueBufferOffset = 0;
     play(tracks[0]);
-    saveProgress();
     prefetchIfNeeded();
   } catch (_) {}
 }
@@ -1026,11 +984,9 @@ function prev() {
   if (state.queueIndex > 0) {
     state.queueIndex--;
     play(state.queue[state.queueIndex]);
-    saveProgress();
   } else if (state.repeat === 'all' && !state.isLargeQueue) {
     state.queueIndex = state.queue.length - 1;
     play(state.queue[state.queueIndex]);
-    saveProgress();
   }
   // For large queues at buffer start (queueBufferOffset > 0), the buffer always keeps
   // 10 tracks before the current position, so queueIndex > 0 normally covers this.
@@ -1038,13 +994,11 @@ function prev() {
 
 function addToQueue(track) {
   state.queue.push(track);
-  if (!state.isLargeQueue) saveQueueOrder();
 }
 
 function playNext(track) {
   const insertAt = Math.max(state.queueIndex + 1, 0);
   state.queue.splice(insertAt, 0, track);
-  if (!state.isLargeQueue) saveQueueOrder();
 }
 
 function moveTrack(fromIndex, toIndex) {
@@ -1059,13 +1013,11 @@ function moveTrack(fromIndex, toIndex) {
   } else if (fromIndex > state.queueIndex && toIndex <= state.queueIndex) {
     state.queueIndex++;
   }
-  if (!state.isLargeQueue) saveQueueOrder();
 }
 
 function playFromQueue(index) {
   state.queueIndex = index;
   play(state.queue[index]);
-  saveProgress();
 }
 
 function queueMatches(tracks) {
@@ -1121,6 +1073,5 @@ export function usePlayer() {
     hasNext,
     hasPrev,
     loadPlayerPrefs,
-    restoreQueue,
   };
 }

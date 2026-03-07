@@ -517,4 +517,14 @@ router.get('/tracks/:id', async (req, res) => {
   res.json(track);
 });
 
+// POST /api/tracks/batch — fetch multiple tracks by ID, preserving order
+router.post('/tracks/batch', async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids) || !ids.length) return res.json([]);
+  const tracks = await Track.find({ _id: { $in: ids } }).lean();
+  const order  = Object.fromEntries(ids.map((id, i) => [id, i]));
+  tracks.sort((a, b) => order[a._id.toString()] - order[b._id.toString()]);
+  res.json(tracks);
+});
+
 export default router;

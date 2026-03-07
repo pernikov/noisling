@@ -19,9 +19,8 @@ import UpdateModal from "./components/UpdateModal.vue";
 const { loadTheme, showArtistsNav, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
 loadTheme();
 
-const { loadPlayerPrefs, restoreQueue } = usePlayer();
+const { loadPlayerPrefs } = usePlayer();
 loadPlayerPrefs();
-restoreQueue();
 
 const route = useRoute();
 const router = useRouter();

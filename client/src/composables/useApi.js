@@ -60,19 +60,11 @@ export function useApi() {
     }),
     getTopTracks: (limit = 50) =>
       request(`/tracks?sort=plays&order=desc&limit=${limit}&page=1`).then(d => d.tracks),
-    getQueue: () => request('/queue'),
-    getQueueTracks: (offset = 0, limit = 50) =>
-      request(`/queue/tracks?offset=${offset}&limit=${limit}`),
-    setQueue: (body) => request('/queue', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }),
     shuffleQueue: () => request('/queue/shuffle', { method: 'PUT' }),
-    updateQueue: (body) => request('/queue', {
-      method: 'PATCH',
+    getTracksByIds: (ids) => request('/tracks/batch', {
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ ids }),
     }),
     reportPlay: (id) => request(`/tracks/${id}/play`, { method: 'POST' }),
     streamUrl: (id, transcode = false) => `${BASE}/stream/${id}${transcode ? '?transcode=1' : ''}`,

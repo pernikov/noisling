@@ -40,7 +40,13 @@ watch(() => props.open, async (isOpen) => {
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-        <h2 class="font-semibold">Queue <span class="text-zinc-500 text-sm font-normal">{{ state.queue.length }} tracks</span></h2>
+        <h2 class="font-semibold">
+          Queue
+          <span class="text-zinc-500 text-sm font-normal">
+            <template v-if="state.queueLoading">{{ state.queue.length }} / {{ state.queueTotal }}</template>
+            <template v-else>{{ state.queue.length }} tracks</template>
+          </span>
+        </h2>
         <button class="text-zinc-400 hover:text-zinc-100" @click="emit('close')">
           <Icon :path="mdiClose" class="w-5 h-5" />
         </button>
