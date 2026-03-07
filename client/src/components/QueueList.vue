@@ -104,8 +104,11 @@ function onDragOver(e, index) {
   dragOverIndex.value = index;
 }
 
-function onDragLeave() {
-  dragOverIndex.value = null;
+function onDragLeave(e) {
+  // Only clear when actually leaving the row, not when entering a child element
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    dragOverIndex.value = null;
+  }
 }
 
 function onDrop(e, toIndex) {
@@ -203,7 +206,8 @@ function formatDuration(seconds) {
               props.rowPaddingClass,
               {
                 'bg-zinc-800/80 rounded-lg': i === state.queueIndex,
-                [`border-t-2 border-${accentColor}-400`]: dragOverIndex === i && dragIndex !== i,
+                [`border-t-2 border-${accentColor}-400`]: dragOverIndex === i && dragIndex !== null && dragIndex > i,
+              [`border-b-2 border-${accentColor}-400`]: dragOverIndex === i && dragIndex !== null && dragIndex < i,
                 'opacity-40': dragIndex === i,
               },
             ]"
