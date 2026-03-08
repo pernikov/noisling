@@ -3,6 +3,7 @@ import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { mdiMagnify, mdiClose, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck } from '@mdi/js';
 import Icon from './Icon.vue';
+import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
 import ArtistCover from './ArtistCover.vue';
 import { useApi } from '../composables/useApi.js';
@@ -145,7 +146,6 @@ const hasResults = computed(() =>
 );
 
 function onInputKeydown(e) {
-  if (e.key === 'Escape') { closeSearch(); return; }
   if (e.key === 'ArrowDown') {
     e.preventDefault();
     focusedIndex.value = Math.min(focusedIndex.value + 1, flatResults.value.length - 1);
@@ -198,15 +198,8 @@ function formatDuration(seconds) {
   </button>
 
   <!-- Modal -->
-  <Teleport to="body">
-    <Transition name="search-fade">
-      <div
-        v-if="open"
-        class="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4"
-        style="background: rgba(9,9,11,0.7); backdrop-filter: blur(6px);"
-        @click.self="closeSearch"
-      >
-        <div class="search-panel bg-zinc-900 border border-zinc-700/80 rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
+  <BaseModal :show="open" align="top" @close="closeSearch">
+        <div class="bg-zinc-900 border border-zinc-700/80 rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
 
           <!-- Input -->
           <div class="flex items-center px-4 border-b border-zinc-800">
@@ -337,9 +330,7 @@ function formatDuration(seconds) {
             <span><kbd class="font-mono bg-zinc-800 border border-zinc-700/80 rounded px-1">esc</kbd> close</span>
           </div>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </BaseModal>
 
   <!-- Track context menu -->
   <Teleport to="body">
@@ -391,20 +382,4 @@ function formatDuration(seconds) {
   transform: scale(0.95);
 }
 
-.search-fade-enter-active,
-.search-fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-.search-fade-enter-active .search-panel,
-.search-fade-leave-active .search-panel {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-.search-fade-enter-from,
-.search-fade-leave-to {
-  opacity: 0;
-}
-.search-fade-enter-from .search-panel,
-.search-fade-leave-to .search-panel {
-  transform: scale(0.97) translateY(-6px);
-}
 </style>

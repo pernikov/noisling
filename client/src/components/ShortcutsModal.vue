@@ -1,4 +1,5 @@
 <script setup>
+import BaseModal from './BaseModal.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 
 const { state: playerState, toggleShortcuts } = usePlayer();
@@ -39,70 +40,41 @@ const groups = [
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="shortcuts">
-      <div
-        v-if="playerState.showShortcuts"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm"
-        @click.self="toggleShortcuts"
-      >
-        <div class="shortcuts-card bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="font-display font-bold text-lg">Keyboard Shortcuts</h2>
-            <button
-              class="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800"
-              @click="toggleShortcuts"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-          </div>
+  <BaseModal :show="playerState.showShortcuts" @close="toggleShortcuts">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-display font-bold text-lg">Keyboard Shortcuts</h2>
+        <button
+          class="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800"
+          @click="toggleShortcuts"
+        >
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+          </svg>
+        </button>
+      </div>
 
-          <div class="space-y-5">
-            <div v-for="group in groups" :key="group.label">
-              <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">{{ group.label }}</p>
-              <div class="space-y-1">
-                <div
-                  v-for="s in group.shortcuts"
-                  :key="s.description"
-                  class="flex items-center justify-between gap-4"
-                >
-                  <span class="text-sm text-zinc-300">{{ s.description }}</span>
-                  <div class="flex items-center gap-1 shrink-0">
-                    <kbd
-                      v-for="key in s.keys"
-                      :key="key"
-                      class="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded bg-zinc-800 border border-zinc-700 text-xs font-mono text-zinc-300 shadow-sm"
-                    >{{ key }}</kbd>
-                  </div>
-                </div>
+      <div class="space-y-5">
+        <div v-for="group in groups" :key="group.label">
+          <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">{{ group.label }}</p>
+          <div class="space-y-1">
+            <div
+              v-for="s in group.shortcuts"
+              :key="s.description"
+              class="flex items-center justify-between gap-4"
+            >
+              <span class="text-sm text-zinc-300">{{ s.description }}</span>
+              <div class="flex items-center gap-1 shrink-0">
+                <kbd
+                  v-for="key in s.keys"
+                  :key="key"
+                  class="inline-flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded bg-zinc-800 border border-zinc-700 text-xs font-mono text-zinc-300 shadow-sm"
+                >{{ key }}</kbd>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </BaseModal>
 </template>
-
-<style>
-/* Not scoped — descendant selectors on teleported content require global scope. */
-.shortcuts-enter-active,
-.shortcuts-leave-active {
-  transition: opacity 0.2s ease;
-}
-.shortcuts-enter-active .shortcuts-card,
-.shortcuts-leave-active .shortcuts-card {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.shortcuts-enter-from,
-.shortcuts-leave-to {
-  opacity: 0;
-}
-.shortcuts-enter-from .shortcuts-card,
-.shortcuts-leave-to .shortcuts-card {
-  opacity: 0;
-  transform: scale(0.96) translateY(6px);
-}
-</style>

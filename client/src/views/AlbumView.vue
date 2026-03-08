@@ -8,6 +8,7 @@ import CoverArt from '../components/CoverArt.vue';
 import TrackList from '../components/TrackList.vue';
 import NotFoundPage from '../components/NotFoundPage.vue';
 import Spinner from '../components/Spinner.vue';
+import BaseModal from '../components/BaseModal.vue';
 import Icon from '../components/Icon.vue';
 import { mdiMagnifyPlus } from '@mdi/js';
 
@@ -130,39 +131,16 @@ function formatDuration(seconds) {
     </template>
 
   <!-- Cover art modal -->
-  <Teleport to="body">
-    <Transition name="cover-modal">
-      <div v-if="coverModalOpen" class="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm cursor-zoom-out" @click.self="coverModalOpen = false">
-        <Spinner v-if="!coverModalLoaded" class="w-6 h-6 text-white/60 absolute" />
-        <img
-          :src="api.coverUrl(albumInfo.cover)"
-          class="cover-modal-img max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain transition-opacity duration-300"
-          :class="coverModalLoaded ? 'opacity-100' : 'opacity-0'"
-          alt="Cover"
-          @load="coverModalLoaded = true"
-        />
-      </div>
-    </Transition>
-  </Teleport>
+  <BaseModal :show="coverModalOpen" @close="coverModalOpen = false">
+    <Spinner v-if="!coverModalLoaded" class="w-6 h-6 text-white/60 absolute" />
+    <img
+      :src="api.coverUrl(albumInfo.cover)"
+      class="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl object-contain transition-opacity duration-300"
+      :class="coverModalLoaded ? 'opacity-100' : 'opacity-0'"
+      alt="Cover"
+      @load="coverModalLoaded = true"
+    />
+  </BaseModal>
   </div>
 </template>
 
-<style>
-.cover-modal-enter-active,
-.cover-modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.cover-modal-enter-active .cover-modal-img,
-.cover-modal-leave-active .cover-modal-img {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.cover-modal-enter-from,
-.cover-modal-leave-to {
-  opacity: 0;
-}
-.cover-modal-enter-from .cover-modal-img,
-.cover-modal-leave-to .cover-modal-img {
-  opacity: 0;
-  transform: scale(0.96) translateY(6px);
-}
-</style>
