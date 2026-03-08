@@ -208,7 +208,7 @@ function formatDuration(seconds) {
               ref="inputRef"
               v-model="query"
               type="text"
-              placeholder="Search songs, albums, artists..."
+              placeholder="Search tracks, albums, artists..."
               class="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-500 text-sm py-4"
               @keydown="onInputKeydown"
             />
@@ -233,7 +233,7 @@ function formatDuration(seconds) {
 
               <!-- Tracks -->
               <template v-if="results.tracks.length">
-                <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Songs</p>
+                <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Tracks</p>
                 <div
                   v-for="(track, i) in results.tracks"
                   :key="track._id"
@@ -281,7 +281,7 @@ function formatDuration(seconds) {
                   <div class="min-w-0 flex-1">
                     <div class="text-sm text-zinc-100 truncate">{{ artist.name }}</div>
                     <div class="text-xs text-zinc-500">
-                      {{ artist.albumCount }} {{ artist.albumCount === 1 ? 'album' : 'albums' }} · {{ artist.trackCount }} tracks
+                      {{ artist.albumCount }} {{ artist.albumCount === 1 ? 'album' : 'albums' }} · {{ artist.trackCount }} {{ artist.trackCount === 1 ? 'track' : 'tracks' }}
                     </div>
                   </div>
                 </button>
@@ -305,7 +305,7 @@ function formatDuration(seconds) {
                       {{ album.artists?.join(', ') }}{{ album.year ? ` · ${album.year}` : '' }}
                     </div>
                   </div>
-                  <span class="text-xs text-zinc-600 shrink-0">{{ album.trackCount }} tracks</span>
+                  <span class="text-xs text-zinc-600 shrink-0">{{ album.trackCount }} {{ album.trackCount === 1 ? 'track' : 'tracks' }}</span>
                 </button>
               </template>
 

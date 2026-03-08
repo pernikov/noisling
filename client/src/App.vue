@@ -108,11 +108,11 @@ watch(
           </router-link>
           <div class="flex gap-2 sm:gap-4 text-sm">
             <router-link
-              to="/songs"
+              to="/tracks"
               class="text-zinc-400 hover:text-zinc-100 transition-colors"
               active-class="!text-zinc-100"
             >
-              Songs
+              Tracks
             </router-link>
             <router-link
               v-if="showArtistsNav"

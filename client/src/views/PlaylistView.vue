@@ -208,7 +208,7 @@ async function deletePlaylist() {
       <!-- Track list -->
       <div v-if="tracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 text-center">
         <p class="text-sm text-zinc-500">No tracks yet.</p>
-        <p class="text-xs text-zinc-600 mt-1">Add songs via the "..." menu in any track list.</p>
+        <p class="text-xs text-zinc-600 mt-1">Add tracks via the "..." menu in any track list.</p>
       </div>
 
       <TrackList

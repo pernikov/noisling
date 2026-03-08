@@ -50,7 +50,7 @@ async function loadTracks() {
     total.value = data.total;
   } catch (err) {
     console.error('Failed to load tracks:', err);
-    toastError('Failed to load songs. Check your connection.');
+    toastError('Failed to load tracks. Check your connection.');
   } finally {
     loading.value = false;
   }
@@ -115,13 +115,13 @@ function prevPage() {
 <template>
   <div>
     <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold font-display">Songs</h1>
+      <h1 class="text-2xl font-bold font-display">Tracks</h1>
       <div class="relative flex items-center h-8">
         <input
           ref="searchInput"
           v-model="search"
           type="text"
-          placeholder="Search songs..."
+          placeholder="Search tracks..."
           class="bg-zinc-800 border border-transparent rounded pr-8 py-1.5 text-sm outline-none focus:border-zinc-700 transition-all duration-200 ease-in-out"
           :class="searchExpanded ? 'w-64 pl-3 opacity-100' : 'w-0 pl-0 opacity-0 border-transparent'"
           @blur="onSearchBlur"
@@ -151,7 +151,7 @@ function prevPage() {
 
     <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiMusicNote" class="w-8 h-8 text-zinc-600" />
-      <p class="text-sm font-medium text-zinc-400">{{ search ? 'No songs found' : 'No songs yet' }}</p>
+      <p class="text-sm font-medium text-zinc-400">{{ search ? 'No tracks found' : 'No tracks yet' }}</p>
       <p class="text-xs text-zinc-600">{{ search ? 'Try a different search term.' : 'Scan your library in Settings to get started.' }}</p>
     </div>
 

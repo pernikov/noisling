@@ -149,8 +149,8 @@ function goToAlbum(album) {
             <Spinner class="w-8 h-8 text-white" />
           </div>
           <Icon :path="mdiFire" class="w-8 h-8 mb-3 text-white/90" />
-          <div class="text-lg font-bold font-display text-white">Top Songs</div>
-          <div class="text-sm text-white/70 mt-0.5">Your 50 most listened-to songs</div>
+          <div class="text-lg font-bold font-display text-white">Top Tracks</div>
+          <div class="text-sm text-white/70 mt-0.5">Your 50 most listened-to tracks</div>
         </button>
 
         <!-- Loved Songs -->
@@ -161,7 +161,7 @@ function goToAlbum(album) {
           :style="lovedUseAccent ? { backgroundImage: `linear-gradient(to bottom right, rgb(${accentRgb}), rgb(${accentDarkRgb}))` } : undefined"
         >
           <Icon :path="mdiHeart" class="w-8 h-8 mb-3 text-white/90" />
-          <div class="text-lg font-bold font-display text-white">Loved Songs</div>
+          <div class="text-lg font-bold font-display text-white">Loved Tracks</div>
           <div class="text-sm text-white/70 mt-0.5 relative h-5 overflow-hidden">
             <Transition
               enter-active-class="transition-opacity duration-300"
@@ -173,8 +173,8 @@ function goToAlbum(album) {
               <span v-if="loadingLoved" key="loading" class="flex items-center">
                 <Spinner class="w-4 h-4 text-white/70" />
               </span>
-              <span v-else-if="lovedTracks.length === 0" key="empty">Love some songs to play them here</span>
-              <span v-else key="count">{{ lovedTracks.length }} song{{ lovedTracks.length !== 1 ? 's' : '' }} you love</span>
+              <span v-else-if="lovedTracks.length === 0" key="empty">Love some tracks to play them here</span>
+              <span v-else key="count">{{ lovedTracks.length }} track{{ lovedTracks.length !== 1 ? 's' : '' }} you love</span>
             </Transition>
           </div>
         </button>

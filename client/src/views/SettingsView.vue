@@ -414,7 +414,7 @@ onUnmounted(() => {
           <div class="space-y-3">
             <div
               v-for="section in [
-                { key: 'quickPlay', label: 'Quick Play',      desc: 'Shuffle All, Top Songs, and Loved Songs cards.', value: homeShowQuickPlay },
+                { key: 'quickPlay', label: 'Quick Play',      desc: 'Shuffle All, Top Tracks, and Loved Tracks cards.', value: homeShowQuickPlay },
                 { key: 'recent',   label: 'Recently Played',  desc: 'Your last 10 played tracks.',                    value: homeShowRecent },
                 { key: 'albums',   label: 'Recently Added',   desc: 'Albums added to your library.',                  value: homeShowAlbums },
               ]"
@@ -446,8 +446,8 @@ onUnmounted(() => {
       <!-- Songs columns section -->
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
         <div>
-          <p class="text-sm font-medium text-zinc-200">Songs view</p>
-          <p class="text-xs text-zinc-500 mt-1">Customize what's visible in track lists and queues. Click any column header in Songs to sort.</p>
+          <p class="text-sm font-medium text-zinc-200">Tracks view</p>
+          <p class="text-xs text-zinc-500 mt-1">Customize what's visible in track lists and queues. Click any column header in Tracks to sort.</p>
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -477,10 +477,10 @@ onUnmounted(() => {
         <div class="space-y-3">
           <div
             v-for="col in [
-              { key: 'artist',     label: 'Artist',      desc: 'Primary artist column. Shown in Songs, Recents, the home page, the queue, and search results.' },
-              { key: 'album',      label: 'Album',       desc: 'Album column. Shown in Songs, Recents, the home page, and search results.' },
-              { key: 'plays',      label: 'Plays',       desc: 'Play count column. Shown in Songs, Recents, and the home page.' },
-              { key: 'lastPlayed', label: 'Last Played', desc: 'Last listened column. Shown in Songs, Recents, and the home page.' },
+              { key: 'artist',     label: 'Artist',      desc: 'Primary artist column. Shown in Tracks, Recents, the home page, the queue, and search results.' },
+              { key: 'album',      label: 'Album',       desc: 'Album column. Shown in Tracks, Recents, the home page, and search results.' },
+              { key: 'plays',      label: 'Plays',       desc: 'Play count column. Shown in Tracks, Recents, and the home page.' },
+              { key: 'lastPlayed', label: 'Last Played', desc: 'Last listened column. Shown in Tracks, Recents, and the home page.' },
             ]"
             :key="col.key"
             class="flex items-center justify-between"

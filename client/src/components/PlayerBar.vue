@@ -273,7 +273,7 @@ const hoverTime = computed(() => {
         <button
           :disabled="!hasPrev"
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
-          title="(P) Previous song"
+          title="(P) Previous track"
           @click="prev"
         >
           <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
@@ -293,7 +293,7 @@ const hoverTime = computed(() => {
         <button
           :disabled="!hasNext"
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
-          title="(N) Next song"
+          title="(N) Next track"
           @click="next"
         >
           <Icon :path="mdiSkipNext" class="w-5 h-5" />
@@ -413,7 +413,7 @@ const hoverTime = computed(() => {
           state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
         "
         @click="toggleQueue"
-        :title="'(Q) Queue (' + state.queue.length + ' tracks)'"
+        :title="'(Q) Queue (' + state.queue.length + ' track' + (state.queue.length !== 1 ? 's' : '') + ')'"
       >
         <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
       </button>

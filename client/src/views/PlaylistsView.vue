@@ -85,7 +85,7 @@ function mosaicCells(covers) {
     <div v-else-if="playlists.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-12 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiPlaylistMusic" class="w-10 h-10 text-zinc-600" />
       <p class="text-sm font-medium text-zinc-400">No playlists yet</p>
-      <p class="text-xs text-zinc-600">Create a playlist and add songs from the track menu.</p>
+      <p class="text-xs text-zinc-600">Create a playlist and add tracks from the track menu.</p>
       <button
         @click="showCreate = true"
         class="mt-2 flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"

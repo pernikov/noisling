@@ -131,7 +131,7 @@ function playShuffle() {
             </template>
             <span v-if="albumInfo.year" class="text-zinc-500"> &middot; {{ albumInfo.year }}</span>
             <span class="text-zinc-500">
-              &middot; {{ albumInfo.trackCount }} tracks &middot; {{ formatDuration(albumInfo.duration) }}
+              &middot; {{ albumInfo.trackCount }} track{{ albumInfo.trackCount !== 1 ? 's' : '' }} &middot; {{ formatDuration(albumInfo.duration) }}
             </span>
           </div>
           <div class="flex items-center gap-2">

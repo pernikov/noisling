@@ -44,7 +44,7 @@ watch(() => props.open, async (isOpen) => {
           Queue
           <span class="text-zinc-500 text-sm font-normal">
             <template v-if="state.queueLoading">{{ state.queue.length }} / {{ state.queueTotal }}</template>
-            <template v-else>{{ state.queue.length }} tracks</template>
+            <template v-else>{{ state.queue.length }} track{{ state.queue.length !== 1 ? 's' : '' }}</template>
           </span>
         </h2>
         <button class="text-zinc-400 hover:text-zinc-100" @click="emit('close')">

@@ -73,7 +73,7 @@ async function addTo(playlist) {
           @click="addTo(pl)"
         >
           <span class="truncate">{{ pl.name }}</span>
-          <span class="text-xs text-zinc-500 shrink-0 ml-3">{{ pl.trackCount }} tracks</span>
+          <span class="text-xs text-zinc-500 shrink-0 ml-3">{{ pl.trackCount }} {{ pl.trackCount === 1 ? 'track' : 'tracks' }}</span>
         </button>
       </div>
 

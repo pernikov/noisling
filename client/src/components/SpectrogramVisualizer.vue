@@ -906,7 +906,7 @@ onUnmounted(() => {
           <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
           </svg>
-          <span class="flex-1">Shuffle on new song</span>
+          <span class="flex-1">Shuffle on new track</span>
           <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="randomizeOnNewSong ? 'opacity-100' : 'opacity-0'" />
         </button>
       </div>
