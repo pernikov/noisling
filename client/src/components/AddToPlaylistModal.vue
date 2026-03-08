@@ -1,6 +1,6 @@
 <script setup>
-import { ref, onMounted } from 'vue';
-import { mdiPlaylistMusic } from '@mdi/js';
+import { ref, onMounted, nextTick } from 'vue';
+import { mdiPlaylistMusic, mdiPlus } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
@@ -14,10 +14,14 @@ const props = defineProps({
 const emit = defineEmits(['close', 'added']);
 
 const api = useApi();
-const { showCoverArt } = useTheme();
+const { showCoverArt, accentColor } = useTheme();
 const playlists = ref([]);
 const loading = ref(true);
 const adding = ref(null); // playlist._id currently being added
+
+const creating = ref(false);
+const newName = ref('');
+const nameInput = ref(null);
 
 onMounted(async () => {
   try {
@@ -34,6 +38,24 @@ async function addTo(playlist) {
     emit('close');
   } catch {
     emit('added', null); // signal failure
+    emit('close');
+  }
+}
+
+async function startCreating() {
+  creating.value = true;
+  await nextTick();
+  nameInput.value?.focus();
+}
+
+async function confirmCreate() {
+  const name = newName.value.trim();
+  if (!name) return;
+  try {
+    const playlist = await api.createPlaylist({ name });
+    await addTo(playlist);
+  } catch {
+    emit('added', null);
     emit('close');
   }
 }
@@ -77,11 +99,33 @@ async function addTo(playlist) {
         </button>
       </div>
 
-      <div class="px-5 py-3 border-t border-zinc-800">
+      <div class="border-t border-zinc-800">
+        <div v-if="creating" class="flex items-center gap-2 px-5 py-3">
+          <input
+            ref="nameInput"
+            v-model="newName"
+            type="text"
+            placeholder="Playlist name"
+            class="flex-1 px-3 py-1.5 text-sm rounded-lg bg-zinc-800 border border-zinc-700 focus:outline-none focus:border-zinc-500 placeholder-zinc-600"
+            @keydown.enter="confirmCreate"
+            @keydown.esc="creating = false"
+          />
+          <button
+            :disabled="!newName.trim()"
+            @click="confirmCreate"
+            :class="`bg-${accentColor}-500 hover:bg-${accentColor}-400`"
+            class="px-3 py-1.5 text-sm rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+          >Create</button>
+          <button @click="creating = false" class="text-xs text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">Cancel</button>
+        </div>
         <button
-          @click="emit('close')"
-          class="w-full px-4 py-2 text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-        >Cancel</button>
+          v-else
+          @click="startCreating"
+          class="flex items-center gap-3 w-full px-5 py-3 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors rounded-b-xl"
+        >
+          <Icon :path="mdiPlus" class="w-4 h-4 shrink-0" />
+          New playlist
+        </button>
       </div>
     </div>
   </BaseModal>
