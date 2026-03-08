@@ -29,7 +29,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
         :class="align === 'top' ? 'items-start pt-16 justify-center' : 'items-center justify-center'"
         @click.self="$emit('close')"
       >
-        <div class="modal-content w-full flex justify-center" :class="{ 'modal-content--top': align === 'top' }">
+        <div class="modal-content w-full flex justify-center" :class="{ 'modal-content--top': align === 'top' }" @click.self="$emit('close')">
           <slot />
         </div>
       </div>
