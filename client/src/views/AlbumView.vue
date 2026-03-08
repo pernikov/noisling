@@ -4,16 +4,18 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useTheme } from '../composables/useTheme.js';
+import { usePlayer } from '../composables/usePlayer.js';
 import CoverArt from '../components/CoverArt.vue';
 import TrackList from '../components/TrackList.vue';
 import NotFoundPage from '../components/NotFoundPage.vue';
 import Spinner from '../components/Spinner.vue';
 import BaseModal from '../components/BaseModal.vue';
 import Icon from '../components/Icon.vue';
-import { mdiMagnifyPlus } from '@mdi/js';
+import { mdiMagnifyPlus, mdiPlay, mdiShuffle } from '@mdi/js';
 
 const api = useApi();
 const { wideLayout } = useTheme();
+const { playAlbum } = usePlayer();
 const route = useRoute();
 const router = useRouter();
 const coverSize = computed(() =>
@@ -58,6 +60,15 @@ useLibraryEvents(load);
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60);
   return `${m} min`;
+}
+
+function playAll() {
+  if (tracks.value.length) playAlbum(tracks.value, 0);
+}
+
+function playShuffle() {
+  if (!tracks.value.length) return;
+  playAlbum(tracks.value, Math.floor(Math.random() * tracks.value.length));
 }
 </script>
 
@@ -107,10 +118,10 @@ function formatDuration(seconds) {
           </div>
         </button>
         <CoverArt v-else :cover="''" :size="coverSize" />
-        <div>
+        <div class="min-w-0 flex-1">
           <div class="text-xs uppercase text-zinc-500 mb-1">Album</div>
           <h1 class="text-2xl sm:text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
-          <div class="text-zinc-400">
+          <div class="text-zinc-400 mb-4">
             <template v-for="(artist, ai) in albumInfo.artists" :key="ai">
               <span v-if="ai > 0">, </span>
               <router-link
@@ -123,10 +134,28 @@ function formatDuration(seconds) {
               &middot; {{ albumInfo.trackCount }} tracks &middot; {{ formatDuration(albumInfo.duration) }}
             </span>
           </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="playAll"
+              :disabled="!tracks.length"
+              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+            >
+              <Icon :path="mdiPlay" class="w-4 h-4" />
+              Play all
+            </button>
+            <button
+              @click="playShuffle"
+              :disabled="!tracks.length"
+              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
+            >
+              <Icon :path="mdiShuffle" class="w-4 h-4" />
+              Shuffle
+            </button>
+          </div>
         </div>
       </div>
 
-      <TrackList :tracks="tracks" :use-track-number="true" />
+      <TrackList :tracks="tracks" :use-track-number="true" hide-controls />
     </template>
     </template>
 

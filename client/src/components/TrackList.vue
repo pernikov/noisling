@@ -1,13 +1,14 @@
 <script setup>
 import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiPlaylistMinus, mdiCheck, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { useApi } from '../composables/useApi.js';
 import CoverArt from './CoverArt.vue';
+import AddToPlaylistModal from './AddToPlaylistModal.vue';
 
 const router = useRouter();
 const api = useApi();
@@ -26,9 +27,10 @@ const props = defineProps({
   sortable: { type: Boolean, default: false },
   sortBy: { type: String, default: '' },
   sortDir: { type: String, default: 'asc' },
+  playlistId: { type: String, default: null }, // if set, shows "Remove from playlist" in menu
 });
 
-const emit = defineEmits(['love-toggled', 'sort']);
+const emit = defineEmits(['love-toggled', 'sort', 'remove-from-playlist']);
 
 function handleSort(field) {
   if (props.sortBy === field && props.sortDir === 'desc') {
@@ -100,7 +102,7 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
 }
-const { accentColor, density, showCoverArt, lovedUseAccent } = useTheme();
+const { accentColor, density, showCoverArt, lovedUseAccent, showPlaylists } = useTheme();
 const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
 const { accentColor: albumAccentColor } = useAccentColor();
 const toastStyle = computed(() => {
@@ -208,6 +210,19 @@ function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;
 }
 
+// Add to playlist modal
+const addToPlaylistTrack = ref(null);
+
+function openAddToPlaylist() {
+  addToPlaylistTrack.value = menuTrack.value;
+  closeMenu();
+}
+
+function onPlaylistAdded(playlistName) {
+  if (playlistName) showToast(`Added to "${playlistName}"`);
+  else showToast('Failed to add to playlist');
+}
+
 defineExpose({ playAll, playShuffle });
 </script>
 
@@ -216,17 +231,17 @@ defineExpose({ playAll, playShuffle });
     <!-- Play all / Shuffle buttons -->
     <div v-if="!hideControls" class="flex items-center gap-2 mb-3 justify-end">
       <button
-        class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
+        class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
         @click="playAll"
       >
-        <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
+        <Icon :path="mdiPlay" class="w-4 h-4" />
         Play All
       </button>
       <button
-        class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
+        class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
         @click="playShuffle"
       >
-        <Icon :path="mdiShuffle" class="w-3.5 h-3.5" />
+        <Icon :path="mdiShuffle" class="w-4 h-4" />
         Shuffle
       </button>
     </div>
@@ -408,6 +423,24 @@ defineExpose({ playAll, playShuffle });
           <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
           Add to queue
         </button>
+        <!-- Add to playlist -->
+        <button
+          v-if="showPlaylists"
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          @click="openAddToPlaylist"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
+          Add to playlist
+        </button>
+        <!-- Remove from playlist (only when inside a playlist view) -->
+        <button
+          v-if="playlistId"
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 transition-colors"
+          @click="emit('remove-from-playlist', menuTrack._id); closeMenu()"
+        >
+          <Icon :path="mdiPlaylistMinus" class="w-4 h-4" />
+          Remove from playlist
+        </button>
       </div>
     </Transition>
 
@@ -421,6 +454,13 @@ defineExpose({ playAll, playShuffle });
         {{ toastMessage }}
       </div>
     </Transition>
+
+    <AddToPlaylistModal
+      v-if="addToPlaylistTrack"
+      :track="addToPlaylistTrack"
+      @close="addToPlaylistTrack = null"
+      @added="onPlaylistAdded"
+    />
   </Teleport>
 </template>
 

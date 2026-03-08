@@ -178,6 +178,8 @@ function goToAlbum(album) {
             </Transition>
           </div>
         </button>
+
+
       </div>
     </section>
 

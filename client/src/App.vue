@@ -16,7 +16,7 @@ import { useUpdateCheck } from "./composables/useUpdateCheck.js";
 import GlobalSearch from "./components/GlobalSearch.vue";
 import UpdateModal from "./components/UpdateModal.vue";
 
-const { loadTheme, showArtistsNav, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
+const { loadTheme, showArtistsNav, showPlaylists, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
 loadTheme();
 
 const { loadPlayerPrefs } = usePlayer();
@@ -94,7 +94,7 @@ watch(
         class="mx-auto px-4 flex items-center justify-between h-14"
         :class="wideLayout ? 'w-full' : 'max-w-6xl'"
       >
-        <div class="flex items-center gap-6">
+        <div class="flex items-center gap-3 sm:gap-6">
           <router-link
             to="/"
             class="flex items-center gap-2 text-lg font-bold tracking-tight"
@@ -106,7 +106,7 @@ watch(
             />
             Noisling
           </router-link>
-          <div class="flex gap-4 text-sm">
+          <div class="flex gap-2 sm:gap-4 text-sm">
             <router-link
               to="/songs"
               class="text-zinc-400 hover:text-zinc-100 transition-colors"
@@ -121,6 +121,14 @@ watch(
               active-class="!text-zinc-100"
             >
               Artists
+            </router-link>
+            <router-link
+              v-if="showPlaylists"
+              to="/playlists"
+              class="text-zinc-400 hover:text-zinc-100 transition-colors"
+              active-class="!text-zinc-100"
+            >
+              Playlists
             </router-link>
           </div>
         </div>
@@ -139,7 +147,7 @@ watch(
           </button>
           <GlobalSearch />
           <button
-            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
+            class="hidden sm:flex text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
             :class="{ '!text-zinc-100': playerState.showShortcuts }"
             @click="toggleShortcuts"
             aria-label="Keyboard shortcuts"

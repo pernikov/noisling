@@ -23,6 +23,7 @@ const settingsSchema = new mongoose.Schema({
   vizMode:            { type: String, enum: ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bubbles'], default: 'spiral' },
   showBubbles:        { type: Boolean, default: true },
   randomizeOnNewSong: { type: Boolean, default: false },
+  showPlaylists:      { type: Boolean, default: true },
 }, { collection: 'settings' });
 
 export default mongoose.model('Settings', settingsSchema);

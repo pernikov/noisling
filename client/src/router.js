@@ -8,6 +8,8 @@ const routes = [
   { path: '/songs', name: 'songs', component: () => import('./views/SongsView.vue') },
   { path: '/recent', name: 'recent', component: () => import('./views/RecentView.vue') },
   { path: '/stats', redirect: { name: 'settings', query: { tab: 'stats' } } },
+  { path: '/playlists', name: 'playlists', component: () => import('./views/PlaylistsView.vue') },
+  { path: '/playlists/:id', name: 'playlist', component: () => import('./views/PlaylistView.vue') },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
   { path: '/:pathMatch(.*)*', name: 'not-found', component: () => import('./views/NotFoundView.vue') },
 ];

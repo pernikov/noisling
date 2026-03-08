@@ -33,8 +33,9 @@ const {
   songsColumns, setSongsColumn,
   showArtistsNav, wideLayout,
   homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
+  showPlaylists,
   setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
-  setShowArtistsNav, setWideLayout, setHomeSection,
+  setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists,
 } = useTheme();
 
 const VALID_TABS = ['library', 'appearance', 'stats'];
@@ -379,6 +380,28 @@ onUnmounted(() => {
             <span
               class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
               :class="showArtistsNav ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Playlists nav link -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Playlists</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Show the Playlists link in the navigation bar.</p>
+          </div>
+          <button
+            @click="setShowPlaylists(!showPlaylists)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="showPlaylists ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="showPlaylists"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="showPlaylists ? 'translate-x-5' : 'translate-x-0'"
             />
           </button>
         </div>

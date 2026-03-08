@@ -80,17 +80,17 @@ function formatDuration(seconds) {
         <h1 class="text-2xl font-bold font-display">{{ artistName }}</h1>
         <div class="flex items-center gap-2">
           <button
-            class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
+            class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
             @click="playAll"
           >
-            <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
+            <Icon :path="mdiPlay" class="w-4 h-4" />
             Play All
           </button>
           <button
-            class="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 transition-colors"
+            class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
             @click="playShuffle"
           >
-            <Icon :path="mdiShuffle" class="w-3.5 h-3.5" />
+            <Icon :path="mdiShuffle" class="w-4 h-4" />
             Shuffle
           </button>
         </div>

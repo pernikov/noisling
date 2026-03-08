@@ -47,11 +47,12 @@ const SONGS_SORT_KEY = 'noisling_songs_sort';
 const LOVED_ACCENT_KEY = 'noisling_loved_accent';
 
 // Layout visibility keys
-const ARTISTS_NAV_KEY = 'noisling_artists_nav';
-const HOME_QUICK_KEY  = 'noisling_home_quick';
-const HOME_RECENT_KEY = 'noisling_home_recent';
-const HOME_ALBUMS_KEY = 'noisling_home_albums';
-const WIDE_LAYOUT_KEY = 'noisling_wide_layout';
+const ARTISTS_NAV_KEY  = 'noisling_artists_nav';
+const HOME_QUICK_KEY   = 'noisling_home_quick';
+const HOME_RECENT_KEY  = 'noisling_home_recent';
+const HOME_ALBUMS_KEY  = 'noisling_home_albums';
+const WIDE_LAYOUT_KEY  = 'noisling_wide_layout';
+const PLAYLISTS_KEY    = 'noisling_playlists';
 
 // Visualizer keys
 const VIZ_MODE_KEY  = 'noisling_vizmode';
@@ -107,6 +108,7 @@ function storedBool(key, defaultVal = true) {
 
 const lovedUseAccent    = ref(storedBool(LOVED_ACCENT_KEY, false));
 const showArtistsNav    = ref(storedBool(ARTISTS_NAV_KEY));
+const showPlaylists     = ref(storedBool(PLAYLISTS_KEY, true));
 const wideLayout        = ref(storedBool(WIDE_LAYOUT_KEY, false));
 const homeShowQuickPlay = ref(storedBool(HOME_QUICK_KEY));
 const homeShowRecent    = ref(storedBool(HOME_RECENT_KEY));
@@ -239,6 +241,10 @@ export function useTheme() {
       if (typeof data.randomizeOnNewSong === 'boolean') {
         randomizeOnNewSong.value = data.randomizeOnNewSong;
         localStorage.setItem(RANDOMIZE_KEY, String(data.randomizeOnNewSong));
+      }
+      if (typeof data.showPlaylists === 'boolean') {
+        showPlaylists.value = data.showPlaylists;
+        localStorage.setItem(PLAYLISTS_KEY, String(data.showPlaylists));
       }
     } catch {
       // fall back to localStorage values already applied above
@@ -462,6 +468,20 @@ export function useTheme() {
     );
   }
 
+  async function setShowPlaylists(value) {
+    const prev = showPlaylists.value;
+    showPlaylists.value = Boolean(value);
+    localStorage.setItem(PLAYLISTS_KEY, String(showPlaylists.value));
+    await saveOrRollback(
+      { showPlaylists: showPlaylists.value },
+      () => {
+        showPlaylists.value = prev;
+        localStorage.setItem(PLAYLISTS_KEY, String(prev));
+      },
+      'Failed to save playlists visibility setting.'
+    );
+  }
+
   return {
     accentColor, accentRgb, accentDarkRgb,
     themeColor, themeBgRgb, themeBgDarkRgb, VALID_COLORS, VALID_THEME_COLORS,
@@ -474,11 +494,13 @@ export function useTheme() {
     wideLayout,
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
     vizMode, showBubbles, randomizeOnNewSong, VALID_VIZ_MODES,
+    showPlaylists,
     loadTheme, setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
     setSongsColumn, setSongsSort,
     setShowArtistsNav, setWideLayout,
     setVizMode, setShowBubbles, setRandomizeOnNewSong,
+    setShowPlaylists,
     setHomeSection: (key, value) => {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);
       if (key === 'recent')    _setHomeSection(homeShowRecent,    HOME_RECENT_KEY, 'homeShowRecent', value);

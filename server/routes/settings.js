@@ -40,6 +40,7 @@ function buildResponse(s) {
     vizMode:            s.vizMode            ?? 'spiral',
     showBubbles:        s.showBubbles        ?? true,
     randomizeOnNewSong: s.randomizeOnNewSong ?? false,
+    showPlaylists:      s.showPlaylists      ?? true,
   };
 }
 
@@ -57,7 +58,7 @@ router.patch('/settings', async (req, res) => {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, songsColumns, songsSort,
     lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
-    vizMode, showBubbles, randomizeOnNewSong,
+    vizMode, showBubbles, randomizeOnNewSong, showPlaylists,
   } = req.body;
   const update = {};
 
@@ -131,6 +132,9 @@ router.patch('/settings', async (req, res) => {
   }
   if (randomizeOnNewSong !== undefined) {
     update.randomizeOnNewSong = Boolean(randomizeOnNewSong);
+  }
+  if (showPlaylists !== undefined) {
+    update.showPlaylists = Boolean(showPlaylists);
   }
 
   if (!Object.keys(update).length) return res.status(400).json({ error: 'No valid fields' });
