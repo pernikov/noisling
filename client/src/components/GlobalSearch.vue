@@ -1,18 +1,19 @@
 <script setup>
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiMagnify, mdiClose, mdiDotsVertical, mdiPlaylistPlay, mdiPlaylistPlus, mdiCheck } from '@mdi/js';
+import { mdiMagnify, mdiClose, mdiDotsVertical, mdiCheck } from '@mdi/js';
 import Icon from './Icon.vue';
 import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
 import ArtistCover from './ArtistCover.vue';
+import TrackContextMenu from './TrackContextMenu.vue';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 
 const router = useRouter();
 const api = useApi();
-const { playAlbum, playNext, addToQueue } = usePlayer();
+const { playAlbum } = usePlayer();
 const { showCoverArt, density, songsColumns } = useTheme();
 
 // Track context menu
@@ -57,17 +58,6 @@ function showToast(msg) {
   toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
 }
 
-function onMenuPlayNext() {
-  playNext(menuTrack.value);
-  showToast('Playing next');
-  closeTrackMenu();
-}
-
-function onMenuAddToQueue() {
-  addToQueue(menuTrack.value);
-  showToast('Added to queue');
-  closeTrackMenu();
-}
 
 const open = ref(false);
 const query = ref('');
@@ -332,34 +322,17 @@ function formatDuration(seconds) {
         </div>
   </BaseModal>
 
-  <!-- Track context menu -->
-  <Teleport to="body">
-    <div v-if="menuTrack" class="fixed inset-0 z-40" @click="closeTrackMenu" />
-    <Transition name="menu">
-      <div
-        v-if="menuTrack"
-        class="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
-        :style="menuStyle"
-        @mouseenter="cancelCloseTrackMenu"
-        @mouseleave="closeTrackMenu"
-      >
-        <button
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
-          @click="onMenuPlayNext"
-        >
-          <Icon :path="mdiPlaylistPlay" class="w-4 h-4 text-zinc-400" />
-          Play next
-        </button>
-        <button
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
-          @click="onMenuAddToQueue"
-        >
-          <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
-          Add to queue
-        </button>
-      </div>
-    </Transition>
+  <TrackContextMenu
+    :track="menuTrack"
+    :style="menuStyle"
+    show-backdrop
+    @close="closeTrackMenu"
+    @cancel-close="cancelCloseTrackMenu"
+    @toast="showToast"
+  />
 
+  <!-- Toast -->
+  <Teleport to="body">
     <Transition name="menu">
       <div
         v-if="toastVisible"
