@@ -43,12 +43,10 @@ const groups = [
     <Transition name="shortcuts">
       <div
         v-if="playerState.showShortcuts"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/80 backdrop-blur-sm"
         @click.self="toggleShortcuts"
       >
-        <div class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" @click="toggleShortcuts" />
-
-        <div class="shortcuts-card relative bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        <div class="shortcuts-card bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
           <div class="flex items-center justify-between mb-5">
             <h2 class="font-display font-bold text-lg">Keyboard Shortcuts</h2>
             <button
@@ -96,7 +94,7 @@ const groups = [
 }
 .shortcuts-enter-active .shortcuts-card,
 .shortcuts-leave-active .shortcuts-card {
-  transition: transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .shortcuts-enter-from,
 .shortcuts-leave-to {
@@ -104,6 +102,7 @@ const groups = [
 }
 .shortcuts-enter-from .shortcuts-card,
 .shortcuts-leave-to .shortcuts-card {
+  opacity: 0;
   transform: scale(0.96) translateY(6px);
 }
 </style>

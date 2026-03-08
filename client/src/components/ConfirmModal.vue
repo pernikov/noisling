@@ -14,9 +14,8 @@ defineEmits(['confirm', 'cancel']);
 <template>
   <Teleport to="body">
     <Transition name="confirm">
-      <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center">
-        <div class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" @click="$emit('cancel')" />
-        <div class="confirm-card relative bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-sm w-full mx-4 p-5">
+      <div v-if="open" class="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm" @click.self="$emit('cancel')">
+        <div class="confirm-card bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl max-w-sm w-full mx-4 p-5">
           <h3 class="text-lg font-semibold mb-2">{{ title }}</h3>
           <p class="text-sm text-zinc-400 mb-5">{{ message }}</p>
           <div class="flex justify-end gap-3">
@@ -50,7 +49,7 @@ defineEmits(['confirm', 'cancel']);
 }
 .confirm-enter-active .confirm-card,
 .confirm-leave-active .confirm-card {
-  transition: transform 0.2s ease;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
 .confirm-enter-from,
 .confirm-leave-to {
@@ -58,6 +57,7 @@ defineEmits(['confirm', 'cancel']);
 }
 .confirm-enter-from .confirm-card,
 .confirm-leave-to .confirm-card {
+  opacity: 0;
   transform: scale(0.96) translateY(6px);
 }
 </style>
