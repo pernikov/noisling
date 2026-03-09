@@ -150,15 +150,17 @@ async function deletePlaylist() {
           v-if="showCoverArt"
           class="shrink-0 w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto rounded-xl overflow-hidden bg-zinc-800"
         >
-          <div
+          <TransitionGroup
             v-if="mosaicCovers.length"
+            tag="div"
+            name="mosaic"
             class="w-full h-full grid"
             :style="mosaicStyle"
           >
-            <div v-for="(cover, i) in mosaicCells" :key="i" class="overflow-hidden bg-zinc-700">
-              <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" alt="" />
+            <div v-for="cover in mosaicCells" :key="cover" class="overflow-hidden bg-zinc-700">
+              <img :src="api.coverUrl(cover)" class="w-full h-full object-cover" alt="" />
             </div>
-          </div>
+          </TransitionGroup>
           <div v-else class="w-full h-full flex items-center justify-center">
             <Icon :path="mdiPlaylistMusic" class="w-14 h-14 text-zinc-600" />
           </div>
@@ -266,3 +268,17 @@ async function deletePlaylist() {
     />
   </div>
 </template>
+
+<style scoped>
+.mosaic-move {
+  transition: transform 0.4s ease;
+}
+.mosaic-enter-active,
+.mosaic-leave-active {
+  transition: opacity 0.3s ease;
+}
+.mosaic-enter-from,
+.mosaic-leave-to {
+  opacity: 0;
+}
+</style>
