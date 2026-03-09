@@ -5,6 +5,7 @@ import { mdiPlay, mdiShuffle, mdiTrashCan, mdiPencil, mdiPlaylistMusic } from '@
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { useMosaic } from '../composables/useMosaic.js';
 import TrackList from '../components/TrackList.vue';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
@@ -17,7 +18,9 @@ const api = useApi();
 const { playAlbum, state: playerState } = usePlayer();
 const { tracksColumns, showCoverArt } = useTheme();
 
-// Unique covers from loaded tracks, up to 9
+const playlist = ref(null);
+const tracks = ref([]);
+
 const mosaicCovers = computed(() => {
   const seen = new Set();
   const result = [];
@@ -25,31 +28,12 @@ const mosaicCovers = computed(() => {
     if (t.cover && !seen.has(t.cover)) {
       seen.add(t.cover);
       result.push(t.cover);
-      if (result.length === 9) break;
     }
   }
   return result;
 });
 
-// Grid columns: 1 cover → 1×1, 2–4 → 2×2, 5+ → 3×3
-const mosaicCols = computed(() => {
-  const n = mosaicCovers.value.length;
-  if (n >= 9) return 3;
-  if (n >= 4) return 2;
-  return 1;
-});
-
-const mosaicCells = computed(() => {
-  const cols = mosaicCols.value;
-  const total = cols * cols;
-  const covers = mosaicCovers.value.slice(0, total);
-  // Pad with nulls so the grid is always full
-  while (covers.length < total) covers.push(null);
-  return covers;
-});
-
-const playlist = ref(null);
-const tracks = ref([]);
+const { mosaicCells, mosaicStyle } = useMosaic(mosaicCovers);
 const loading = ref(true);
 const confirm = ref(null);
 
@@ -158,11 +142,7 @@ async function deletePlaylist() {
           <div
             v-if="mosaicCovers.length"
             class="w-full h-full grid"
-            :class="{
-              'grid-cols-1 grid-rows-1': mosaicCols === 1,
-              'grid-cols-2 grid-rows-2': mosaicCols === 2,
-              'grid-cols-3 grid-rows-3': mosaicCols === 3,
-            }"
+            :style="mosaicStyle"
           >
             <div v-for="(cover, i) in mosaicCells" :key="i" class="overflow-hidden bg-zinc-700">
               <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" alt="" />

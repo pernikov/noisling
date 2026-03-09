@@ -5,6 +5,7 @@ import { mdiPlus, mdiPlaylistMusic, mdiPlay } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { mosaicFromCovers } from '../composables/useMosaic.js';
 import Icon from '../components/Icon.vue';
 import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 
@@ -48,13 +49,6 @@ function onCreated(playlist) {
   router.push({ name: 'playlist', params: { id: playlist._id } });
 }
 
-function mosaicCells(covers) {
-  const cols = covers.length >= 9 ? 3 : covers.length >= 4 ? 2 : 1;
-  const total = cols * cols;
-  const cells = covers.slice(0, total);
-  while (cells.length < total) cells.push(null);
-  return { cols, cells };
-}
 </script>
 
 <template>
@@ -105,18 +99,14 @@ function mosaicCells(covers) {
       >
         <!-- Cover art collage / fallback -->
         <div class="aspect-square relative overflow-hidden bg-zinc-800">
-          <!-- Cover mosaic: 1×1 / 2×2 / 3×3 -->
+          <!-- Cover mosaic -->
           <template v-if="showCoverArt && playlist.covers?.length">
             <div
               class="w-full h-full grid"
-              :class="{
-                'grid-cols-1 grid-rows-1': mosaicCells(playlist.covers).cols === 1,
-                'grid-cols-2 grid-rows-2': mosaicCells(playlist.covers).cols === 2,
-                'grid-cols-3 grid-rows-3': mosaicCells(playlist.covers).cols === 3,
-              }"
+              :style="mosaicFromCovers(playlist.covers).style"
             >
               <div
-                v-for="(cover, i) in mosaicCells(playlist.covers).cells"
+                v-for="(cover, i) in mosaicFromCovers(playlist.covers).cells"
                 :key="i"
                 class="overflow-hidden bg-zinc-700"
               >
