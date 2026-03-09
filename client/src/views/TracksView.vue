@@ -138,7 +138,7 @@ function prevPage() {
     <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiMusicNote" class="w-8 h-8 text-zinc-600" />
       <p class="text-sm font-medium text-zinc-400">No tracks yet</p>
-      <p class="text-xs text-zinc-600">Scan your library in Settings to get started.</p>
+      <p class="text-xs text-zinc-600"><router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.</p>
     </div>
 
     <template v-else>

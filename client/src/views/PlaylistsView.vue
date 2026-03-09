@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiPlus, mdiPlaylistMusic, mdiPlay } from '@mdi/js';
+import { mdiPlus, mdiPlaylistMusic, mdiPlay, mdiShuffle } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -41,6 +41,19 @@ async function playPlaylist(playlist, event) {
     if (data.tracks?.length) playAlbum(data.tracks, 0);
   } catch (err) {
     console.error('Failed to play playlist:', err);
+  }
+}
+
+async function shufflePlaylist(playlist, event) {
+  event.stopPropagation();
+  try {
+    const data = await api.getPlaylist(playlist._id);
+    if (data.tracks?.length) {
+      const idx = Math.floor(Math.random() * data.tracks.length);
+      playAlbum(data.tracks, idx);
+    }
+  } catch (err) {
+    console.error('Failed to shuffle playlist:', err);
   }
 }
 
@@ -121,14 +134,26 @@ function onCreated(playlist) {
             </div>
           </template>
 
-          <!-- Play button overlay -->
-          <button
-            @click.stop="playPlaylist(playlist, $event)"
-            class="absolute bottom-2 right-2 flex items-center justify-center w-10 h-10 rounded-full bg-black/70 backdrop-blur-sm opacity-0 group-hover:opacity-100 translate-y-1 group-hover:translate-y-0 transition-all duration-200 hover:bg-black/90"
-            title="Play"
-          >
-            <Icon :path="mdiPlay" class="w-4 h-4" />
-          </button>
+          <!-- Dim overlay on hover -->
+          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-200" />
+
+          <!-- Play/Shuffle button overlay -->
+          <div class="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-200">
+            <button
+              @click.stop="shufflePlaylist(playlist, $event)"
+              class="flex items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-white/90 hover:scale-110 active:scale-95 transition-all duration-150 text-zinc-900 shadow-lg"
+              title="Shuffle"
+            >
+              <Icon :path="mdiShuffle" class="w-6 h-6" />
+            </button>
+            <button
+              @click.stop="playPlaylist(playlist, $event)"
+              class="flex items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-white/90 hover:scale-110 active:scale-95 transition-all duration-150 text-zinc-900 shadow-lg"
+              title="Play"
+            >
+              <Icon :path="mdiPlay" class="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
         <!-- Info -->

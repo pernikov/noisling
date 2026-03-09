@@ -47,6 +47,7 @@ export function useApi() {
     getLovedTracks: () => request('/tracks/loved'),
     toggleLove: (id) => request(`/tracks/${id}/love`, { method: 'PATCH' }),
     getTrack: (id) => request(`/tracks/${id}`),
+    getScanStatus: () => request('/scan'),
     scanLibrary: () => request('/scan', { method: 'POST' }),
     deleteLibrary: () => request('/library', { method: 'DELETE' }),
     globalSearch: (q, limit = 5) => {

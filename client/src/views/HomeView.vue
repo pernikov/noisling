@@ -235,7 +235,7 @@ function goToAlbum(album) {
         <Icon :path="mdiAlbum" class="w-8 h-8 text-zinc-600" />
         <p class="text-sm font-medium text-zinc-400">No albums yet</p>
         <p class="text-xs text-zinc-600">
-          <router-link to="/settings" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
+          <router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
         </p>
       </div>
 

@@ -14,6 +14,7 @@ import {
   mdiViewAgenda,
   mdiViewHeadline,
   mdiClose,
+  mdiChevronDown,
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
@@ -40,8 +41,8 @@ const {
   setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists,
 } = useTheme();
 
-const VALID_TABS = ['library', 'appearance', 'stats'];
-const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'library');
+const VALID_TABS = ['appearance', 'library', 'stats'];
+const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'appearance');
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
@@ -85,6 +86,13 @@ function listenForProgress() {
       scanPercent.value = null;
       scanProgress.value = null;
       scanPhase.value = null;
+    }
+  });
+  eventSource.addEventListener('library-updated', (e) => {
+    if (scanning.value) {
+      const data = JSON.parse(e.data);
+      if (!data.cleared) scanResult.value = data;
+      scanning.value = false;
     }
   });
 }
@@ -144,6 +152,9 @@ const stats = ref(null);
 const statsLoading = ref(false);
 const statsLoaded = ref(false);
 
+const statsOpen = ref({ overview: true, topTracks: false, topArtists: false, topAlbums: false });
+function toggleStats(key) { statsOpen.value[key] = !statsOpen.value[key]; }
+
 async function loadStats() {
   if (statsLoaded.value) return;
   statsLoading.value = true;
@@ -177,8 +188,12 @@ function formatSize(bytes) {
   return `${mb.toFixed(0)} MB`;
 }
 
-onMounted(() => {
+onMounted(async () => {
   listenForProgress();
+  try {
+    const { scanning: inProgress } = await api.getScanStatus();
+    if (inProgress) scanning.value = true;
+  } catch {}
 });
 
 onUnmounted(() => {
@@ -194,20 +209,20 @@ onUnmounted(() => {
     <!-- Segmented Nav -->
     <div class="inline-flex p-1 mb-8 bg-zinc-900 rounded-xl border border-zinc-800">
       <button
-        @click="activeTab = 'library'"
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-        :class="activeTab === 'library' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-      >
-        <Icon :path="mdiFolderOpen" class="w-4 h-4" />
-        Library
-      </button>
-      <button
         @click="activeTab = 'appearance'"
         class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
         :class="activeTab === 'appearance' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
       >
         <Icon :path="mdiPalette" class="w-4 h-4" />
         Appearance
+      </button>
+      <button
+        @click="activeTab = 'library'"
+        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+        :class="activeTab === 'library' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
+      >
+        <Icon :path="mdiFolderOpen" class="w-4 h-4" />
+        Library
       </button>
       <button
         @click="activeTab = 'stats'"
@@ -221,10 +236,11 @@ onUnmounted(() => {
 
     <!-- Appearance tab -->
     <div v-if="activeTab === 'appearance'" class="space-y-6">
+      <!-- Colors section -->
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
         <div>
-          <p class="text-sm font-medium text-zinc-200">Theme</p>
-          <p class="text-xs text-zinc-500 mt-1">Colors, sizing, and global display options.</p>
+          <p class="text-sm font-medium text-zinc-200">Colors</p>
+          <p class="text-xs text-zinc-500 mt-1">Accent, background, and highlight color options.</p>
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -278,6 +294,36 @@ onUnmounted(() => {
 
         <div class="border-t border-zinc-800" />
 
+        <!-- Loved color -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Loved track color</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Always rose/pink, or follow the accent color.</p>
+          </div>
+          <button
+            @click="setLovedUseAccent(!lovedUseAccent)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="lovedUseAccent ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="lovedUseAccent"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="lovedUseAccent ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+      </section>
+
+      <!-- Display section -->
+      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
+        <div>
+          <p class="text-sm font-medium text-zinc-200">Display</p>
+          <p class="text-xs text-zinc-500 mt-1">Density, scale, and text sizing.</p>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
         <!-- Density -->
         <div>
           <p class="text-sm font-medium text-zinc-200 mb-1">List density</p>
@@ -320,28 +366,6 @@ onUnmounted(() => {
             </button>
           </div>
         </div>
-
-        <div class="border-t border-zinc-800" />
-
-        <!-- Loved color -->
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-zinc-200">Loved track color</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Always rose/pink, or follow the accent color.</p>
-          </div>
-          <button
-            @click="setLovedUseAccent(!lovedUseAccent)"
-            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-            :class="lovedUseAccent ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-            role="switch"
-            :aria-checked="lovedUseAccent"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-              :class="lovedUseAccent ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
       </section>
 
       <!-- Layout section -->
@@ -379,7 +403,7 @@ onUnmounted(() => {
         <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium text-zinc-200">Artists in navigation</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Show the Artists link in the top nav bar.</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Show the Artists link in the navigation bar.</p>
           </div>
           <button
             @click="setShowArtistsNav(!showArtistsNav)"
@@ -545,6 +569,10 @@ onUnmounted(() => {
 
           <!-- Scan progress -->
           <div v-if="scanning" class="bg-zinc-800/50 rounded-lg p-4 space-y-3">
+            <div v-if="!scanPhase" class="flex items-center gap-2 text-sm text-zinc-400">
+              <Spinner class="w-4 h-4 text-zinc-500" />
+              Starting scan...
+            </div>
             <div v-if="scanPhase === 'walking'" class="flex items-center gap-2 text-sm text-zinc-300">
               <Spinner class="w-4 h-4 text-zinc-400" />
               Discovering files...
@@ -571,9 +599,9 @@ onUnmounted(() => {
           <!-- Scan result: success -->
           <div v-if="scanResult && !scanResult.error"
             class="rounded-lg px-4 py-3 space-y-1"
-            :style="{ backgroundColor: `rgba(${accentRgb}, 0.1)` }"
+            style="background-color: rgba(16, 185, 129, 0.1)"
           >
-            <div class="flex items-center gap-2 text-sm" :class="`text-${accentColor}-400`">
+            <div class="flex items-center gap-2 text-sm text-emerald-400">
               <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
               Scan complete
             </div>
@@ -637,9 +665,8 @@ onUnmounted(() => {
 
           <!-- Delete result: success -->
           <div v-if="deleteResult && !deleteResult.error"
-            class="flex items-center gap-2 text-sm rounded-lg px-4 py-3"
-            :class="`text-${accentColor}-400`"
-            :style="{ backgroundColor: `rgba(${accentRgb}, 0.1)` }"
+            class="flex items-center gap-2 text-sm rounded-lg px-4 py-3 text-emerald-400"
+            style="background-color: rgba(16, 185, 129, 0.1)"
           >
             <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
             Library deleted — {{ deleteResult.deletedTracks }} track{{ deleteResult.deletedTracks === 1 ? '' : 's' }} removed.
@@ -724,8 +751,12 @@ onUnmounted(() => {
 
       <template v-else-if="stats">
         <!-- Library Overview -->
-        <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Library Overview</h2>
+        <section class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+          <button class="flex items-center justify-between w-full" @click="toggleStats('overview')">
+            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Library Overview</h2>
+            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.overview ? '' : '-rotate-90'" />
+          </button>
+          <div v-show="statsOpen.overview" class="mt-4">
           <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
             <div class="bg-zinc-800/50 rounded-lg p-4">
               <div class="text-2xl font-bold font-display" :class="lovedUseAccent ? `text-${accentColor}-400` : 'text-rose-400'">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
@@ -770,17 +801,27 @@ onUnmounted(() => {
               <span class="text-xs text-zinc-500 w-12">{{ f.count }}</span>
             </div>
           </div>
+          </div>
         </section>
 
         <!-- Most Played Tracks -->
-        <section v-if="stats.topTracks.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Most Played Tracks</h2>
-          <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays hide-controls />
+        <section v-if="stats.topTracks.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+          <button class="flex items-center justify-between w-full" @click="toggleStats('topTracks')">
+            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Most Played Tracks</h2>
+            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topTracks ? '' : '-rotate-90'" />
+          </button>
+          <div v-show="statsOpen.topTracks" class="mt-4">
+            <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays hide-controls />
+          </div>
         </section>
 
         <!-- Top Artists -->
-        <section v-if="stats.topArtists.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Top Artists</h2>
+        <section v-if="stats.topArtists.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+          <button class="flex items-center justify-between w-full" @click="toggleStats('topArtists')">
+            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Artists</h2>
+            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topArtists ? '' : '-rotate-90'" />
+          </button>
+          <div v-show="statsOpen.topArtists" class="mt-4">
           <table class="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
@@ -805,11 +846,16 @@ onUnmounted(() => {
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
 
         <!-- Top Albums -->
-        <section v-if="stats.topAlbums.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
-          <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Top Albums</h2>
+        <section v-if="stats.topAlbums.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+          <button class="flex items-center justify-between w-full" @click="toggleStats('topAlbums')">
+            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Albums</h2>
+            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topAlbums ? '' : '-rotate-90'" />
+          </button>
+          <div v-show="statsOpen.topAlbums" class="mt-4">
           <table class="w-full text-sm border-separate border-spacing-0">
             <thead>
               <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
@@ -839,6 +885,7 @@ onUnmounted(() => {
               </tr>
             </tbody>
           </table>
+          </div>
         </section>
 
         <!-- Empty state -->

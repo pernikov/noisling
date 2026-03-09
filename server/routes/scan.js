@@ -11,6 +11,10 @@ const router = Router();
 
 let scanning = false;
 
+router.get('/scan', (req, res) => {
+  res.json({ scanning });
+});
+
 router.post('/scan', async (req, res) => {
   if (scanning) {
     return res.status(409).json({ error: 'Scan already in progress' });
