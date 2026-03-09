@@ -104,7 +104,7 @@ watch(
               alt="Noisling"
               class="h-7 w-7 rounded"
             />
-            Noisling
+            <span class="hidden sm:inline">Noisling</span>
           </router-link>
           <div class="flex gap-1 text-sm">
             <router-link
