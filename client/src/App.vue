@@ -66,7 +66,7 @@ watch(
   () => playerState.currentTrack,
   (track) => {
     document.title = track
-      ? `${track.title} · ${track.artists?.join(", ")} — Noisling`
+      ? `Noisling | ${track.title} · ${track.artists?.join(", ")}`
       : "Noisling";
   },
   { immediate: true },

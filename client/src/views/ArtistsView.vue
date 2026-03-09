@@ -1,39 +1,24 @@
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useToast } from '../composables/useToast.js';
 import ArtistCover from '../components/ArtistCover.vue';
-import { mdiMagnify, mdiMicrophone } from '@mdi/js';
+import { mdiMicrophone } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
 const { error: toastError } = useToast();
-const route = useRoute();
 const router = useRouter();
 const artists = ref([]);
-const search = ref(route.query.search || '');
 const loading = ref(true);
-const page = ref(Number(route.query.page) || 1);
+const page = ref(1);
 const total = ref(0);
 const limit = 60;
-let searchTimeout = null;
-const searchExpanded = ref(!!route.query.search);
-const searchInput = ref(null);
-
-function expandSearch() {
-  searchExpanded.value = true;
-  nextTick(() => searchInput.value?.focus());
-}
-
-function onSearchBlur() {
-  if (!search.value) searchExpanded.value = false;
-}
 
 function updateQuery() {
   const query = {};
-  if (search.value) query.search = search.value;
   if (page.value > 1) query.page = String(page.value);
   router.replace({ query });
 }
@@ -41,7 +26,7 @@ function updateQuery() {
 async function loadArtists() {
   loading.value = true;
   try {
-    const data = await api.getArtists(page.value, limit, search.value.trim());
+    const data = await api.getArtists(page.value, limit, '');
     artists.value = data.artists;
     total.value = data.total;
   } catch (err) {
@@ -51,15 +36,6 @@ async function loadArtists() {
     loading.value = false;
   }
 }
-
-watch(search, () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    page.value = 1;
-    updateQuery();
-    loadArtists();
-  }, 300);
-});
 
 onMounted(loadArtists);
 useLibraryEvents(loadArtists);
@@ -91,23 +67,6 @@ function goToArtist(name) {
   <div>
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold font-display">Artists</h1>
-      <div class="relative flex items-center h-8">
-        <input
-          ref="searchInput"
-          v-model="search"
-          type="text"
-          placeholder="Search artists..."
-          class="bg-zinc-800 border border-transparent rounded pr-8 py-1.5 text-sm outline-none focus:border-zinc-700 transition-all duration-200 ease-in-out"
-          :class="searchExpanded ? 'w-64 pl-3 opacity-100' : 'w-0 pl-0 opacity-0 border-transparent'"
-          @blur="onSearchBlur"
-        />
-        <button
-          class="absolute right-0 text-zinc-400 hover:text-zinc-100 h-8 w-8 flex items-center justify-center"
-          @click="expandSearch"
-        >
-          <Icon :path="mdiMagnify" class="w-5 h-5" />
-        </button>
-      </div>
     </div>
 
     <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">
@@ -120,8 +79,8 @@ function goToArtist(name) {
 
     <div v-else-if="artists.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiMicrophone" class="w-8 h-8 text-zinc-600" />
-      <p class="text-sm font-medium text-zinc-400">{{ search ? 'No artists found' : 'No artists yet' }}</p>
-      <p class="text-xs text-zinc-600">{{ search ? 'Try a different search term.' : 'Scan your library in Settings to get started.' }}</p>
+      <p class="text-sm font-medium text-zinc-400">No artists yet</p>
+      <p class="text-xs text-zinc-600">Scan your library in Settings to get started.</p>
     </div>
 
     <template v-else>

@@ -1,43 +1,28 @@
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useToast } from '../composables/useToast.js';
 import { useTheme } from '../composables/useTheme.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import TrackList from '../components/TrackList.vue';
-import { mdiMagnify, mdiMusicNote } from '@mdi/js';
+import { mdiMusicNote, mdiPlay, mdiShuffle } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
 const { tracksColumns, tracksSort, setTracksSort } = useTheme();
-const { state: playerState } = usePlayer();
+const { state: playerState, playAlbum } = usePlayer();
 const { error: toastError } = useToast();
-const route = useRoute();
 const router = useRouter();
 const allTracks = ref([]);
-const search = ref(route.query.search || '');
 const loading = ref(true);
-const page = ref(Number(route.query.page) || 1);
+const page = ref(1);
 const total = ref(0);
 const limit = 100;
-let searchTimeout = null;
-const searchExpanded = ref(!!route.query.search);
-const searchInput = ref(null);
-
-function expandSearch() {
-  searchExpanded.value = true;
-  nextTick(() => searchInput.value?.focus());
-}
-
-function onSearchBlur() {
-  if (!search.value) searchExpanded.value = false;
-}
 
 function updateQuery() {
   const query = {};
-  if (search.value) query.search = search.value;
   if (page.value > 1) query.page = String(page.value);
   router.replace({ query });
 }
@@ -45,7 +30,7 @@ function updateQuery() {
 async function loadTracks() {
   loading.value = true;
   try {
-    const data = await api.getTracks(page.value, limit, search.value.trim(), tracksSort.value.field, tracksSort.value.dir);
+    const data = await api.getTracks(page.value, limit, '', tracksSort.value.field, tracksSort.value.dir);
     allTracks.value = data.tracks;
     total.value = data.total;
   } catch (err) {
@@ -58,7 +43,7 @@ async function loadTracks() {
 
 async function refreshTracksLive() {
   try {
-    const data = await api.getTracks(page.value, limit, search.value.trim(), tracksSort.value.field, tracksSort.value.dir);
+    const data = await api.getTracks(page.value, limit, '', tracksSort.value.field, tracksSort.value.dir);
     allTracks.value = data.tracks;
     total.value = data.total;
   } catch (err) {
@@ -73,15 +58,6 @@ function onSort({ field, dir }) {
   loadTracks();
 }
 
-watch(search, () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    page.value = 1;
-    updateQuery();
-    loadTracks();
-  }, 300);
-});
-
 onMounted(loadTracks);
 useLibraryEvents(loadTracks);
 
@@ -90,7 +66,18 @@ watch(() => playerState.playReportCount, (count) => {
 });
 
 async function fetchAllTracks() {
-  return api.getAllTracks(search.value.trim(), tracksSort.value.field, tracksSort.value.dir);
+  return api.getAllTracks('', tracksSort.value.field, tracksSort.value.dir);
+}
+
+async function playAll() {
+  const tracks = await fetchAllTracks();
+  if (tracks.length) playAlbum(tracks, 0);
+}
+
+async function playShuffle() {
+  const tracks = await fetchAllTracks();
+  if (!tracks.length) return;
+  playAlbum(tracks, Math.floor(Math.random() * tracks.length));
 }
 
 const totalPages = computed(() => Math.ceil(total.value / limit));
@@ -116,21 +103,20 @@ function prevPage() {
   <div>
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold font-display">Tracks</h1>
-      <div class="relative flex items-center h-8">
-        <input
-          ref="searchInput"
-          v-model="search"
-          type="text"
-          placeholder="Search tracks..."
-          class="bg-zinc-800 border border-transparent rounded pr-8 py-1.5 text-sm outline-none focus:border-zinc-700 transition-all duration-200 ease-in-out"
-          :class="searchExpanded ? 'w-64 pl-3 opacity-100' : 'w-0 pl-0 opacity-0 border-transparent'"
-          @blur="onSearchBlur"
-        />
+      <div class="flex items-center gap-2">
         <button
-          class="absolute right-0 text-zinc-400 hover:text-zinc-100 h-8 w-8 flex items-center justify-center"
-          @click="expandSearch"
+          class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+          @click="playAll"
         >
-          <Icon :path="mdiMagnify" class="w-5 h-5" />
+          <Icon :path="mdiPlay" class="w-4 h-4" />
+          Play All
+        </button>
+        <button
+          class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+          @click="playShuffle"
+        >
+          <Icon :path="mdiShuffle" class="w-4 h-4" />
+          Shuffle
         </button>
       </div>
     </div>
@@ -151,8 +137,8 @@ function prevPage() {
 
     <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiMusicNote" class="w-8 h-8 text-zinc-600" />
-      <p class="text-sm font-medium text-zinc-400">{{ search ? 'No tracks found' : 'No tracks yet' }}</p>
-      <p class="text-xs text-zinc-600">{{ search ? 'Try a different search term.' : 'Scan your library in Settings to get started.' }}</p>
+      <p class="text-sm font-medium text-zinc-400">No tracks yet</p>
+      <p class="text-xs text-zinc-600">Scan your library in Settings to get started.</p>
     </div>
 
     <template v-else>
@@ -169,6 +155,7 @@ function prevPage() {
         @sort="onSort"
         :start-index="(page - 1) * limit"
         :get-all-tracks="fetchAllTracks"
+        hide-controls
       />
 
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-4 mt-6 text-sm">
