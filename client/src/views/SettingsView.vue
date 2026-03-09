@@ -30,7 +30,7 @@ const {
   accentColor, accentRgb, themeColor, VALID_COLORS,
   density, showCoverArt, fontSize,
   lovedUseAccent, setLovedUseAccent,
-  songsColumns, setSongsColumn,
+  tracksColumns, setTracksColumn,
   showArtistsNav, wideLayout,
   homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
   showPlaylists,
@@ -443,7 +443,7 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <!-- Songs columns section -->
+      <!-- Tracks columns section -->
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
         <div>
           <p class="text-sm font-medium text-zinc-200">Tracks view</p>
@@ -490,15 +490,15 @@ onUnmounted(() => {
               <p class="text-xs text-zinc-500 mt-0.5">{{ col.desc }}</p>
             </div>
             <button
-              @click="setSongsColumn(col.key, !songsColumns[col.key])"
+              @click="setTracksColumn(col.key, !tracksColumns[col.key])"
               class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-              :class="songsColumns[col.key] ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+              :class="tracksColumns[col.key] ? `bg-${accentColor}-500` : 'bg-zinc-700'"
               role="switch"
-              :aria-checked="songsColumns[col.key]"
+              :aria-checked="tracksColumns[col.key]"
             >
               <span
                 class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-                :class="songsColumns[col.key] ? 'translate-x-5' : 'translate-x-0'"
+                :class="tracksColumns[col.key] ? 'translate-x-5' : 'translate-x-0'"
               />
             </button>
           </div>

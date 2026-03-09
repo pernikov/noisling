@@ -1,6 +1,6 @@
 # Noisling
 
-A minimal, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by album or song. Songs are the main focus — there are no dedicated artist pages, just your music organized by albums and tracks.
+A minimal, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by album or track. Tracks are the main focus — there are no dedicated artist pages, just your music organized by albums and tracks.
 
 There is no authentication — this is meant to run on a trusted local network for a single user. Settings are fetched once on startup and saved immediately on each change; there is no polling or per-route sync because concurrent multi-user access is out of scope.
 

@@ -39,9 +39,9 @@ const DEFAULT_COLOR = 'violet';
 const DEFAULT_THEME_COLOR = 'none';
 const VALID_FONT_SIZES = ['small', 'medium', 'large'];
 
-// Songs view keys
-const SONGS_COLS_KEY = 'noisling_songs_cols';
-const SONGS_SORT_KEY = 'noisling_songs_sort';
+// Tracks view keys
+const TRACKS_COLS_KEY = 'noisling_tracks_cols';
+const TRACKS_SORT_KEY = 'noisling_tracks_sort';
 
 // Loved color key
 const LOVED_ACCENT_KEY = 'noisling_loved_accent';
@@ -86,17 +86,17 @@ function applyFontSize(size) {
 // Apply immediately to avoid flash
 applyFontSize(fontSize.value);
 
-// Songs columns visibility
+// Tracks columns visibility
 const DEFAULT_COLS = { artist: true, album: true, plays: true, lastPlayed: true };
-const songsColumns = ref((() => {
-  try { return { ...DEFAULT_COLS, ...JSON.parse(localStorage.getItem(SONGS_COLS_KEY)) }; }
+const tracksColumns = ref((() => {
+  try { return { ...DEFAULT_COLS, ...JSON.parse(localStorage.getItem(TRACKS_COLS_KEY)) }; }
   catch { return { ...DEFAULT_COLS }; }
 })());
 
-// Songs sort preference
+// Tracks sort preference
 const DEFAULT_SORT = { field: 'artist', dir: 'asc' };
-const songsSort = ref((() => {
-  try { return { ...DEFAULT_SORT, ...JSON.parse(localStorage.getItem(SONGS_SORT_KEY)) }; }
+const tracksSort = ref((() => {
+  try { return { ...DEFAULT_SORT, ...JSON.parse(localStorage.getItem(TRACKS_SORT_KEY)) }; }
   catch { return { ...DEFAULT_SORT }; }
 })());
 
@@ -118,7 +118,7 @@ const homeShowAlbums    = ref(storedBool(HOME_ALBUMS_KEY));
 const storedViz = localStorage.getItem(VIZ_MODE_KEY);
 const vizMode            = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'spiral');
 const showBubbles        = ref(storedBool(BUBBLES_KEY, true));
-const randomizeOnNewSong = ref(storedBool(RANDOMIZE_KEY, false));
+const randomizeOnNewTrack = ref(storedBool(RANDOMIZE_KEY, false));
 
 const homeVisibleCount = computed(
   () => [homeShowQuickPlay.value, homeShowRecent.value, homeShowAlbums.value].filter(Boolean).length
@@ -198,13 +198,13 @@ export function useTheme() {
         localStorage.setItem(FONT_KEY, data.fontSize);
         applyFontSize(data.fontSize);
       }
-      if (data.songsColumns && typeof data.songsColumns === 'object') {
-        songsColumns.value = { ...DEFAULT_COLS, ...data.songsColumns };
-        localStorage.setItem(SONGS_COLS_KEY, JSON.stringify(songsColumns.value));
+      if (data.tracksColumns && typeof data.tracksColumns === 'object') {
+        tracksColumns.value = { ...DEFAULT_COLS, ...data.tracksColumns };
+        localStorage.setItem(TRACKS_COLS_KEY, JSON.stringify(tracksColumns.value));
       }
-      if (data.songsSort && typeof data.songsSort.field === 'string') {
-        songsSort.value = { field: data.songsSort.field, dir: data.songsSort.dir };
-        localStorage.setItem(SONGS_SORT_KEY, JSON.stringify(songsSort.value));
+      if (data.tracksSort && typeof data.tracksSort.field === 'string') {
+        tracksSort.value = { field: data.tracksSort.field, dir: data.tracksSort.dir };
+        localStorage.setItem(TRACKS_SORT_KEY, JSON.stringify(tracksSort.value));
       }
       if (typeof data.lovedAccent === 'boolean') {
         lovedUseAccent.value = data.lovedAccent;
@@ -238,9 +238,9 @@ export function useTheme() {
         showBubbles.value = data.showBubbles;
         localStorage.setItem(BUBBLES_KEY, String(data.showBubbles));
       }
-      if (typeof data.randomizeOnNewSong === 'boolean') {
-        randomizeOnNewSong.value = data.randomizeOnNewSong;
-        localStorage.setItem(RANDOMIZE_KEY, String(data.randomizeOnNewSong));
+      if (typeof data.randomizeOnNewTrack === 'boolean') {
+        randomizeOnNewTrack.value = data.randomizeOnNewTrack;
+        localStorage.setItem(RANDOMIZE_KEY, String(data.randomizeOnNewTrack));
       }
       if (typeof data.showPlaylists === 'boolean') {
         showPlaylists.value = data.showPlaylists;
@@ -340,31 +340,31 @@ export function useTheme() {
     );
   }
 
-  async function setSongsColumn(key, value) {
-    const prev = { ...songsColumns.value };
-    songsColumns.value = { ...songsColumns.value, [key]: Boolean(value) };
-    localStorage.setItem(SONGS_COLS_KEY, JSON.stringify(songsColumns.value));
+  async function setTracksColumn(key, value) {
+    const prev = { ...tracksColumns.value };
+    tracksColumns.value = { ...tracksColumns.value, [key]: Boolean(value) };
+    localStorage.setItem(TRACKS_COLS_KEY, JSON.stringify(tracksColumns.value));
     await saveOrRollback(
-      { songsColumns: songsColumns.value },
+      { tracksColumns: tracksColumns.value },
       () => {
-        songsColumns.value = prev;
-        localStorage.setItem(SONGS_COLS_KEY, JSON.stringify(prev));
+        tracksColumns.value = prev;
+        localStorage.setItem(TRACKS_COLS_KEY, JSON.stringify(prev));
       },
-      'Failed to save visible song columns.'
+      'Failed to save visible track columns.'
     );
   }
 
-  async function setSongsSort(field, dir) {
-    const prev = { ...songsSort.value };
-    songsSort.value = { field, dir };
-    localStorage.setItem(SONGS_SORT_KEY, JSON.stringify({ field, dir }));
+  async function setTracksSort(field, dir) {
+    const prev = { ...tracksSort.value };
+    tracksSort.value = { field, dir };
+    localStorage.setItem(TRACKS_SORT_KEY, JSON.stringify({ field, dir }));
     await saveOrRollback(
-      { songsSort: { field, dir } },
+      { tracksSort: { field, dir } },
       () => {
-        songsSort.value = prev;
-        localStorage.setItem(SONGS_SORT_KEY, JSON.stringify(prev));
+        tracksSort.value = prev;
+        localStorage.setItem(TRACKS_SORT_KEY, JSON.stringify(prev));
       },
-      'Failed to save songs sort.'
+      'Failed to save tracks sort.'
     );
   }
 
@@ -454,17 +454,17 @@ export function useTheme() {
     );
   }
 
-  async function setRandomizeOnNewSong(value) {
-    const prev = randomizeOnNewSong.value;
-    randomizeOnNewSong.value = Boolean(value);
-    localStorage.setItem(RANDOMIZE_KEY, String(randomizeOnNewSong.value));
+  async function setRandomizeOnNewTrack(value) {
+    const prev = randomizeOnNewTrack.value;
+    randomizeOnNewTrack.value = Boolean(value);
+    localStorage.setItem(RANDOMIZE_KEY, String(randomizeOnNewTrack.value));
     await saveOrRollback(
-      { randomizeOnNewSong: randomizeOnNewSong.value },
+      { randomizeOnNewTrack: randomizeOnNewTrack.value },
       () => {
-        randomizeOnNewSong.value = prev;
+        randomizeOnNewTrack.value = prev;
         localStorage.setItem(RANDOMIZE_KEY, String(prev));
       },
-      'Failed to save randomize-on-new-song setting.'
+      'Failed to save randomize-on-new-track setting.'
     );
   }
 
@@ -489,17 +489,17 @@ export function useTheme() {
     showCoverArt,
     fontSize, VALID_FONT_SIZES,
     lovedUseAccent,
-    songsColumns, songsSort,
+    tracksColumns, tracksSort,
     showArtistsNav,
     wideLayout,
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
-    vizMode, showBubbles, randomizeOnNewSong, VALID_VIZ_MODES,
+    vizMode, showBubbles, randomizeOnNewTrack, VALID_VIZ_MODES,
     showPlaylists,
     loadTheme, setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
-    setSongsColumn, setSongsSort,
+    setTracksColumn, setTracksSort,
     setShowArtistsNav, setWideLayout,
-    setVizMode, setShowBubbles, setRandomizeOnNewSong,
+    setVizMode, setShowBubbles, setRandomizeOnNewTrack,
     setShowPlaylists,
     setHomeSection: (key, value) => {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);

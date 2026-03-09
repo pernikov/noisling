@@ -12,8 +12,8 @@ const settingsSchema = new mongoose.Schema({
   density:            { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' },
   showCoverArt:       { type: Boolean, default: true },
   fontSize:           { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
-  songsColumns:       { type: mongoose.Schema.Types.Mixed, default: { artist: true, album: true, plays: true, lastPlayed: true } },
-  songsSort:          { type: mongoose.Schema.Types.Mixed, default: { field: 'artist', dir: 'asc' } },
+  tracksColumns:       { type: mongoose.Schema.Types.Mixed, default: { artist: true, album: true, plays: true, lastPlayed: true } },
+  tracksSort:          { type: mongoose.Schema.Types.Mixed, default: { field: 'artist', dir: 'asc' } },
   lovedAccent:        { type: Boolean, default: false },
   showArtistsNav:     { type: Boolean, default: true },
   wideLayout:         { type: Boolean, default: false },
@@ -22,7 +22,7 @@ const settingsSchema = new mongoose.Schema({
   homeShowAlbums:     { type: Boolean, default: true },
   vizMode:            { type: String, enum: ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bubbles'], default: 'spiral' },
   showBubbles:        { type: Boolean, default: true },
-  randomizeOnNewSong: { type: Boolean, default: false },
+  randomizeOnNewTrack: { type: Boolean, default: false },
   showPlaylists:      { type: Boolean, default: true },
 }, { collection: 'settings' });
 

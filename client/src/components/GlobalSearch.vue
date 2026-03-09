@@ -14,7 +14,7 @@ import { useTheme } from '../composables/useTheme.js';
 const router = useRouter();
 const api = useApi();
 const { playAlbum } = usePlayer();
-const { showCoverArt, density, songsColumns } = useTheme();
+const { showCoverArt, density, tracksColumns } = useTheme();
 
 // Track context menu
 const menuTrack = ref(null);
@@ -237,9 +237,9 @@ function formatDuration(seconds) {
                   <div class="min-w-0 flex-1">
                     <div class="text-sm text-zinc-100 truncate">{{ track.title }}</div>
                     <div class="text-xs text-zinc-500 truncate">
-                      <template v-if="songsColumns.artist && songsColumns.album">{{ track.artists?.join(', ') }} · {{ track.album }}</template>
-                      <template v-else-if="songsColumns.artist">{{ track.artists?.join(', ') }}</template>
-                      <template v-else-if="songsColumns.album">{{ track.album }}</template>
+                      <template v-if="tracksColumns.artist && tracksColumns.album">{{ track.artists?.join(', ') }} · {{ track.album }}</template>
+                      <template v-else-if="tracksColumns.artist">{{ track.artists?.join(', ') }}</template>
+                      <template v-else-if="tracksColumns.album">{{ track.album }}</template>
                     </div>
                   </div>
                   <span :class="menuTrack === track ? 'hidden' : 'group-hover:hidden'" class="text-xs text-zinc-600 shrink-0 tabular-nums">{{ formatDuration(track.duration) }}</span>

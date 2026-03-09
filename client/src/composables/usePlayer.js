@@ -75,7 +75,7 @@ let playedSeconds = 0;
 let _lastUpdateTime = null;
 
 // One-time seek target after a page-reload restore.
-// Bound to a specific track so it cannot leak into a different song.
+// Bound to a specific track so it cannot leak into a different track.
 let _pendingRestore = null;
 
 // Guard against iOS Safari firing a spurious 'ended' event immediately after

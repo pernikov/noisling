@@ -14,7 +14,7 @@ import Spinner from '../components/Spinner.vue';
 const api = useApi();
 const router = useRouter();
 const { state: playerState, playAlbum, shuffleAll } = usePlayer();
-const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, songsColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
+const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, tracksColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
 
 const lovedTracks = ref([]);
 const recentTracks = ref([]);
@@ -72,7 +72,7 @@ async function loadLoved() {
   }
 }
 
-function playLovedSongs() {
+function playLovedTracks() {
   if (!lovedTracks.value.length) return;
   playAlbum(lovedTracks.value, 0);
 }
@@ -153,9 +153,9 @@ function goToAlbum(album) {
           <div class="text-sm text-white/70 mt-0.5">Your 50 most listened-to tracks</div>
         </button>
 
-        <!-- Loved Songs -->
+        <!-- Loved Tracks -->
         <button
-          @click="playLovedSongs"
+          @click="playLovedTracks"
           :disabled="loadingLoved || lovedTracks.length === 0"
           class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
           :style="lovedUseAccent ? { backgroundImage: `linear-gradient(to bottom right, rgb(${accentRgb}), rgb(${accentDarkRgb}))` } : undefined"
@@ -210,10 +210,10 @@ function goToAlbum(album) {
         v-else
         :tracks="recentTracks"
         show-cover
-        :show-artist="songsColumns.artist"
-        :show-album="songsColumns.album"
-        :show-plays="songsColumns.plays"
-        :show-last-played="songsColumns.lastPlayed"
+        :show-artist="tracksColumns.artist"
+        :show-album="tracksColumns.album"
+        :show-plays="tracksColumns.plays"
+        :show-last-played="tracksColumns.lastPlayed"
         hide-controls
         @love-toggled="loadLoved"
       />

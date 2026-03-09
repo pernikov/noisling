@@ -6,7 +6,7 @@ import { useTheme } from '../composables/useTheme.js';
 
 const { audio } = usePlayer();
 const { accentColor } = useAccentColor();
-const { vizMode, showBubbles, randomizeOnNewSong, setVizMode, setShowBubbles, setRandomizeOnNewSong } = useTheme();
+const { vizMode, showBubbles, randomizeOnNewTrack, setVizMode, setShowBubbles, setRandomizeOnNewTrack } = useTheme();
 
 const containerRef = ref(null);
 const canvasRef = ref(null);
@@ -90,8 +90,8 @@ let particlePool = null;
 let pendingModeSwitch = false;
 let shuffleBag = [];
 
-function onNewSong() {
-  if (!randomizeOnNewSong.value) return;
+function onNewTrack() {
+  if (!randomizeOnNewTrack.value) return;
   // Just flag that a switch is pending — the actual mode is picked at apply time
   // so it's always guaranteed to differ from whatever mode is active then
   pendingModeSwitch = true;
@@ -818,7 +818,7 @@ onMounted(() => {
     vizCtx.ctx.resume();
   }
   document.addEventListener('fullscreenchange', onFullscreenChange);
-  audio.addEventListener('loadstart', onNewSong);
+  audio.addEventListener('loadstart', onNewTrack);
 
   // Pre-fill the canvas immediately so it's fully dark before the first draw()
   // fires. Without this, the canvas starts transparent and takes many frames to
@@ -847,7 +847,7 @@ onUnmounted(() => {
     animId = null;
   }
   document.removeEventListener('fullscreenchange', onFullscreenChange);
-  audio.removeEventListener('loadstart', onNewSong);
+  audio.removeEventListener('loadstart', onNewTrack);
 });
 </script>
 
@@ -900,14 +900,14 @@ onUnmounted(() => {
         <div class="border-t border-zinc-800 mx-2 my-1" />
         <button
           class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2.5 hover:bg-zinc-800"
-          :class="randomizeOnNewSong ? 'text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'"
-          @click="setRandomizeOnNewSong(!randomizeOnNewSong)"
+          :class="randomizeOnNewTrack ? 'text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'"
+          @click="setRandomizeOnNewTrack(!randomizeOnNewTrack)"
         >
           <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
             <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
           </svg>
           <span class="flex-1">Shuffle on new track</span>
-          <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="randomizeOnNewSong ? 'opacity-100' : 'opacity-0'" />
+          <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="randomizeOnNewTrack ? 'opacity-100' : 'opacity-0'" />
         </button>
       </div>
     </div>

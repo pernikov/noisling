@@ -17,7 +17,7 @@ const props = defineProps({
 const emit = defineEmits(['play', 'navigate']);
 
 const { state, moveTrack, playFromQueue } = usePlayer();
-const { accentColor, density, showCoverArt, songsColumns } = useTheme();
+const { accentColor, density, showCoverArt, tracksColumns } = useTheme();
 
 // --- Virtual scrolling ---
 const ITEM_HEIGHT = computed(() => density.value === 'compact' ? 36 : 52);
@@ -232,7 +232,7 @@ function formatDuration(seconds) {
                 :class="i === state.queueIndex ? `text-${accentColor}-400 font-medium` : ''"
                 @click.stop="handlePlay(i)"
               >{{ track.title }}</div>
-              <span v-if="density !== 'compact' && songsColumns.artist" class="text-xs text-zinc-500 truncate block">
+              <span v-if="density !== 'compact' && tracksColumns.artist" class="text-xs text-zinc-500 truncate block">
                 <template v-for="(artist, ai) in track.artists" :key="ai">
                   <span v-if="ai > 0">, </span>
                   <router-link

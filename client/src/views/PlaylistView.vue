@@ -15,7 +15,7 @@ const route = useRoute();
 const router = useRouter();
 const api = useApi();
 const { playAlbum, state: playerState } = usePlayer();
-const { songsColumns, showCoverArt } = useTheme();
+const { tracksColumns, showCoverArt } = useTheme();
 
 // Unique covers from loaded tracks, up to 9
 const mosaicCovers = computed(() => {
@@ -222,9 +222,9 @@ async function deletePlaylist() {
         v-else
         :tracks="tracks"
         show-cover
-        :show-artist="songsColumns.artist"
-        :show-album="songsColumns.album"
-        :show-plays="songsColumns.plays"
+        :show-artist="tracksColumns.artist"
+        :show-album="tracksColumns.album"
+        :show-plays="tracksColumns.plays"
         hide-controls
         :playlist-id="playlist._id"
         @love-toggled="() => {}"

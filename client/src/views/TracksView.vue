@@ -11,7 +11,7 @@ import { mdiMagnify, mdiMusicNote } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 
 const api = useApi();
-const { songsColumns, songsSort, setSongsSort } = useTheme();
+const { tracksColumns, tracksSort, setTracksSort } = useTheme();
 const { state: playerState } = usePlayer();
 const { error: toastError } = useToast();
 const route = useRoute();
@@ -45,7 +45,7 @@ function updateQuery() {
 async function loadTracks() {
   loading.value = true;
   try {
-    const data = await api.getTracks(page.value, limit, search.value.trim(), songsSort.value.field, songsSort.value.dir);
+    const data = await api.getTracks(page.value, limit, search.value.trim(), tracksSort.value.field, tracksSort.value.dir);
     allTracks.value = data.tracks;
     total.value = data.total;
   } catch (err) {
@@ -58,7 +58,7 @@ async function loadTracks() {
 
 async function refreshTracksLive() {
   try {
-    const data = await api.getTracks(page.value, limit, search.value.trim(), songsSort.value.field, songsSort.value.dir);
+    const data = await api.getTracks(page.value, limit, search.value.trim(), tracksSort.value.field, tracksSort.value.dir);
     allTracks.value = data.tracks;
     total.value = data.total;
   } catch (err) {
@@ -67,7 +67,7 @@ async function refreshTracksLive() {
 }
 
 function onSort({ field, dir }) {
-  setSongsSort(field, dir);
+  setTracksSort(field, dir);
   page.value = 1;
   updateQuery();
   loadTracks();
@@ -90,7 +90,7 @@ watch(() => playerState.playReportCount, (count) => {
 });
 
 async function fetchAllTracks() {
-  return api.getAllTracks(search.value.trim(), songsSort.value.field, songsSort.value.dir);
+  return api.getAllTracks(search.value.trim(), tracksSort.value.field, tracksSort.value.dir);
 }
 
 const totalPages = computed(() => Math.ceil(total.value / limit));
@@ -159,13 +159,13 @@ function prevPage() {
       <TrackList
         :tracks="allTracks"
         show-cover
-        :show-artist="songsColumns.artist"
-        :show-album="songsColumns.album"
-        :show-plays="songsColumns.plays"
-        :show-last-played="songsColumns.lastPlayed"
+        :show-artist="tracksColumns.artist"
+        :show-album="tracksColumns.album"
+        :show-plays="tracksColumns.plays"
+        :show-last-played="tracksColumns.lastPlayed"
         sortable
-        :sort-by="songsSort.field"
-        :sort-dir="songsSort.dir"
+        :sort-by="tracksSort.field"
+        :sort-dir="tracksSort.dir"
         @sort="onSort"
         :start-index="(page - 1) * limit"
         :get-all-tracks="fetchAllTracks"

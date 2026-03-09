@@ -9,15 +9,15 @@ const VALID_DENSITY   = ['comfortable', 'compact'];
 const VALID_FONT      = ['small', 'medium', 'large'];
 const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bubbles'];
 const VALID_SORT_DIRS = ['asc', 'desc'];
-const VALID_SONG_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
+const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
 const VALID_COL_KEYS  = ['artist', 'album', 'plays', 'lastPlayed'];
 
 function buildResponse(s) {
-  const songsSortField = VALID_SONG_SORT_FIELDS.includes(s?.songsSort?.field)
-    ? s.songsSort.field
+  const tracksSortField = VALID_TRACK_SORT_FIELDS.includes(s?.tracksSort?.field)
+    ? s.tracksSort.field
     : 'artist';
-  const songsSortDir = VALID_SORT_DIRS.includes(s?.songsSort?.dir)
-    ? s.songsSort.dir
+  const tracksSortDir = VALID_SORT_DIRS.includes(s?.tracksSort?.dir)
+    ? s.tracksSort.dir
     : 'asc';
 
   return {
@@ -29,8 +29,8 @@ function buildResponse(s) {
     density:            s.density            ?? 'comfortable',
     showCoverArt:       s.showCoverArt       ?? true,
     fontSize:           s.fontSize           ?? 'medium',
-    songsColumns:       s.songsColumns       ?? { artist: true, album: true, plays: true, lastPlayed: true },
-    songsSort:          { field: songsSortField, dir: songsSortDir },
+    tracksColumns:       s.tracksColumns       ?? { artist: true, album: true, plays: true, lastPlayed: true },
+    tracksSort:          { field: tracksSortField, dir: tracksSortDir },
     lovedAccent:        s.lovedAccent        ?? false,
     showArtistsNav:     s.showArtistsNav     ?? true,
     wideLayout:         s.wideLayout         ?? false,
@@ -39,7 +39,7 @@ function buildResponse(s) {
     homeShowAlbums:     s.homeShowAlbums     ?? true,
     vizMode:            s.vizMode            ?? 'spiral',
     showBubbles:        s.showBubbles        ?? true,
-    randomizeOnNewSong: s.randomizeOnNewSong ?? false,
+    randomizeOnNewTrack: s.randomizeOnNewTrack ?? false,
     showPlaylists:      s.showPlaylists      ?? true,
   };
 }
@@ -56,9 +56,9 @@ router.get('/settings', async (req, res) => {
 router.patch('/settings', async (req, res) => {
   const {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
-    showCoverArt, fontSize, songsColumns, songsSort,
+    showCoverArt, fontSize, tracksColumns, tracksSort,
     lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
-    vizMode, showBubbles, randomizeOnNewSong, showPlaylists,
+    vizMode, showBubbles, randomizeOnNewTrack, showPlaylists,
   } = req.body;
   const update = {};
 
@@ -92,18 +92,18 @@ router.patch('/settings', async (req, res) => {
     if (!VALID_FONT.includes(fontSize)) return res.status(400).json({ error: 'Invalid fontSize' });
     update.fontSize = fontSize;
   }
-  if (songsColumns !== undefined) {
-    if (typeof songsColumns !== 'object' || songsColumns === null) return res.status(400).json({ error: 'Invalid songsColumns' });
+  if (tracksColumns !== undefined) {
+    if (typeof tracksColumns !== 'object' || tracksColumns === null) return res.status(400).json({ error: 'Invalid tracksColumns' });
     const cols = {};
     for (const key of VALID_COL_KEYS) {
-      if (key in songsColumns) cols[key] = Boolean(songsColumns[key]);
+      if (key in tracksColumns) cols[key] = Boolean(tracksColumns[key]);
     }
-    update.songsColumns = cols;
+    update.tracksColumns = cols;
   }
-  if (songsSort !== undefined) {
-    if (typeof songsSort !== 'object' || songsSort === null) return res.status(400).json({ error: 'Invalid songsSort' });
-    if (typeof songsSort.field !== 'string' || !VALID_SONG_SORT_FIELDS.includes(songsSort.field) || !VALID_SORT_DIRS.includes(songsSort.dir)) return res.status(400).json({ error: 'Invalid songsSort' });
-    update.songsSort = { field: songsSort.field, dir: songsSort.dir };
+  if (tracksSort !== undefined) {
+    if (typeof tracksSort !== 'object' || tracksSort === null) return res.status(400).json({ error: 'Invalid tracksSort' });
+    if (typeof tracksSort.field !== 'string' || !VALID_TRACK_SORT_FIELDS.includes(tracksSort.field) || !VALID_SORT_DIRS.includes(tracksSort.dir)) return res.status(400).json({ error: 'Invalid tracksSort' });
+    update.tracksSort = { field: tracksSort.field, dir: tracksSort.dir };
   }
   if (lovedAccent !== undefined) {
     update.lovedAccent = Boolean(lovedAccent);
@@ -130,8 +130,8 @@ router.patch('/settings', async (req, res) => {
   if (showBubbles !== undefined) {
     update.showBubbles = Boolean(showBubbles);
   }
-  if (randomizeOnNewSong !== undefined) {
-    update.randomizeOnNewSong = Boolean(randomizeOnNewSong);
+  if (randomizeOnNewTrack !== undefined) {
+    update.randomizeOnNewTrack = Boolean(randomizeOnNewTrack);
   }
   if (showPlaylists !== undefined) {
     update.showPlaylists = Boolean(showPlaylists);
