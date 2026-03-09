@@ -352,9 +352,24 @@ router.get('/albums/:artist/:album', async (req, res) => {
   res.json({ album: albumInfo, tracks });
 });
 
-// GET /api/tracks/all — all tracks unpaginated (for queue building, with optional search)
+// GET /api/genres — distinct genres with track counts
+router.get('/genres', async (req, res) => {
+  const genres = await Track.aggregate([
+    { $match: { genre: { $nin: [null, ''] } } },
+    { $group: { _id: '$genre', trackCount: { $sum: 1 } } },
+    // Trim whitespace and filter out whitespace-only values
+    { $addFields: { trimmed: { $trim: { input: '$_id' } } } },
+    { $match: { trimmed: { $ne: '' } } },
+    { $project: { _id: 0, name: '$trimmed', raw: '$_id', trackCount: 1 } },
+    { $sort: { name: 1 } },
+  ]);
+  res.json(genres);
+});
+
+// GET /api/tracks/all — all tracks unpaginated (for queue building, with optional search/genre)
 router.get('/tracks/all', async (req, res) => {
   const search = req.query.search?.trim();
+  const genre = req.query.genre?.trim();
   const sortField = VALID_SORT_FIELDS.includes(req.query.sort) ? req.query.sort : null;
   const sortOrder = req.query.order === 'desc' ? 'desc' : 'asc';
 
@@ -363,6 +378,7 @@ router.get('/tracks/all', async (req, res) => {
     const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ title: regex }, { artists: regex }, { album: regex }];
   }
+  if (genre) filter.genre = genre;
   const tracks = await Track.find(filter)
     .sort(buildSort(sortField, sortOrder))
     .lean();

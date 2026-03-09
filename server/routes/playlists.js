@@ -7,10 +7,10 @@ const router = Router();
 
 // GET /api/playlists
 router.get('/playlists', async (req, res) => {
-  const playlists = await Playlist.find({ type: 'manual' }).sort({ createdAt: -1 }).lean();
+  const playlists = await Playlist.find({ type: 'manual' }).sort({ name: 1 }).lean();
 
   // Collect up to 4 unique cover hashes per playlist in one batch query
-  const allIds = playlists.flatMap(p => p.trackIds.slice(0, 40));
+  const allIds = playlists.flatMap(p => p.trackIds.slice(0, 500));
   const tracks = allIds.length
     ? await Track.find({ _id: { $in: allIds } }, { _id: 1, cover: 1 }).lean()
     : [];
@@ -21,7 +21,7 @@ router.get('/playlists', async (req, res) => {
     for (const id of p.trackIds) {
       const c = coverByTrack[String(id)];
       if (c && !covers.includes(c)) covers.push(c);
-      if (covers.length === 9) break;
+      if (covers.length === 100) break;
     }
     return { _id: p._id, name: p.name, trackCount: p.trackIds.length, covers };
   }));

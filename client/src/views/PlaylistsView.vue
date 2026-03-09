@@ -110,7 +110,7 @@ function onCreated(playlist) {
                 :key="i"
                 class="overflow-hidden bg-zinc-700"
               >
-                <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" alt="" />
+                <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" @load="e => e.target.style.opacity='1'" alt="" />
               </div>
             </div>
           </template>

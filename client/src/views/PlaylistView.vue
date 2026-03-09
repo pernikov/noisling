@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { mdiPlay, mdiShuffle, mdiTrashCan, mdiPencil, mdiPlaylistMusic } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiTrashCan, mdiPencil, mdiPlaylistMusic, mdiPlus } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -11,6 +11,7 @@ import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
 import BaseModal from '../components/BaseModal.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
+import BulkAddToPlaylistModal from '../components/BulkAddToPlaylistModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -36,6 +37,8 @@ const mosaicCovers = computed(() => {
 const { mosaicCells, mosaicStyle } = useMosaic(mosaicCovers);
 const loading = ref(true);
 const confirm = ref(null);
+const showBulkAdd = ref(false);
+const bulkAddToast = ref('');
 
 const renamingName = ref(false);
 const editName = ref('');
@@ -125,6 +128,14 @@ function promptDelete() {
   };
 }
 
+let toastTimer = null;
+async function onBulkAdded(count) {
+  await load();
+  bulkAddToast.value = `Added ${count} track${count !== 1 ? 's' : ''}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { bulkAddToast.value = ''; }, 3000);
+}
+
 async function deletePlaylist() {
   try {
     await api.deletePlaylist(playlist.value._id);
@@ -158,7 +169,7 @@ async function deletePlaylist() {
             :style="mosaicStyle"
           >
             <div v-for="cover in mosaicCells" :key="cover" class="overflow-hidden bg-zinc-700">
-              <img :src="api.coverUrl(cover)" class="w-full h-full object-cover" alt="" />
+              <img :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" @load="e => e.target.style.opacity='1'" alt="" />
             </div>
           </TransitionGroup>
           <div v-else class="w-full h-full flex items-center justify-center">
@@ -194,6 +205,16 @@ async function deletePlaylist() {
               <Icon :path="mdiShuffle" class="w-4 h-4" />
               Shuffle
             </button>
+            <button
+              @click="showBulkAdd = true"
+              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
+            >
+              <Icon :path="mdiPlus" class="w-4 h-4" />
+              Add tracks
+            </button>
+            <Transition name="fade">
+              <span v-if="bulkAddToast" class="text-xs text-zinc-400 ml-1">{{ bulkAddToast }}</span>
+            </Transition>
             <button
               @click="promptDelete"
               class="ml-auto text-zinc-600 hover:text-red-400 transition-colors p-1.5"
@@ -266,10 +287,20 @@ async function deletePlaylist() {
       @confirm="confirm.onConfirm(); confirm = null"
       @cancel="confirm = null"
     />
+
+    <BulkAddToPlaylistModal
+      v-if="showBulkAdd"
+      :playlist-id="playlist._id"
+      @close="showBulkAdd = false"
+      @added="onBulkAdded"
+    />
   </div>
 </template>
 
 <style scoped>
+.fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
 .mosaic-move {
   transition: transform 0.4s ease;
 }

@@ -41,6 +41,8 @@ export function useApi() {
       const qs = params.toString();
       return request(`/tracks/all${qs ? `?${qs}` : ''}`);
     },
+    getGenres: () => request('/genres'),
+    getTracksByGenre: (genre) => request(`/tracks/all?${new URLSearchParams({ genre })}`),
     getRecentTracks: (limit = 20) => request(`/tracks/recent?limit=${limit}`),
     getLovedTracks: () => request('/tracks/loved'),
     toggleLove: (id) => request(`/tracks/${id}/love`, { method: 'PATCH' }),

@@ -22,7 +22,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
 
 <template>
   <Teleport to="body">
-    <Transition name="modal">
+    <Transition name="modal" appear>
       <div
         v-if="show"
         class="fixed inset-0 z-50 flex px-4 bg-zinc-950/80 backdrop-blur-sm"
