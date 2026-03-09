@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { mdiPlay, mdiShuffle, mdiTrashCan, mdiPencil, mdiPlaylistMusic } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
@@ -14,7 +14,7 @@ import ConfirmModal from '../components/ConfirmModal.vue';
 const route = useRoute();
 const router = useRouter();
 const api = useApi();
-const { playAlbum } = usePlayer();
+const { playAlbum, state: playerState } = usePlayer();
 const { songsColumns, showCoverArt } = useTheme();
 
 // Unique covers from loaded tracks, up to 9
@@ -71,6 +71,13 @@ async function load() {
 }
 
 onMounted(load);
+
+watch(() => playerState.playReportCount, () => {
+  const id = playerState.currentTrack?._id;
+  if (!id) return;
+  const track = tracks.value.find(t => t._id === id);
+  if (track) track.plays = (track.plays ?? 0) + 1;
+});
 
 function playAll() {
   if (tracks.value.length) playAlbum(tracks.value, 0);
