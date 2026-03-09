@@ -76,7 +76,7 @@ watch(() => playerState.playReportCount, () => {
   const id = playerState.currentTrack?._id;
   if (!id) return;
   const track = tracks.value.find(t => t._id === id);
-  if (track) track.plays = (track.plays ?? 0) + 1;
+  if (track) track.playCount = (track.playCount ?? 0) + 1;
 });
 
 function playAll() {
