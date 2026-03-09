@@ -95,6 +95,17 @@ async function saveEditName() {
   }
 }
 
+async function reorderTracks(reordered) {
+  const prev = tracks.value;
+  tracks.value = reordered;
+  try {
+    await api.updatePlaylist(playlist.value._id, { trackIds: reordered.map(t => t._id) });
+  } catch (err) {
+    console.error('Failed to reorder tracks:', err);
+    tracks.value = prev;
+  }
+}
+
 async function removeTrack(trackId) {
   try {
     await api.removeFromPlaylist(playlist.value._id, trackId);
@@ -206,9 +217,11 @@ async function deletePlaylist() {
         :show-album="tracksColumns.album"
         :show-plays="tracksColumns.plays"
         hide-controls
+        draggable
         :playlist-id="playlist._id"
         @love-toggled="() => {}"
         @remove-from-playlist="removeTrack"
+        @reorder="reorderTracks"
       />
     </template>
 

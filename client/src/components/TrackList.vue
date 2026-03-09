@@ -28,9 +28,10 @@ const props = defineProps({
   sortBy: { type: String, default: '' },
   sortDir: { type: String, default: 'asc' },
   playlistId: { type: String, default: null }, // if set, shows "Remove from playlist" in menu
+  draggable: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['love-toggled', 'sort', 'remove-from-playlist']);
+const emit = defineEmits(['love-toggled', 'sort', 'remove-from-playlist', 'reorder']);
 
 function handleSort(field) {
   if (props.sortBy === field && props.sortDir === 'desc') {
@@ -102,7 +103,7 @@ function showToast(message) {
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
 }
-const { accentColor, density, showCoverArt, lovedUseAccent } = useTheme();
+const { accentColor, accentRgb, density, showCoverArt, lovedUseAccent } = useTheme();
 const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
 const { accentColor: albumAccentColor } = useAccentColor();
 const toastStyle = computed(() => {
@@ -210,6 +211,87 @@ function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;
 }
 
+// --- Drag and drop reordering (playlist mode) ---
+const dragIndex = ref(null);
+const dragOverIndex = ref(null);
+let ghostEl = null;
+
+function onDragStart(e, index) {
+  dragIndex.value = index;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', String(index));
+  const row = e.currentTarget;
+  const rowH = row.offsetHeight;
+  const track = props.tracks[index];
+
+  ghostEl = document.createElement('div');
+  Object.assign(ghostEl.style, {
+    position: 'fixed', top: '-9999px', left: '0',
+    width: '260px', height: rowH + 'px',
+    background: 'rgb(39 39 42 / 0.97)',
+    border: '1px solid rgb(63 63 70 / 0.8)',
+    borderRadius: '8px', boxShadow: '0 8px 32px rgba(0,0,0,0.55)',
+    pointerEvents: 'none', overflow: 'hidden',
+    display: 'flex', alignItems: 'center',
+    gap: '8px', padding: '0 12px',
+    fontSize: '14px', fontWeight: '500', color: '#e4e4e7',
+  });
+
+  if (showCoverArt.value && track.cover) {
+    const imgSize = rowH - 16;
+    const img = document.createElement('img');
+    img.src = api.coverUrl(track.cover);
+    Object.assign(img.style, {
+      width: imgSize + 'px', height: imgSize + 'px',
+      borderRadius: '4px', objectFit: 'cover', flexShrink: '0',
+    });
+    ghostEl.appendChild(img);
+  }
+
+  const titleEl = document.createElement('span');
+  titleEl.textContent = track.title;
+  Object.assign(titleEl.style, { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' });
+  ghostEl.appendChild(titleEl);
+
+  document.body.appendChild(ghostEl);
+  e.dataTransfer.setDragImage(ghostEl, 130, rowH / 2);
+  requestAnimationFrame(() => {
+    if (ghostEl) { document.body.removeChild(ghostEl); ghostEl = null; }
+  });
+}
+
+function onDragOver(e, index) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  dragOverIndex.value = index;
+}
+
+function onDragLeave(e) {
+  if (!e.currentTarget.contains(e.relatedTarget)) {
+    dragOverIndex.value = null;
+  }
+}
+
+function onDrop(e, toIndex) {
+  e.preventDefault();
+  const fromIndex = dragIndex.value;
+  if (fromIndex !== null && fromIndex !== toIndex) {
+    const reordered = [...props.tracks];
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    emit('reorder', reordered);
+  }
+  dragIndex.value = null;
+  dragOverIndex.value = null;
+}
+
+function onDragEnd() {
+  dragIndex.value = null;
+  dragOverIndex.value = null;
+  if (ghostEl) { document.body.removeChild(ghostEl); ghostEl = null; }
+}
+
+
 defineExpose({ playAll, playShuffle });
 </script>
 
@@ -315,9 +397,19 @@ defineExpose({ playAll, playShuffle });
               : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
             { [`text-${accentColor}-400`]: isCurrentTrack(track) },
             { '[&>td]:bg-zinc-800/50': menuRowIndex === i },
+            { 'opacity-40': draggable && dragIndex === i },
+            { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
+            { 'drop-below': draggable && dragOverIndex === i && dragIndex !== null && dragIndex < i },
           ]"
+          :style="draggable ? { '--indicator': `rgb(${accentRgb})` } : {}"
+          :draggable="draggable ? 'true' : 'false'"
           @click="!track.deleted && playTrack(i)"
           @mouseleave="scheduleCloseMenu"
+          @dragstart="draggable && onDragStart($event, i)"
+          @dragover="draggable && onDragOver($event, i)"
+          @dragleave="draggable && onDragLeave($event)"
+          @drop="draggable && onDrop($event, i)"
+          @dragend="draggable && onDragEnd()"
         >
           <td :class="[rowPy, 'px-1 text-zinc-500 text-center']">
             <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
@@ -431,5 +523,12 @@ defineExpose({ playAll, playShuffle });
 .toast-enter-to, .toast-leave-from {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
+}
+
+.drop-above > td {
+  box-shadow: inset 0 2px 0 var(--indicator);
+}
+.drop-below > td {
+  box-shadow: inset 0 -2px 0 var(--indicator);
 }
 </style>
