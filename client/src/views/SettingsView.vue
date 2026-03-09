@@ -13,12 +13,14 @@ import {
   mdiChartBar,
   mdiViewAgenda,
   mdiViewHeadline,
+  mdiClose,
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
+import BaseModal from '../components/BaseModal.vue';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
 
@@ -58,7 +60,9 @@ const confirm = ref(null); // { title, message, confirmLabel, destructive, onCon
 function promptConfirm(opts) { confirm.value = opts; }
 function closeConfirm() { confirm.value = null; }
 const missingCoverAlbums = ref([]);
-const loadingCovers = ref(true);
+const loadingCovers = ref(false);
+const coversLoaded = ref(false);
+const showMissingCoversModal = ref(false);
 
 let eventSource = null;
 
@@ -86,14 +90,22 @@ function listenForProgress() {
 }
 
 async function loadMissingCovers() {
+  if (coversLoaded.value) return;
+  loadingCovers.value = true;
   try {
     const albums = await api.getAlbums();
     missingCoverAlbums.value = albums.filter(a => !a.cover);
+    coversLoaded.value = true;
   } catch (err) {
     console.error('Failed to load albums:', err);
   } finally {
     loadingCovers.value = false;
   }
+}
+
+function openMissingCovers() {
+  showMissingCoversModal.value = true;
+  loadMissingCovers();
 }
 
 async function scanLibrary() {
@@ -167,7 +179,6 @@ function formatSize(bytes) {
 
 onMounted(() => {
   listenForProgress();
-  loadMissingCovers();
 });
 
 onUnmounted(() => {
@@ -587,43 +598,22 @@ onUnmounted(() => {
         <div class="border-t border-zinc-800" />
 
         <!-- Missing Covers -->
-        <div class="space-y-3">
+        <div class="flex items-center justify-between">
           <div>
             <p class="text-sm font-medium text-zinc-200">Missing covers</p>
-            <p class="text-xs text-zinc-500">Albums in your library without artwork.</p>
+            <p class="text-xs text-zinc-500">
+              <template v-if="coversLoaded && missingCoverAlbums.length === 0">All albums have artwork</template>
+              <template v-else-if="coversLoaded">{{ missingCoverAlbums.length }} album{{ missingCoverAlbums.length !== 1 ? 's' : '' }} without artwork</template>
+              <template v-else>Albums in your library without artwork.</template>
+            </p>
           </div>
-
-          <div v-if="loadingCovers" class="text-xs text-zinc-500">Loading...</div>
-
-          <div v-else-if="missingCoverAlbums.length === 0"
-            class="flex items-center gap-2 text-sm rounded-lg px-4 py-3"
-            :class="`text-emerald-400`"
-            :style="{ backgroundColor: `rgba(16, 185, 129, 0.1)` }"
+          <button
+            @click="openMissingCovers"
+            class="text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors flex items-center gap-2 shrink-0"
           >
-            <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
-            All albums have artwork
-          </div>
-
-          <div v-else class="space-y-1 max-h-64 overflow-y-auto rounded-lg bg-zinc-800/50 p-2">
-            <div class="text-xs text-zinc-400 px-2 py-1">
-              {{ missingCoverAlbums.length }} album{{ missingCoverAlbums.length !== 1 ? 's' : '' }} without artwork
-            </div>
-            <router-link
-              v-for="album in missingCoverAlbums"
-              :key="album.name + album.artists?.[0]"
-              :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
-              class="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-zinc-700/50 transition-colors"
-            >
-              <div class="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center flex-shrink-0">
-                <Icon :path="mdiImage" class="w-4 h-4 text-zinc-500" />
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium truncate">{{ album.name }}</div>
-                <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
-              </div>
-              <span class="text-xs text-zinc-500 shrink-0">{{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}</span>
-            </router-link>
-          </div>
+            <Icon :path="mdiImage" class="w-4 h-4" />
+            View
+          </button>
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -871,5 +861,59 @@ onUnmounted(() => {
       @confirm="confirm.onConfirm(); closeConfirm()"
       @cancel="closeConfirm"
     />
+
+    <!-- Missing Covers Modal -->
+    <BaseModal :show="showMissingCoversModal" @close="showMissingCoversModal = false">
+      <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Missing covers</p>
+            <p v-if="coversLoaded" class="text-xs text-zinc-500 mt-0.5">
+              <template v-if="missingCoverAlbums.length === 0">All albums have artwork</template>
+              <template v-else>{{ missingCoverAlbums.length }} album{{ missingCoverAlbums.length !== 1 ? 's' : '' }} without artwork</template>
+            </p>
+          </div>
+          <button
+            @click="showMissingCoversModal = false"
+            class="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+          >
+            <Icon :path="mdiClose" class="w-4 h-4" />
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="overflow-y-auto p-2">
+          <div v-if="loadingCovers" class="px-3 py-6 text-center text-sm text-zinc-500">Loading...</div>
+
+          <div v-else-if="missingCoverAlbums.length === 0"
+            class="flex items-center gap-2 text-sm text-emerald-400 rounded-lg px-4 py-3 m-1"
+            style="background-color: rgba(16, 185, 129, 0.1)"
+          >
+            <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
+            All albums have artwork
+          </div>
+
+          <template v-else>
+            <router-link
+              v-for="album in missingCoverAlbums"
+              :key="album.name + album.artists?.[0]"
+              :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
+              class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/60 transition-colors"
+              @click="showMissingCoversModal = false"
+            >
+              <div class="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center shrink-0">
+                <Icon :path="mdiImage" class="w-4 h-4 text-zinc-500" />
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">{{ album.name }}</div>
+                <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
+              </div>
+              <span class="text-xs text-zinc-500 shrink-0">{{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}</span>
+            </router-link>
+          </template>
+        </div>
+      </div>
+    </BaseModal>
   </div>
 </template>
