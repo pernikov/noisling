@@ -4,6 +4,7 @@ import { scanLibrary } from '../services/scanner.js';
 import { broadcast } from '../services/events.js';
 import { pauseWatcher, resumeWatcher } from '../services/watcher.js';
 import Track from '../models/Track.js';
+import Playlist from '../models/Playlist.js';
 import config from '../config.js';
 
 const router = Router();
@@ -33,6 +34,7 @@ router.delete('/library', async (req, res) => {
   try {
     pauseWatcher();
     const { deletedCount } = await Track.deleteMany({});
+    await Playlist.updateMany({}, { $set: { trackIds: [] } });
     await rm(config.coversDir, { recursive: true, force: true });
     broadcast('library-updated', { cleared: true });
     res.json({ deletedTracks: deletedCount });

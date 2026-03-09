@@ -3,6 +3,7 @@ import { join, extname, basename, dirname } from 'path';
 import { createHash } from 'crypto';
 import { parseFile } from 'music-metadata';
 import Track from '../models/Track.js';
+import Playlist from '../models/Playlist.js';
 import config from '../config.js';
 import { broadcast } from './events.js';
 import { createLogger } from '../logger.js';
@@ -290,12 +291,13 @@ export async function scanLibrary() {
   }
 
   // Remove tracks whose files no longer exist
-  const removedPaths = existingTracks
-    .filter((t) => !scannedPaths.has(t.path))
-    .map((t) => t.path);
-  if (removedPaths.length > 0) {
+  const removedTracks = existingTracks.filter((t) => !scannedPaths.has(t.path));
+  if (removedTracks.length > 0) {
+    const removedIds = removedTracks.map((t) => t._id);
+    const removedPaths = removedTracks.map((t) => t.path);
     await Track.deleteMany({ path: { $in: removedPaths } });
-    stats.removed = removedPaths.length;
+    await Playlist.updateMany({}, { $pull: { trackIds: { $in: removedIds } } });
+    stats.removed = removedTracks.length;
   }
 
   // Clean up cover files no longer referenced by any track
@@ -323,6 +325,10 @@ export async function handleFileRemove(filePath) {
   wlog.log(`Removing: ${filePath}`);
 
   const track = await Track.findOneAndDelete({ path: filePath });
+
+  if (track) {
+    await Playlist.updateMany({}, { $pull: { trackIds: track._id } });
+  }
 
   // If the deleted track had a cover, check if any other track still uses it
   if (track?.cover) {

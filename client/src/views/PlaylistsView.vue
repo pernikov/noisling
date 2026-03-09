@@ -49,7 +49,7 @@ function onCreated(playlist) {
 }
 
 function mosaicCells(covers) {
-  const cols = covers.length >= 5 ? 3 : covers.length >= 2 ? 2 : 1;
+  const cols = covers.length >= 9 ? 3 : covers.length >= 4 ? 2 : 1;
   const total = cols * cols;
   const cells = covers.slice(0, total);
   while (cells.length < total) cells.push(null);
@@ -110,9 +110,9 @@ function mosaicCells(covers) {
             <div
               class="w-full h-full grid"
               :class="{
-                'grid-cols-1': mosaicCells(playlist.covers).cols === 1,
-                'grid-cols-2': mosaicCells(playlist.covers).cols === 2,
-                'grid-cols-3': mosaicCells(playlist.covers).cols === 3,
+                'grid-cols-1 grid-rows-1': mosaicCells(playlist.covers).cols === 1,
+                'grid-cols-2 grid-rows-2': mosaicCells(playlist.covers).cols === 2,
+                'grid-cols-3 grid-rows-3': mosaicCells(playlist.covers).cols === 3,
               }"
             >
               <div

@@ -34,8 +34,8 @@ const mosaicCovers = computed(() => {
 // Grid columns: 1 cover → 1×1, 2–4 → 2×2, 5+ → 3×3
 const mosaicCols = computed(() => {
   const n = mosaicCovers.value.length;
-  if (n >= 5) return 3;
-  if (n >= 2) return 2;
+  if (n >= 9) return 3;
+  if (n >= 4) return 2;
   return 1;
 });
 
@@ -159,9 +159,9 @@ async function deletePlaylist() {
             v-if="mosaicCovers.length"
             class="w-full h-full grid"
             :class="{
-              'grid-cols-1': mosaicCols === 1,
-              'grid-cols-2': mosaicCols === 2,
-              'grid-cols-3': mosaicCols === 3,
+              'grid-cols-1 grid-rows-1': mosaicCols === 1,
+              'grid-cols-2 grid-rows-2': mosaicCols === 2,
+              'grid-cols-3 grid-rows-3': mosaicCols === 3,
             }"
           >
             <div v-for="(cover, i) in mosaicCells" :key="i" class="overflow-hidden bg-zinc-700">
