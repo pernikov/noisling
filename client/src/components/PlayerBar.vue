@@ -21,6 +21,7 @@ import {
   mdiHeartOutline,
 } from "@mdi/js";
 import Icon from "./Icon.vue";
+import Tooltip from "./Tooltip.vue";
 
 const {
   state,
@@ -260,53 +261,61 @@ const hoverTime = computed(() => {
 
     <!-- Controls + progress -->
     <div class="flex-1 flex flex-col items-center gap-1 max-w-xl min-w-0">
-      <div class="flex items-center gap-2 sm:gap-4">
-        <!-- Mobile-only: shuffle -->
-        <button
-          class="sm:hidden transition-colors"
-          :class="state.shuffle ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
-          @click="toggleShuffle"
-        >
-          <Icon :path="mdiShuffle" class="w-4 h-4" />
-        </button>
+      <div class="flex items-center gap-3">
+        <!-- Shuffle -->
+        <Tooltip label="Shuffle" :shortcut="state.shuffle ? 'S · on' : 'S'">
+          <button
+            class="transition-colors"
+            :class="state.shuffle ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+            @click="toggleShuffle"
+          >
+            <Icon :path="mdiShuffle" class="w-4 h-4" />
+          </button>
+        </Tooltip>
 
-        <button
-          :disabled="!hasPrev"
-          class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
-          title="(P) Previous track"
-          @click="prev"
-        >
-          <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
-        </button>
+        <Tooltip label="Previous" shortcut="P">
+          <button
+            :disabled="!hasPrev"
+            class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
+            @click="prev"
+          >
+            <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
+          </button>
+        </Tooltip>
 
-        <button
-          class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center hover:scale-105 transition-transform"
-          @click="toggle"
-          :title="'(Space) ' + (state.isPlaying ? 'Pause' : 'Play')"
-        >
-          <Transition name="icon-swap" mode="out-in">
-            <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-desktop'" />
-            <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-desktop'" />
-          </Transition>
-        </button>
+        <Tooltip :label="state.isPlaying ? 'Pause' : 'Play'" shortcut="Space">
+          <button
+            class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center hover:scale-105 transition-transform"
+            @click="toggle"
+          >
+            <Transition name="icon-swap" mode="out-in">
+              <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-desktop'" />
+              <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-desktop'" />
+            </Transition>
+          </button>
+        </Tooltip>
 
-        <button
-          :disabled="!hasNext"
-          class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
-          title="(N) Next track"
-          @click="next"
-        >
-          <Icon :path="mdiSkipNext" class="w-5 h-5" />
-        </button>
+        <Tooltip label="Next" shortcut="N">
+          <button
+            :disabled="!hasNext"
+            class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
+            @click="next"
+          >
+            <Icon :path="mdiSkipNext" class="w-5 h-5" />
+          </button>
+        </Tooltip>
 
-        <!-- Mobile-only: queue -->
-        <button
-          class="sm:hidden transition-colors"
-          :class="state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
-          @click="toggleQueue"
-        >
-          <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
-        </button>
+        <!-- Repeat -->
+        <Tooltip :label="state.repeat === 'one' ? 'Repeat one' : state.repeat === 'all' ? 'Repeat all' : 'Repeat off'" shortcut="R">
+          <button
+            class="transition-colors"
+            :class="state.repeat !== 'off' ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+            @click="cycleRepeat"
+          >
+            <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-4 h-4" />
+            <Icon v-else :path="mdiRepeat" class="w-4 h-4" />
+          </button>
+        </Tooltip>
       </div>
 
       <!-- Progress bar -->
@@ -324,7 +333,7 @@ const hoverTime = computed(() => {
             <Transition name="tooltip-fade">
               <div
                 v-if="hoverTime"
-                class="absolute -top-7 text-xs text-zinc-100 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded pointer-events-none tabular-nums z-10 bar-tooltip"
+                class="absolute -top-9 text-xs text-zinc-100 bg-zinc-800/95 backdrop-blur border border-zinc-700/60 px-2 py-1 rounded-md shadow-xl pointer-events-none tabular-nums z-10 bar-tooltip"
                 :style="{ left: `clamp(24px, ${activeTooltipPercent}%, calc(100% - 24px))` }"
               >{{ hoverTime }}</div>
             </Transition>
@@ -344,95 +353,66 @@ const hoverTime = computed(() => {
       </div>
     </div>
 
-    <!-- Right group: shuffle, queue, volume -->
+    <!-- Right group: love, visualizer, queue, volume -->
     <div
       class="hidden sm:flex items-center gap-3 w-56 flex-shrink-0 justify-end"
     >
       <!-- Love -->
-      <button
-        class="transition-colors"
-        :class="state.currentTrack.isLoved
-          ? (lovedUseAccent ? `text-${accentColor}-400 hover:text-${accentColor}-300` : 'text-red-400 hover:text-red-300')
-          : 'text-zinc-400 hover:text-zinc-100'"
-        @click="toggleLove"
-        title="(L) Love track"
-        aria-label="Love track"
-      >
-        <Transition name="icon-swap" mode="out-in">
-          <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-4 h-4" :key="'loved'" />
-          <Icon v-else :path="mdiHeartOutline" class="w-4 h-4" :key="'unloved'" />
-        </Transition>
-      </button>
+      <Tooltip :label="state.currentTrack.isLoved ? 'Unlove' : 'Love'" shortcut="L">
+        <button
+          class="transition-colors"
+          :class="state.currentTrack.isLoved
+            ? (lovedUseAccent ? `text-${accentColor}-400 hover:text-${accentColor}-300` : 'text-red-400 hover:text-red-300')
+            : 'text-zinc-400 hover:text-zinc-100'"
+          @click="toggleLove"
+          aria-label="Love track"
+        >
+          <Transition name="icon-swap" mode="out-in">
+            <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-4 h-4" :key="'loved'" />
+            <Icon v-else :path="mdiHeartOutline" class="w-4 h-4" :key="'unloved'" />
+          </Transition>
+        </button>
+      </Tooltip>
 
       <!-- Visualizer -->
-      <button
-        class="transition-colors disabled:text-zinc-700"
-        :class="
-          state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
-        "
-        :disabled="!state.currentTrack"
-        @click="toggleVisualizer"
-        title="(V) Toggle visualizer"
-      >
-        <Icon :path="mdiWaveform" class="w-4 h-4" />
-      </button>
-
-      <!-- Repeat -->
-      <button
-        class="transition-colors"
-        :class="
-          state.repeat !== 'off' ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
-        "
-        @click="cycleRepeat"
-        :title="'(R) Repeat: ' + state.repeat"
-      >
-        <Icon
-          v-if="state.repeat === 'one'"
-          :path="mdiRepeatOnce"
-          class="w-4 h-4"
-        />
-        <Icon v-else :path="mdiRepeat" class="w-4 h-4" />
-      </button>
-
-      <!-- Shuffle -->
-      <button
-        class="transition-colors"
-        :class="
-          state.shuffle ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
-        "
-        @click="toggleShuffle"
-        :title="'(S) Shuffle: ' + (state.shuffle ? 'on' : 'off')"
-      >
-        <Icon :path="mdiShuffle" class="w-4 h-4" />
-      </button>
+      <Tooltip label="Visualizer" shortcut="V">
+        <button
+          class="transition-colors disabled:text-zinc-700"
+          :class="state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+          :disabled="!state.currentTrack"
+          @click="toggleVisualizer"
+        >
+          <Icon :path="mdiWaveform" class="w-4 h-4" />
+        </button>
+      </Tooltip>
 
       <!-- Queue toggle -->
-      <button
-        class="transition-colors"
-        :class="
-          state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'
-        "
-        @click="toggleQueue"
-        :title="'(Q) Queue (' + state.queue.length + ' track' + (state.queue.length !== 1 ? 's' : '') + ')'"
-      >
-        <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
-      </button>
+      <Tooltip :label="'Queue (' + state.queue.length + ')'" shortcut="Q">
+        <button
+          class="transition-colors"
+          :class="state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+          @click="toggleQueue"
+        >
+          <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
+        </button>
+      </Tooltip>
 
       <!-- Volume -->
-      <div class="flex items-center gap-1.5 flex-1" @wheel.prevent="onVolumeWheel" @mouseenter="showVolTooltip = true" @mouseleave="showVolTooltip = false">
-        <button
-          class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0"
-          @click="toggleMute"
-          :title="'(M) ' + (state.volume === 0 ? 'Unmute' : 'Mute')"
-        >
-          <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
-          <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
-        </button>
-        <div class="relative flex-1 flex items-center">
+      <div class="flex items-center gap-1.5 flex-1" @wheel.prevent="onVolumeWheel">
+        <Tooltip :label="state.volume === 0 ? 'Unmute' : 'Mute'" shortcut="M">
+          <button
+            class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0"
+            @click="toggleMute"
+          >
+            <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
+            <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
+          </button>
+        </Tooltip>
+        <div class="relative flex-1 flex items-center" @mouseenter="showVolTooltip = true" @mouseleave="showVolTooltip = false">
           <Transition name="tooltip-fade">
             <div
               v-if="showVolTooltip"
-              class="absolute -top-7 text-xs text-zinc-100 bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 rounded pointer-events-none tabular-nums z-10 bar-tooltip"
+              class="absolute -top-9 text-xs text-zinc-100 bg-zinc-800/95 backdrop-blur border border-zinc-700/60 px-2 py-1 rounded-md shadow-xl pointer-events-none tabular-nums z-10 bar-tooltip"
               :style="{ left: `clamp(20px, ${state.volume * 100}%, calc(100% - 20px))` }"
             >{{ Math.round(state.volume * 100) }}%</div>
           </Transition>
@@ -500,12 +480,12 @@ const hoverTime = computed(() => {
 }
 .tooltip-fade-enter-active,
 .tooltip-fade-leave-active {
-  transition: opacity 0.12s ease, transform 0.12s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease;
 }
 .tooltip-fade-enter-from,
 .tooltip-fade-leave-to {
   opacity: 0;
-  transform: translateX(-50%) translateY(4px);
+  transform: translateX(-50%) translateY(5px) scale(0.93);
 }
 
 /* Play/pause and volume icon swaps */
