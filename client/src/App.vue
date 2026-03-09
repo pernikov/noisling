@@ -106,27 +106,27 @@ watch(
             />
             Noisling
           </router-link>
-          <div class="flex gap-2 sm:gap-4 text-sm">
+          <div class="flex gap-1 text-sm">
             <router-link
               to="/tracks"
-              class="text-zinc-400 hover:text-zinc-100 transition-colors"
-              active-class="!text-zinc-100"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors px-2.5 py-1.5 rounded"
+              active-class="nav-active"
             >
               Tracks
             </router-link>
             <router-link
               v-if="showArtistsNav"
               to="/artists"
-              class="text-zinc-400 hover:text-zinc-100 transition-colors"
-              active-class="!text-zinc-100"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors px-2.5 py-1.5 rounded"
+              active-class="nav-active"
             >
               Artists
             </router-link>
             <router-link
               v-if="showPlaylists"
               to="/playlists"
-              class="text-zinc-400 hover:text-zinc-100 transition-colors"
-              active-class="!text-zinc-100"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors px-2.5 py-1.5 rounded"
+              active-class="nav-active"
             >
               Playlists
             </router-link>
@@ -157,7 +157,7 @@ watch(
           <router-link
             to="/settings"
             class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
-            active-class="!text-zinc-100"
+            active-class="nav-active"
           >
             <Icon :path="mdiCog" class="w-5 h-5" />
           </router-link>
@@ -222,6 +222,12 @@ watch(
 </template>
 
 <style scoped>
+/* Active nav link */
+.nav-active {
+  color: rgb(255 255 255);
+  background-color: rgb(39 39 42); /* zinc-800 */
+}
+
 /* Route page transitions */
 .page-enter-active,
 .page-leave-active {
