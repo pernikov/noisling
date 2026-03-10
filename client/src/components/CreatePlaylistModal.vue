@@ -1,10 +1,9 @@
 <script setup>
 import { ref } from 'vue';
 import { useApi } from '../composables/useApi.js';
-import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
+import Button from './Button.vue';
 import FormInput from './FormInput.vue';
-import Spinner from './Spinner.vue';
 
 const props = defineProps({
   trackIds: { type: Array, default: null },
@@ -13,7 +12,6 @@ const props = defineProps({
 const emit = defineEmits(['close', 'created', 'renamed']);
 
 const api = useApi();
-const { accentRgb } = useTheme();
 const name = ref(props.playlist?.name ?? '');
 const saving = ref(false);
 const error = ref('');
@@ -69,19 +67,10 @@ async function save() {
       <p v-if="error" class="mt-3 text-sm text-red-400">{{ error }}</p>
 
       <div class="flex justify-end gap-2 mt-5">
-        <button
-          @click="emit('close')"
-          class="px-4 py-2 text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-        >Cancel</button>
-        <button
-          @click="save"
-          :disabled="saving"
-          class="px-4 py-2 text-sm rounded-lg disabled:opacity-50 transition-opacity flex items-center gap-2"
-          :style="{ backgroundColor: `rgb(${accentRgb})` }"
-        >
-          <Spinner v-if="saving" class="w-4 h-4" />
+        <Button @click="emit('close')">Cancel</Button>
+        <Button variant="accent" :loading="saving" @click="save">
           {{ isRename ? 'Save' : 'Create' }}
-        </button>
+        </Button>
       </div>
     </div>
   </BaseModal>

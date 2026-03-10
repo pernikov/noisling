@@ -3,11 +3,11 @@ import { ref, computed, watch, onMounted } from 'vue';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
+import Button from './Button.vue';
 import CoverArt from './CoverArt.vue';
 import LoadingState from './LoadingState.vue';
 import SearchBox from './SearchBox.vue';
 import SelectionCheckbox from './SelectionCheckbox.vue';
-import Spinner from './Spinner.vue';
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -15,7 +15,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'added']);
 
 const api = useApi();
-const { showCoverArt, accentColor } = useTheme();
+const { showCoverArt } = useTheme();
 
 const TABS = ['Track', 'Album', 'Artist', 'Genre'];
 const ITEM_HEIGHT = 48;
@@ -304,19 +304,10 @@ async function addTracks() {
             : `Select ${activeTab === 'Track' ? 'tracks' : activeTab.toLowerCase() + 's'}` }}
         </span>
         <div class="flex gap-2 shrink-0">
-          <button
-            @click="emit('close')"
-            class="px-3 py-1.5 text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-          >Cancel</button>
-          <button
-            @click="addTracks"
-            :disabled="!selectedMap.size || adding"
-            :class="`bg-${accentColor}-500 hover:bg-${accentColor}-400`"
-            class="px-3 py-1.5 text-sm rounded-lg text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-          >
-            <Spinner v-if="adding" class="w-3.5 h-3.5" />
+          <Button size="sm" @click="emit('close')">Cancel</Button>
+          <Button variant="accent" size="sm" :loading="adding" :disabled="!selectedMap.size" @click="addTracks">
             Add{{ selectedMap.size ? ` ${totalSelectedCount}` : '' }}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

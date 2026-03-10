@@ -1,6 +1,7 @@
 <script setup>
 import { ref, nextTick } from 'vue';
 import BaseModal from './BaseModal.vue';
+import Button from './Button.vue';
 import ModalCloseButton from './ModalCloseButton.vue';
 import Spinner from './Spinner.vue';
 
@@ -142,12 +143,7 @@ function reload() {
               The app will briefly go offline while the new image is built and the container restarts.
             </p>
             <div class="flex justify-end gap-2 pt-1">
-              <button
-                class="px-4 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                @click="close"
-              >
-                Cancel
-              </button>
+              <Button variant="muted" @click="close">Cancel</Button>
               <button
                 class="px-4 py-1.5 text-sm rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-semibold transition-colors"
                 @click="startUpdate"
@@ -171,12 +167,7 @@ function reload() {
               <span v-if="phase === 'running'" class="inline-block w-2 h-3.5 bg-zinc-400 animate-pulse align-middle" />
             </div>
             <div v-if="phase === 'error'" class="flex justify-end">
-              <button
-                class="px-4 py-1.5 text-sm rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors"
-                @click="close"
-              >
-                Close
-              </button>
+              <Button variant="muted" @click="close">Close</Button>
             </div>
           </div>
 
