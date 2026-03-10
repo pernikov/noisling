@@ -385,7 +385,7 @@ onUnmounted(() => {
               :class="state.currentTrack.isLoved
                 ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-red-400')
                 : 'text-zinc-300 hover:text-white'"
-              @click="toggleLove"
+              @click="toggleLove()"
               aria-label="Love track"
             >
               <Transition name="icon-swap" mode="out-in">

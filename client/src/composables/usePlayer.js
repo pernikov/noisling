@@ -65,6 +65,7 @@ const state = reactive({
   playReportCount:   0,
   transcodeWaiting:  false,
   transcodeActive:   false,
+  loveToggled:       null, // { id, isLoved } — updated on every love toggle so any component can react
 });
 
 // Apply saved volume to the audio element immediately.
@@ -824,15 +825,19 @@ function toggleShortcuts() {
   state.showShortcuts = !state.showShortcuts;
 }
 
-async function toggleLove() {
-  if (!state.currentTrack) return;
-  const track = state.currentTrack;
+async function toggleLove(track = state.currentTrack) {
+  if (!track) return;
   track.isLoved = !track.isLoved;
+  if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = track.isLoved;
   try {
     const { isLoved } = await api.toggleLove(track._id);
     track.isLoved = isLoved;
+    if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = isLoved;
+    state.loveToggled = { id: track._id, isLoved };
   } catch (_) {
     track.isLoved = !track.isLoved;
+    if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = track.isLoved;
+    state.loveToggled = { id: track._id, isLoved: track.isLoved };
   }
 }
 

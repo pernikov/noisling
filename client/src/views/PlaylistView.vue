@@ -242,7 +242,6 @@ async function deletePlaylist() {
         hide-controls
         draggable
         :playlist-id="playlist._id"
-        @love-toggled="() => {}"
         @remove-from-playlist="removeTrack"
         @reorder="reorderTracks"
       />

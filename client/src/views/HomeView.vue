@@ -112,6 +112,15 @@ watch(() => playerState.playReportCount, (count) => {
   if (count > 0 && homeShowRecent.value) loadRecent();
 });
 
+watch(() => playerState.loveToggled, (change) => {
+  if (!change || !homeShowQuickPlay.value) return;
+  if (change.isLoved) {
+    loadLoved(); // reload to get the full track object
+  } else {
+    lovedTracks.value = lovedTracks.value.filter(t => t._id !== change.id);
+  }
+});
+
 function goToAlbum(album) {
   router.push({ name: 'album', params: { artist: album.artistsNorm[0], album: album.name } });
 }
@@ -215,7 +224,6 @@ function goToAlbum(album) {
         :show-plays="tracksColumns.plays"
         :show-last-played="tracksColumns.lastPlayed"
         hide-controls
-        @love-toggled="loadLoved"
       />
     </section>
 

@@ -20,6 +20,7 @@ import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
+import { usePlayer } from '../composables/usePlayer.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import BaseModal from '../components/BaseModal.vue';
 import TrackList from '../components/TrackList.vue';
@@ -171,6 +172,12 @@ async function loadStats() {
 watch(activeTab, (tab) => {
   if (tab === 'stats') loadStats();
 }, { immediate: true });
+
+const { state: playerState } = usePlayer();
+watch(() => playerState.loveToggled, (change) => {
+  if (!change || !stats.value) return;
+  stats.value.totalLoved = (stats.value.totalLoved || 0) + (change.isLoved ? 1 : -1);
+});
 
 function formatDuration(seconds) {
   if (!seconds) return '0 min';

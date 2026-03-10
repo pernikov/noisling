@@ -31,7 +31,7 @@ const props = defineProps({
   draggable: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['love-toggled', 'sort', 'remove-from-playlist', 'reorder']);
+const emit = defineEmits(['sort', 'remove-from-playlist', 'reorder']);
 
 function handleSort(field) {
   if (props.sortBy === field && props.sortDir === 'desc') {
@@ -47,7 +47,7 @@ function sortIcon(field) {
   return props.sortBy === field && props.sortDir === 'desc' ? mdiChevronDown : mdiChevronUp;
 }
 
-const { state, playAlbum, playFromQueue, queueMatches } = usePlayer();
+const { state, playAlbum, playFromQueue, queueMatches, toggleLove } = usePlayer();
 
 const menuTrack = ref(null);
 const menuRowIndex = ref(null);
@@ -113,12 +113,12 @@ const toastStyle = computed(() => {
   };
 });
 
-// When the current track's isLoved is toggled from the player bar,
-// keep the matching track object in props.tracks in sync.
-watch(() => state.currentTrack?.isLoved, (isLoved) => {
-  if (!state.currentTrack) return;
-  const match = props.tracks.find(t => t._id === state.currentTrack._id);
-  if (match) match.isLoved = isLoved;
+// When any track's love status changes (from PlayerBar or another TrackList instance),
+// keep the matching track object in this list in sync.
+watch(() => state.loveToggled, (change) => {
+  if (!change) return;
+  const match = props.tracks.find(t => t._id === change.id);
+  if (match) match.isLoved = change.isLoved;
 });
 
 function timeAgo(date) {
@@ -193,19 +193,6 @@ function playShuffle() {
   }
 }
 
-async function toggleLove(track) {
-  track.isLoved = !track.isLoved;
-  if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = track.isLoved;
-  try {
-    const { isLoved } = await api.toggleLove(track._id);
-    track.isLoved = isLoved;
-    if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = isLoved;
-    emit('love-toggled', { id: track._id, isLoved });
-  } catch {
-    track.isLoved = !track.isLoved;
-    if (state.currentTrack?._id === track._id) state.currentTrack.isLoved = track.isLoved;
-  }
-}
 
 function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;

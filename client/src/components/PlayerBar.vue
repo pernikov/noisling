@@ -364,7 +364,7 @@ const hoverTime = computed(() => {
           :class="state.currentTrack.isLoved
             ? (lovedUseAccent ? `text-${accentColor}-400 hover:text-${accentColor}-300` : 'text-red-400 hover:text-red-300')
             : 'text-zinc-400 hover:text-zinc-100'"
-          @click="toggleLove"
+          @click="toggleLove()"
           aria-label="Love track"
         >
           <Transition name="icon-swap" mode="out-in">
