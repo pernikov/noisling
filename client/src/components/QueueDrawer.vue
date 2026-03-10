@@ -3,6 +3,7 @@ import { ref, nextTick, watch } from 'vue';
 import { mdiClose } from '@mdi/js';
 import Icon from './Icon.vue';
 import QueueList from './QueueList.vue';
+import SaveQueueButton from './SaveQueueButton.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 
 const props = defineProps({
@@ -47,9 +48,12 @@ watch(() => props.open, async (isOpen) => {
             <template v-else>{{ state.queue.length }} track{{ state.queue.length !== 1 ? 's' : '' }}</template>
           </span>
         </h2>
-        <button class="text-zinc-400 hover:text-zinc-100" @click="emit('close')">
-          <Icon :path="mdiClose" class="w-5 h-5" />
-        </button>
+        <div class="flex items-center gap-1">
+          <SaveQueueButton btn-class="text-zinc-400 hover:text-zinc-100" />
+          <button class="text-zinc-400 hover:text-zinc-100" @click="emit('close')">
+            <Icon :path="mdiClose" class="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       <QueueList ref="queueList" @navigate="emit('close')" />

@@ -19,6 +19,7 @@ import {
   mdiHeart,
   mdiHeartOutline,
 } from '@mdi/js';
+import SaveQueueButton from './SaveQueueButton.vue';
 
 const {
   state,
@@ -37,7 +38,6 @@ const {
 const { accentColor: albumAccentColor } = useAccentColor();
 const { accentColor, lovedUseAccent } = useTheme();
 const api = useApi();
-
 const coverUrl = computed(() =>
   state.currentTrack?.cover ? api.coverUrl(state.currentTrack.cover) : null
 );
@@ -393,7 +393,11 @@ onUnmounted(() => {
                 <Icon v-else :path="mdiHeartOutline" class="w-6 h-6" :key="'unloved'" />
               </Transition>
             </button>
-            <div v-else class="w-7 h-7" />
+            <SaveQueueButton
+              v-else
+              btn-class="p-1 -mr-1 rounded-full hover:bg-white/10 transition-colors text-zinc-300 hover:text-white"
+              icon-class="w-6 h-6"
+            />
           </div>
 
           <!-- Tab content: both panels always mounted, crossfade via CSS opacity -->

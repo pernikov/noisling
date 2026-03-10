@@ -5,6 +5,9 @@ import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
 import Spinner from './Spinner.vue';
 
+const props = defineProps({
+  trackIds: { type: Array, default: null },
+});
 const emit = defineEmits(['close', 'created']);
 
 const api = useApi();
@@ -22,6 +25,9 @@ async function save() {
   error.value = '';
   try {
     const playlist = await api.createPlaylist({ name: name.value.trim() });
+    if (props.trackIds?.length) {
+      await api.updatePlaylist(playlist._id, { trackIds: props.trackIds });
+    }
     emit('created', playlist);
   } catch (err) {
     error.value = err.message || 'Failed to create playlist.';
@@ -34,7 +40,7 @@ async function save() {
 <template>
   <BaseModal :show="true" @close="emit('close')">
     <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 w-full max-w-sm shadow-2xl">
-      <h2 class="text-lg font-bold font-display mb-5">New playlist</h2>
+      <h2 class="text-lg font-bold font-display mb-5">{{ trackIds?.length ? 'Save queue as playlist' : 'New playlist' }}</h2>
 
       <input
         v-model="name"
