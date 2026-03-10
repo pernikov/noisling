@@ -3,6 +3,7 @@ import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
 import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
+import IconButton from './IconButton.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
@@ -230,20 +231,8 @@ defineExpose({ playAll, playShuffle });
   <div class="w-full">
     <!-- Play all / Shuffle buttons -->
     <div v-if="!hideControls" class="flex items-center gap-2 mb-3 justify-end">
-      <button
-        class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-        @click="playAll"
-      >
-        <Icon :path="mdiPlay" class="w-4 h-4" />
-        Play All
-      </button>
-      <button
-        class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-        @click="playShuffle"
-      >
-        <Icon :path="mdiShuffle" class="w-4 h-4" />
-        Shuffle
-      </button>
+      <IconButton :icon="mdiPlay" label="Play All" @click="playAll" />
+      <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
     </div>
 
     <table class="w-full table-fixed text-sm border-separate border-spacing-0">

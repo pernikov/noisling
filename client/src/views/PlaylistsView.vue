@@ -7,6 +7,7 @@ import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 import { mosaicFromCovers } from '../composables/useMosaic.js';
 import Icon from '../components/Icon.vue';
+import IconButton from '../components/IconButton.vue';
 import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 
 const api = useApi();
@@ -68,13 +69,7 @@ function onCreated(playlist) {
   <div>
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold font-display">Playlists</h1>
-      <button
-        @click="showCreate = true"
-        class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-      >
-        <Icon :path="mdiPlus" class="w-4 h-4" />
-        New playlist
-      </button>
+      <IconButton :icon="mdiPlus" label="New playlist" @click="showCreate = true" />
     </div>
 
     <!-- Loading skeleton -->

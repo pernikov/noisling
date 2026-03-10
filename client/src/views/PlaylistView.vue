@@ -8,6 +8,7 @@ import { useTheme } from '../composables/useTheme.js';
 import { useMosaic } from '../composables/useMosaic.js';
 import TrackList from '../components/TrackList.vue';
 import Icon from '../components/Icon.vue';
+import IconButton from '../components/IconButton.vue';
 import Spinner from '../components/Spinner.vue';
 import BaseModal from '../components/BaseModal.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
@@ -189,29 +190,9 @@ async function deletePlaylist() {
           <p class="text-sm text-zinc-500 mb-4">{{ tracks.length }} track{{ tracks.length !== 1 ? 's' : '' }}</p>
 
           <div class="flex items-center gap-2">
-            <button
-              @click="playAll"
-              :disabled="!tracks.length"
-              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-            >
-              <Icon :path="mdiPlay" class="w-4 h-4" />
-              Play all
-            </button>
-            <button
-              @click="playShuffle"
-              :disabled="!tracks.length"
-              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-            >
-              <Icon :path="mdiShuffle" class="w-4 h-4" />
-              Shuffle
-            </button>
-            <button
-              @click="showBulkAdd = true"
-              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-            >
-              <Icon :path="mdiPlus" class="w-4 h-4" />
-              Add tracks
-            </button>
+            <IconButton :icon="mdiPlay" label="Play all" :disabled="!tracks.length" @click="playAll" />
+            <IconButton :icon="mdiShuffle" label="Shuffle" :disabled="!tracks.length" @click="playShuffle" />
+            <IconButton :icon="mdiPlus" label="Add tracks" @click="showBulkAdd = true" />
             <Transition name="fade">
               <span v-if="bulkAddToast" class="text-xs text-zinc-400 ml-1">{{ bulkAddToast }}</span>
             </Transition>

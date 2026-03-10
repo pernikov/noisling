@@ -11,6 +11,7 @@ import NotFoundPage from '../components/NotFoundPage.vue';
 import Spinner from '../components/Spinner.vue';
 import BaseModal from '../components/BaseModal.vue';
 import Icon from '../components/Icon.vue';
+import IconButton from '../components/IconButton.vue';
 import { mdiMagnifyPlus, mdiPlay, mdiShuffle } from '@mdi/js';
 
 const api = useApi();
@@ -135,22 +136,8 @@ function playShuffle() {
             </span>
           </div>
           <div class="flex items-center gap-2">
-            <button
-              @click="playAll"
-              :disabled="!tracks.length"
-              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-            >
-              <Icon :path="mdiPlay" class="w-4 h-4" />
-              Play all
-            </button>
-            <button
-              @click="playShuffle"
-              :disabled="!tracks.length"
-              class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 transition-colors"
-            >
-              <Icon :path="mdiShuffle" class="w-4 h-4" />
-              Shuffle
-            </button>
+            <IconButton :icon="mdiPlay" label="Play all" :disabled="!tracks.length" @click="playAll" />
+            <IconButton :icon="mdiShuffle" label="Shuffle" :disabled="!tracks.length" @click="playShuffle" />
           </div>
         </div>
       </div>

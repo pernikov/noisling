@@ -9,6 +9,7 @@ import { usePlayer } from '../composables/usePlayer.js';
 import TrackList from '../components/TrackList.vue';
 import { mdiMusicNote, mdiPlay, mdiShuffle } from '@mdi/js';
 import Icon from '../components/Icon.vue';
+import IconButton from '../components/IconButton.vue';
 
 const api = useApi();
 const { tracksColumns, tracksSort, setTracksSort } = useTheme();
@@ -104,20 +105,8 @@ function prevPage() {
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold font-display">Tracks</h1>
       <div class="flex items-center gap-2">
-        <button
-          class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-          @click="playAll"
-        >
-          <Icon :path="mdiPlay" class="w-4 h-4" />
-          Play All
-        </button>
-        <button
-          class="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-          @click="playShuffle"
-        >
-          <Icon :path="mdiShuffle" class="w-4 h-4" />
-          Shuffle
-        </button>
+        <IconButton :icon="mdiPlay" label="Play All" @click="playAll" />
+        <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
       </div>
     </div>
 
