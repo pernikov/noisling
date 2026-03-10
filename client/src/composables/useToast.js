@@ -1,18 +1,27 @@
 import { reactive } from 'vue';
 
 // Module-level singleton so any component can push toasts
-const state = reactive({ items: [] });
+const state = reactive({ errors: [], toasts: [] });
 let uid = 0;
 
 export function useToast() {
   function error(message) {
     const id = ++uid;
-    state.items.push({ id, message });
+    state.errors.push({ id, message });
     setTimeout(() => {
-      const i = state.items.findIndex(t => t.id === id);
-      if (i !== -1) state.items.splice(i, 1);
+      const i = state.errors.findIndex(t => t.id === id);
+      if (i !== -1) state.errors.splice(i, 1);
     }, 4000);
   }
 
-  return { items: state.items, error };
+  function show(message) {
+    const id = ++uid;
+    state.toasts.push({ id, message });
+    setTimeout(() => {
+      const i = state.toasts.findIndex(t => t.id === id);
+      if (i !== -1) state.toasts.splice(i, 1);
+    }, 2000);
+  }
+
+  return { errors: state.errors, toasts: state.toasts, items: state.errors, error, show };
 }

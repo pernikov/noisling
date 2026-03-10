@@ -1048,11 +1048,48 @@ const hasPrev = computed(() => {
   return state.queueIndex > 0;
 });
 
+function playAll(tracks, getAllTracks = null) {
+  if (!tracks.length) return;
+  playAlbum(tracks, 0);
+  if (getAllTracks) {
+    getAllTracks().then(allTracks => {
+      if (allTracks.length <= tracks.length) return;
+      const currentId = state.currentTrack?._id;
+      const idx = allTracks.findIndex(t => t._id === currentId);
+      state.queue = allTracks;
+      state.originalQueue = [...allTracks];
+      state.queueIndex = idx >= 0 ? idx : 0;
+    });
+  }
+}
+
+function playShuffled(tracks, getAllTracks = null) {
+  if (!tracks.length) return;
+  state.shuffle = true;
+  playAlbum(tracks, Math.floor(Math.random() * tracks.length));
+  if (getAllTracks) {
+    getAllTracks().then(allTracks => {
+      if (allTracks.length <= tracks.length) return;
+      const current = state.currentTrack;
+      const rest = allTracks.filter(t => t._id !== current?._id);
+      for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j], rest[i]];
+      }
+      state.queue = current ? [current, ...rest] : rest;
+      state.originalQueue = [...allTracks];
+      state.queueIndex = 0;
+    });
+  }
+}
+
 export function usePlayer() {
   return {
     state,
     play,
     playAlbum,
+    playAll,
+    playShuffled,
     shuffleAll,
     pause,
     resume,

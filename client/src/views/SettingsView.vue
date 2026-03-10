@@ -178,6 +178,15 @@ watch(() => playerState.loveToggled, (change) => {
   if (!change || !stats.value) return;
   stats.value.totalLoved = (stats.value.totalLoved || 0) + (change.isLoved ? 1 : -1);
 });
+watch(() => playerState.playReportCount, async (count) => {
+  if (count > 0 && activeTab.value === 'stats' && stats.value) {
+    const fresh = await api.getStats();
+    stats.value.totalPlays = fresh.totalPlays;
+    stats.value.topTracks = fresh.topTracks;
+    stats.value.topArtists = fresh.topArtists;
+    stats.value.topAlbums = fresh.topAlbums;
+  }
+});
 
 function formatDuration(seconds) {
   if (!seconds) return '0 min';

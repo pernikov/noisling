@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiCheck, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -47,7 +47,7 @@ function sortIcon(field) {
   return props.sortBy === field && props.sortDir === 'desc' ? mdiChevronDown : mdiChevronUp;
 }
 
-const { state, playAlbum, playFromQueue, queueMatches, toggleLove } = usePlayer();
+const { state, playAlbum, playAll: _playAll, playShuffled: _playShuffled, playFromQueue, queueMatches, toggleLove } = usePlayer();
 
 const menuTrack = ref(null);
 const menuRowIndex = ref(null);
@@ -90,28 +90,11 @@ function cancelCloseMenu() {
 
 onBeforeUnmount(() => {
   clearTimeout(menuCloseTimer);
-  clearTimeout(toastTimer);
 });
 
-const toastMessage = ref('');
-const toastVisible = ref(false);
-let toastTimer = null;
-
-function showToast(message) {
-  toastMessage.value = message;
-  toastVisible.value = true;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
-}
 const { accentColor, accentRgb, density, showCoverArt, lovedUseAccent } = useTheme();
 const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
 const { accentColor: albumAccentColor } = useAccentColor();
-const toastStyle = computed(() => {
-  if (!albumAccentColor.value) return {};
-  return {
-    background: `linear-gradient(to right, rgba(${albumAccentColor.value}, 0.35), rgba(${albumAccentColor.value}, 0.15) 60%, transparent)`,
-  };
-});
 
 // When any track's love status changes (from PlayerBar or another TrackList instance),
 // keep the matching track object in this list in sync.
@@ -151,47 +134,8 @@ function playTrack(index) {
   }
 }
 
-function playAll() {
-  // Start playback synchronously so iOS autoplay policy is satisfied.
-  // If getAllTracks is provided, extend the queue after the fetch.
-  if (!props.tracks.length) return;
-  playAlbum(props.tracks, 0);
-
-  if (props.getAllTracks) {
-    props.getAllTracks().then(allTracks => {
-      if (allTracks.length > props.tracks.length) {
-        const currentId = state.currentTrack?._id;
-        const idx = allTracks.findIndex(t => t._id === currentId);
-        state.queue = allTracks;
-        state.originalQueue = [...allTracks];
-        state.queueIndex = idx >= 0 ? idx : 0;
-      }
-    });
-  }
-}
-
-function playShuffle() {
-  if (!props.tracks.length) return;
-  const randomIndex = Math.floor(Math.random() * props.tracks.length);
-  state.shuffle = true;
-  playAlbum(props.tracks, randomIndex);
-
-  if (props.getAllTracks) {
-    props.getAllTracks().then(allTracks => {
-      if (allTracks.length > props.tracks.length) {
-        const current = state.currentTrack;
-        const rest = allTracks.filter(t => t._id !== current?._id);
-        for (let i = rest.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [rest[i], rest[j]] = [rest[j], rest[i]];
-        }
-        state.queue = current ? [current, ...rest] : rest;
-        state.originalQueue = [...allTracks];
-        state.queueIndex = 0;
-      }
-    });
-  }
-}
+function playAll() { _playAll(props.tracks, props.getAllTracks); }
+function playShuffle() { _playShuffled(props.tracks, props.getAllTracks); }
 
 
 function isCurrentTrack(track) {
@@ -472,22 +416,8 @@ defineExpose({ playAll, playShuffle });
     :playlist-id="playlistId"
     @close="closeMenu"
     @cancel-close="cancelCloseMenu"
-    @toast="showToast"
     @remove-from-playlist="emit('remove-from-playlist', $event); closeMenu()"
   />
-
-  <Teleport to="body">
-    <Transition name="toast">
-      <div
-        v-if="toastVisible"
-        class="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full text-sm shadow-lg whitespace-nowrap"
-        :style="toastStyle"
-      >
-        <Icon :path="mdiCheck" class="w-4 h-4 text-green-400 shrink-0" />
-        {{ toastMessage }}
-      </div>
-    </Transition>
-  </Teleport>
 </template>
 
 <style scoped>
@@ -498,18 +428,6 @@ defineExpose({ playAll, playShuffle });
 .menu-enter-from, .menu-leave-to {
   opacity: 0;
   transform: scale(0.95);
-}
-
-.toast-enter-active, .toast-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.toast-enter-from, .toast-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(6px);
-}
-.toast-enter-to, .toast-leave-from {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
 }
 
 .drop-above > td {

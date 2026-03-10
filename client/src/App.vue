@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch } from "vue";
-import { mdiCog, mdiHelpCircleOutline, mdiAlertCircleOutline } from "@mdi/js";
+import { mdiCog, mdiHelpCircleOutline, mdiAlertCircleOutline, mdiCheck } from "@mdi/js";
 import { useToast } from "./composables/useToast.js";
 import Icon from "./components/Icon.vue";
 import { useRoute, useRouter } from "vue-router";
@@ -57,7 +57,7 @@ const navStyle = computed(() => {
 });
 useKeyboardShortcuts();
 
-const { items: toastItems } = useToast();
+const { items: toastItems, toasts: successToasts } = useToast();
 
 const { hasUpdate, latestVersion } = useUpdateCheck();
 const showUpdateModal = ref(false);
@@ -197,6 +197,22 @@ watch(
       :latest-version="latestVersion"
       @close="showUpdateModal = false"
     />
+
+    <!-- Global success toasts -->
+    <Teleport to="body">
+      <div class="fixed bottom-28 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 items-center pointer-events-none">
+        <TransitionGroup name="toast-slide">
+          <div
+            v-for="item in successToasts"
+            :key="item.id"
+            class="flex items-center gap-2 px-4 py-2 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full text-sm shadow-lg whitespace-nowrap"
+          >
+            <Icon :path="mdiCheck" class="w-4 h-4 text-green-400 shrink-0" />
+            <span class="text-zinc-200">{{ item.message }}</span>
+          </div>
+        </TransitionGroup>
+      </div>
+    </Teleport>
 
     <!-- Global error toasts -->
     <Teleport to="body">

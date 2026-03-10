@@ -5,6 +5,7 @@ import Icon from './Icon.vue';
 import AddToPlaylistModal from './AddToPlaylistModal.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { useToast } from '../composables/useToast.js';
 
 const props = defineProps({
   track: { type: Object, default: null },
@@ -13,22 +14,23 @@ const props = defineProps({
   showBackdrop: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['close', 'cancel-close', 'toast', 'remove-from-playlist']);
+const emit = defineEmits(['close', 'cancel-close', 'remove-from-playlist']);
 
 const { playNext, addToQueue } = usePlayer();
 const { showPlaylists } = useTheme();
+const { show: showToast } = useToast();
 
 const addToPlaylistTrack = ref(null);
 
 function onPlayNext() {
   playNext(props.track);
-  emit('toast', 'Playing next');
+  showToast('Playing next');
   emit('close');
 }
 
 function onAddToQueue() {
   addToQueue(props.track);
-  emit('toast', 'Added to queue');
+  showToast('Added to queue');
   emit('close');
 }
 
@@ -38,8 +40,8 @@ function openAddToPlaylist() {
 }
 
 function onPlaylistAdded(playlistName) {
-  if (playlistName) emit('toast', `Added to "${playlistName}"`);
-  else emit('toast', 'Failed to add to playlist');
+  if (playlistName) showToast(`Added to "${playlistName}"`);
+  else showToast('Failed to add to playlist');
 }
 </script>
 

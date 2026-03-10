@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, nextTick, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiMagnify, mdiClose, mdiDotsVertical, mdiCheck } from '@mdi/js';
+import { mdiMagnify, mdiClose, mdiDotsVertical } from '@mdi/js';
 import Icon from './Icon.vue';
 import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
@@ -45,17 +45,6 @@ function cancelCloseTrackMenu() {
 function closeTrackMenu() {
   clearTimeout(menuCloseTimer);
   menuTrack.value = null;
-}
-
-const toastVisible = ref(false);
-const toastMessage = ref('');
-let toastTimer = null;
-
-function showToast(msg) {
-  toastMessage.value = msg;
-  toastVisible.value = true;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { toastVisible.value = false; }, 2000);
 }
 
 
@@ -328,21 +317,8 @@ function formatDuration(seconds) {
     show-backdrop
     @close="closeTrackMenu"
     @cancel-close="cancelCloseTrackMenu"
-    @toast="showToast"
   />
 
-  <!-- Toast -->
-  <Teleport to="body">
-    <Transition name="menu">
-      <div
-        v-if="toastVisible"
-        class="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 px-4 py-2 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full text-sm shadow-lg whitespace-nowrap"
-      >
-        <Icon :path="mdiCheck" class="w-4 h-4 text-green-400 shrink-0" />
-        {{ toastMessage }}
-      </div>
-    </Transition>
-  </Teleport>
 </template>
 
 <style scoped>
