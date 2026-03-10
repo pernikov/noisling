@@ -47,11 +47,11 @@ function onPlaylistAdded(playlistName) {
 
 <template>
   <Teleport to="body">
-    <div v-if="track && showBackdrop" class="fixed inset-0 z-40" @click="emit('close')" />
+    <div v-if="track && showBackdrop" class="fixed inset-0 z-[60]" @click="emit('close')" />
     <Transition name="menu">
       <div
         v-if="track"
-        class="fixed z-50 bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
+        class="fixed z-[70] bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
         :style="style"
         @mouseenter="emit('cancel-close')"
         @mouseleave="emit('close')"

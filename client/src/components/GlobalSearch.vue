@@ -220,7 +220,6 @@ function formatDuration(seconds) {
                   :class="[rowPy, focusedIndex === flatIndex('track', i) ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/50']"
                   @click="selectItem({ type: 'track', data: track })"
                   @mouseenter="focusedIndex = flatIndex('track', i)"
-                  @mouseleave="scheduleCloseTrackMenu"
                 >
                   <CoverArt v-if="showCoverArt" :cover="track.cover" :size="`${coverSize} shrink-0`" />
                   <div class="min-w-0 flex-1">

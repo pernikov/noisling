@@ -308,7 +308,7 @@ onUnmounted(() => {
     <Transition name="slide-up">
       <div
         v-if="state.showNowPlaying && state.currentTrack"
-        class="fixed inset-0 flex flex-col overflow-hidden"
+        class="fixed inset-0 z-[40] flex flex-col overflow-hidden"
         :style="outerStyle"
         role="dialog"
         aria-modal="true"

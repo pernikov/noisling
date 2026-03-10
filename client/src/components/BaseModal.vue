@@ -25,7 +25,7 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     <Transition name="modal" appear>
       <div
         v-if="show"
-        class="fixed inset-0 z-[70] flex px-4 bg-zinc-950/80 backdrop-blur-sm"
+        class="fixed inset-0 z-50 flex px-4 bg-zinc-950/80 backdrop-blur-sm"
         :class="align === 'top' ? 'items-start pt-16 justify-center' : 'items-center justify-center'"
         @click.self="$emit('close')"
       >
