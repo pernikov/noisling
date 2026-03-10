@@ -139,7 +139,7 @@ function flatIndex(type, i) {
   <!-- Navbar trigger — icon-only, matches other nav buttons -->
   <button
     @click="openSearch"
-    class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
+    class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
     :class="{ '!text-zinc-100': open }"
     aria-label="Search"
   >

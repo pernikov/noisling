@@ -109,7 +109,7 @@ watch(
           <div class="flex gap-1 text-sm">
             <router-link
               to="/tracks"
-              class="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors px-2.5 py-1.5 rounded"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
             >
               Tracks
@@ -117,7 +117,7 @@ watch(
             <router-link
               v-if="showArtistsNav"
               to="/artists"
-              class="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors px-2.5 py-1.5 rounded"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
             >
               Artists
@@ -125,7 +125,7 @@ watch(
             <router-link
               v-if="showPlaylists"
               to="/playlists"
-              class="text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors px-2.5 py-1.5 rounded"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
             >
               Playlists
@@ -147,7 +147,7 @@ watch(
           </button>
           <GlobalSearch />
           <button
-            class="hidden sm:flex text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
+            class="hidden sm:flex text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
             :class="{ '!text-zinc-100': playerState.showShortcuts }"
             @click="toggleShortcuts"
             aria-label="Keyboard shortcuts"
@@ -156,7 +156,7 @@ watch(
           </button>
           <router-link
             to="/settings"
-            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-zinc-800"
+            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
             active-class="nav-active"
           >
             <Icon :path="mdiCog" class="w-5 h-5" />
@@ -241,7 +241,7 @@ watch(
 /* Active nav link */
 .nav-active {
   color: rgb(255 255 255);
-  background-color: rgb(39 39 42); /* zinc-800 */
+  background-color: rgba(255, 255, 255, 0.15);
 }
 
 /* Route page transitions */
