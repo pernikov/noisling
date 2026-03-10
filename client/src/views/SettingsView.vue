@@ -25,6 +25,7 @@ import ConfirmModal from '../components/ConfirmModal.vue';
 import BaseModal from '../components/BaseModal.vue';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
+import IconButton from '../components/IconButton.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -572,15 +573,14 @@ onUnmounted(() => {
               <p class="text-sm font-medium text-zinc-200">Scan for music</p>
               <p class="text-xs text-zinc-500">Discover and index new audio files from your library folder.</p>
             </div>
-            <button
-              @click="promptConfirm({ title: 'Rescan library?', message: 'This will walk your music directory, process any new or changed files, and remove tracks for deleted files. It may take a while for large libraries.', confirmLabel: 'Scan Library', destructive: false, onConfirm: scanLibrary })"
+            <IconButton
+              :icon="mdiMagnify"
+              :label="scanning ? 'Scanning...' : 'Scan Library'"
+              :loading="scanning"
               :disabled="scanning"
-              class="text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
-            >
-              <Icon v-if="!scanning" :path="mdiMagnify" class="w-4 h-4" />
-              <Spinner v-else class="w-4 h-4" />
-              {{ scanning ? 'Scanning...' : 'Scan Library' }}
-            </button>
+              class="shrink-0"
+              @click="promptConfirm({ title: 'Rescan library?', message: 'This will walk your music directory, process any new or changed files, and remove tracks for deleted files. It may take a while for large libraries.', confirmLabel: 'Scan Library', destructive: false, onConfirm: scanLibrary })"
+            />
           </div>
 
           <!-- Scan progress -->
@@ -651,13 +651,7 @@ onUnmounted(() => {
               <template v-else>Albums in your library without artwork.</template>
             </p>
           </div>
-          <button
-            @click="openMissingCovers"
-            class="text-sm px-4 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors flex items-center gap-2 shrink-0"
-          >
-            <Icon :path="mdiImage" class="w-4 h-4" />
-            View
-          </button>
+          <IconButton :icon="mdiImage" label="View" class="shrink-0" @click="openMissingCovers" />
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -668,15 +662,15 @@ onUnmounted(() => {
               <p class="text-sm font-medium text-zinc-200">Delete library</p>
               <p class="text-xs text-zinc-500">Remove all tracks, cover art, and play statistics.</p>
             </div>
-            <button
-              @click="promptConfirm({ title: 'Delete library?', message: 'This will permanently delete all tracks from the database, remove all cover art, and clear your play statistics. This action cannot be undone.', confirmLabel: 'Delete Everything', destructive: true, onConfirm: deleteLibrary })"
+            <IconButton
+              :icon="mdiTrashCan"
+              :label="deleting ? 'Deleting...' : 'Delete Library'"
+              :loading="deleting"
               :disabled="deleting"
-              class="text-sm px-4 py-2 rounded-lg bg-red-600/10 text-red-400 hover:bg-red-600/20 disabled:opacity-50 transition-colors flex items-center gap-2 shrink-0"
-            >
-              <Icon v-if="!deleting" :path="mdiTrashCan" class="w-4 h-4" />
-              <Spinner v-else class="w-4 h-4" />
-              {{ deleting ? 'Deleting...' : 'Delete Library' }}
-            </button>
+              variant="destructive"
+              class="shrink-0"
+              @click="promptConfirm({ title: 'Delete library?', message: 'This will permanently delete all tracks from the database, remove all cover art, and clear your play statistics. This action cannot be undone.', confirmLabel: 'Delete Everything', destructive: true, onConfirm: deleteLibrary })"
+            />
           </div>
 
           <!-- Delete result: success -->

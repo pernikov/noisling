@@ -4,6 +4,7 @@ import { usePlayer } from '../composables/usePlayer.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useApi } from '../composables/useApi.js';
+import { useProgressScrub, formatTime } from '../composables/useProgressScrub.js';
 import Icon from './Icon.vue';
 import Spinner from './Spinner.vue';
 import QueueList from './QueueList.vue';
@@ -75,33 +76,13 @@ const accentOverlay = computed(() => {
   return `linear-gradient(to top, rgba(${albumAccentColor.value}, 0.5), rgba(${albumAccentColor.value}, 0.15) 60%, transparent)`;
 });
 
-function formatTime(seconds) {
-  if (seconds == null || isNaN(seconds)) return '0:00';
-  if (!isFinite(seconds)) return '--:--';
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
 // --- Progress scrubbing ---
 // scrubPercent tracks where the finger/cursor actually is during a drag so the
 // bar follows it exactly. Displaying state.currentTime directly would cause
 // visible jumps because the browser snaps seeks to keyframe boundaries.
-const isScrubbing = ref(false);
-const scrubPercent = ref(0);
+const { isScrubbing, scrubPercent, displayPercent, displayTime, startMouseScrub } = useProgressScrub({ state, seek });
 
-const displayPercent = computed(() => {
-  if (isScrubbing.value) return scrubPercent.value;
-  if (!state.duration || !isFinite(state.duration)) return 0;
-  return (state.currentTime / state.duration) * 100;
-});
-
-const displayTime = computed(() => {
-  if (isScrubbing.value && state.duration) return scrubPercent.value / 100 * state.duration;
-  return state.currentTime;
-});
-
-// Cached bounding rect for the duration of a drag (avoids repeated layout reads).
+// Cached bounding rect for touch scrubbing (avoids repeated layout reads).
 let progressRect = null;
 
 function clampPercent(clientX) {
@@ -111,26 +92,7 @@ function clampPercent(clientX) {
 
 // Mouse drag (desktop / iPadOS with pointer)
 function onProgressMouseDown(e) {
-  if (!state.duration) return;
-  progressRect = e.currentTarget.getBoundingClientRect();
-  isScrubbing.value = true;
-  scrubPercent.value = clampPercent(e.clientX);
-  seek(scrubPercent.value / 100 * state.duration);
-
-  const onMove = (ev) => {
-    scrubPercent.value = clampPercent(ev.clientX);
-    seek(scrubPercent.value / 100 * state.duration);
-  };
-  const onUp = (ev) => {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    scrubPercent.value = clampPercent(ev.clientX);
-    seek(scrubPercent.value / 100 * state.duration);
-    isScrubbing.value = false;
-    progressRect = null;
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  startMouseScrub(e, { seekDuringDrag: true });
 }
 
 // Touch drag (mobile)

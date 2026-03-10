@@ -6,10 +6,13 @@ import Icon from './Icon.vue';
 import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
 import ArtistCover from './ArtistCover.vue';
+import KbdKey from './KbdKey.vue';
 import TrackContextMenu from './TrackContextMenu.vue';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { useContextMenu } from '../composables/useContextMenu.js';
+import { formatTime } from '../composables/useProgressScrub.js';
 
 const router = useRouter();
 const api = useApi();
@@ -17,35 +20,7 @@ const { playAlbum } = usePlayer();
 const { showCoverArt, density, tracksColumns } = useTheme();
 
 // Track context menu
-const menuTrack = ref(null);
-const menuStyle = ref({});
-
-function openTrackMenu(e, track) {
-  e.stopPropagation();
-  menuTrack.value = track;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const menuW = 160, menuH = 72;
-  let top = rect.bottom + 4;
-  let left = rect.right - menuW;
-  if (top + menuH > window.innerHeight) top = rect.top - menuH - 4;
-  if (left < 8) left = 8;
-  menuStyle.value = { top: `${top}px`, left: `${left}px` };
-}
-
-let menuCloseTimer = null;
-
-function scheduleCloseTrackMenu() {
-  menuCloseTimer = setTimeout(() => { menuTrack.value = null; }, 120);
-}
-
-function cancelCloseTrackMenu() {
-  clearTimeout(menuCloseTimer);
-}
-
-function closeTrackMenu() {
-  clearTimeout(menuCloseTimer);
-  menuTrack.value = null;
-}
+const { menuTrack, menuStyle, openMenu: openTrackMenu, closeMenu: closeTrackMenu, cancelClose: cancelCloseTrackMenu } = useContextMenu({ menuWidth: 160, menuHeight: 72 });
 
 
 const open = ref(false);
@@ -158,11 +133,6 @@ function flatIndex(type, i) {
   return results.value.tracks.length + results.value.artists.length + i;
 }
 
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 </script>
 
 <template>
@@ -230,7 +200,7 @@ function formatDuration(seconds) {
                       <template v-else-if="tracksColumns.album">{{ track.album }}</template>
                     </div>
                   </div>
-                  <span :class="menuTrack === track ? 'hidden' : 'group-hover:hidden'" class="text-xs text-zinc-600 shrink-0 tabular-nums">{{ formatDuration(track.duration) }}</span>
+                  <span :class="menuTrack === track ? 'hidden' : 'group-hover:hidden'" class="text-xs text-zinc-600 shrink-0 tabular-nums">{{ formatTime(track.duration) }}</span>
                   <button
                     :class="menuTrack === track ? 'flex' : 'hidden group-hover:flex'"
                     class="items-center justify-end shrink-0 text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
@@ -303,9 +273,9 @@ function formatDuration(seconds) {
 
           <!-- Footer hints -->
           <div class="flex items-center gap-4 px-4 py-2 border-t border-zinc-800/80 text-[11px] text-zinc-600">
-            <span><kbd class="font-mono bg-zinc-800 border border-zinc-700/80 rounded px-1">↑↓</kbd> navigate</span>
-            <span><kbd class="font-mono bg-zinc-800 border border-zinc-700/80 rounded px-1">↵</kbd> select</span>
-            <span><kbd class="font-mono bg-zinc-800 border border-zinc-700/80 rounded px-1">esc</kbd> close</span>
+            <span><KbdKey>↑↓</KbdKey> navigate</span>
+            <span><KbdKey>↵</KbdKey> select</span>
+            <span><KbdKey>esc</KbdKey> close</span>
           </div>
         </div>
   </BaseModal>
@@ -319,15 +289,3 @@ function formatDuration(seconds) {
   />
 
 </template>
-
-<style scoped>
-.menu-enter-active, .menu-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  transform-origin: top left;
-}
-.menu-enter-from, .menu-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
-
-</style>

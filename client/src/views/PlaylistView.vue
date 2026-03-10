@@ -9,10 +9,9 @@ import { useMosaic } from '../composables/useMosaic.js';
 import TrackList from '../components/TrackList.vue';
 import Icon from '../components/Icon.vue';
 import IconButton from '../components/IconButton.vue';
-import Spinner from '../components/Spinner.vue';
-import BaseModal from '../components/BaseModal.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import BulkAddToPlaylistModal from '../components/BulkAddToPlaylistModal.vue';
+import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -42,8 +41,6 @@ const showBulkAdd = ref(false);
 const bulkAddToast = ref('');
 
 const renamingName = ref(false);
-const editName = ref('');
-const savingName = ref(false);
 
 async function load() {
   loading.value = true;
@@ -78,25 +75,12 @@ function playShuffle() {
 }
 
 function startEditName() {
-  editName.value = playlist.value.name;
   renamingName.value = true;
 }
 
-async function saveEditName() {
-  if (!editName.value.trim() || editName.value.trim() === playlist.value.name) {
-    renamingName.value = false;
-    return;
-  }
-  savingName.value = true;
-  try {
-    const updated = await api.updatePlaylist(playlist.value._id, { name: editName.value.trim() });
-    playlist.value.name = updated.name;
-    renamingName.value = false;
-  } catch (err) {
-    console.error('Failed to rename playlist:', err);
-  } finally {
-    savingName.value = false;
-  }
+function onRenamed(updated) {
+  playlist.value.name = updated.name;
+  renamingName.value = false;
 }
 
 async function reorderTracks(reordered) {
@@ -228,35 +212,12 @@ async function deletePlaylist() {
       />
     </template>
 
-    <!-- Rename modal -->
-    <BaseModal :show="renamingName" @close="renamingName = false">
-      <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 w-full max-w-sm shadow-2xl">
-        <h2 class="text-lg font-bold font-display mb-5">Rename playlist</h2>
-        <input
-          v-model="editName"
-          type="text"
-          placeholder="Playlist name"
-          class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500"
-          autofocus
-          @keydown.enter="saveEditName"
-          @keydown.escape="renamingName = false"
-        />
-        <div class="flex justify-end gap-2 mt-5">
-          <button
-            @click="renamingName = false"
-            class="px-4 py-2 text-sm rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors"
-          >Cancel</button>
-          <button
-            @click="saveEditName"
-            :disabled="savingName"
-            class="px-4 py-2 text-sm rounded-lg bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 transition-colors flex items-center gap-2"
-          >
-            <Spinner v-if="savingName" class="w-4 h-4" />
-            Save
-          </button>
-        </div>
-      </div>
-    </BaseModal>
+    <CreatePlaylistModal
+      v-if="renamingName"
+      :playlist="playlist"
+      @close="renamingName = false"
+      @renamed="onRenamed"
+    />
 
     <ConfirmModal
       v-if="confirm"

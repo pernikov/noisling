@@ -1,5 +1,7 @@
 <script setup>
 import { ref, nextTick } from 'vue';
+import BaseModal from './BaseModal.vue';
+import ModalCloseButton from './ModalCloseButton.vue';
 import Spinner from './Spinner.vue';
 
 const props = defineProps({
@@ -117,30 +119,15 @@ function reload() {
 </script>
 
 <template>
-  <Teleport to="body">
-    <Transition name="update-modal">
-      <div
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-        @click.self="close"
-      >
-        <div class="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm" @click="close" />
-
-        <div class="update-card relative bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+  <BaseModal :show="true" @close="close">
+    <div class="relative bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
           <!-- Header -->
           <div class="flex items-center justify-between mb-5">
             <div class="flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
               <h2 class="font-bold text-base">Update Noisling</h2>
             </div>
-            <button
-              v-if="phase !== 'running'"
-              class="text-zinc-500 hover:text-zinc-200 transition-colors p-1 rounded hover:bg-zinc-800"
-              @click="close"
-            >
-              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
+            <ModalCloseButton v-if="phase !== 'running'" @click="close" />
           </div>
 
           <!-- Confirm phase -->
@@ -234,26 +221,5 @@ function reload() {
             </div>
           </div>
         </div>
-      </div>
-    </Transition>
-  </Teleport>
+  </BaseModal>
 </template>
-
-<style>
-.update-modal-enter-active,
-.update-modal-leave-active {
-  transition: opacity 0.2s ease;
-}
-.update-modal-enter-active .update-card,
-.update-modal-leave-active .update-card {
-  transition: transform 0.2s ease;
-}
-.update-modal-enter-from,
-.update-modal-leave-to {
-  opacity: 0;
-}
-.update-modal-enter-from .update-card,
-.update-modal-leave-to .update-card {
-  transform: scale(0.96) translateY(6px);
-}
-</style>

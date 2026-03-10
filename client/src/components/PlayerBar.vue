@@ -3,6 +3,7 @@ import { computed, ref } from "vue";
 import { usePlayer } from "../composables/usePlayer.js";
 import { useAccentColor } from "../composables/useAccentColor.js";
 import { useTheme } from "../composables/useTheme.js";
+import { useProgressScrub, formatTime } from "../composables/useProgressScrub.js";
 import CoverArt from "./CoverArt.vue";
 import QueueDrawer from "./QueueDrawer.vue";
 import {
@@ -54,57 +55,18 @@ const barStyle = computed(() => {
 });
 
 
-function formatTime(seconds) {
-  if (seconds == null || isNaN(seconds)) return "0:00";
-  if (!isFinite(seconds)) return "--:--";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
 // --- Progress scrubbing ---
-// Track a separate visual position during drag so the bar follows the cursor
-// exactly, regardless of where the audio element actually seeks to (browsers
-// snap seeks to the nearest keyframe, which can be ±several seconds off).
-const isScrubbing = ref(false);
-const scrubPercent = ref(0);
+const { isScrubbing, scrubPercent, displayPercent, displayTime, startMouseScrub } = useProgressScrub({ state, seek });
 const hoverPercent = ref(null);
 const showVolTooltip = ref(false);
 
-const displayPercent = computed(() => {
-  if (isScrubbing.value) return scrubPercent.value;
-  if (!state.duration) return 0;
-  return (state.currentTime / state.duration) * 100;
-});
-
-const displayTime = computed(() => {
-  if (isScrubbing.value && state.duration) return scrubPercent.value / 100 * state.duration;
-  return state.currentTime;
-});
-
 function onProgressMouseDown(e) {
-  if (!state.duration) return;
-  const rect = e.currentTarget.getBoundingClientRect();
-  const clamp = (x) => Math.max(0, Math.min(100, (x - rect.left) / rect.width * 100));
-
   const wasPlaying = !audio.paused && !audio.ended;
-  if (wasPlaying) pause();
-  isScrubbing.value = true;
-  scrubPercent.value = clamp(e.clientX);
-
-  const onMove = (ev) => {
-    scrubPercent.value = clamp(ev.clientX);
-  };
-  const onUp = (ev) => {
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('mouseup', onUp);
-    scrubPercent.value = clamp(ev.clientX);
-    seek(scrubPercent.value / 100 * state.duration);
-    isScrubbing.value = false;
-    if (wasPlaying) resume();
-  };
-  document.addEventListener('mousemove', onMove);
-  document.addEventListener('mouseup', onUp);
+  startMouseScrub(e, {
+    seekDuringDrag: false,
+    onStart: () => { if (wasPlaying) pause(); },
+    onEnd: () => { if (wasPlaying) resume(); },
+  });
 }
 
 function onVolumeInput(e) {

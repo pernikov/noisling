@@ -1,17 +1,16 @@
 <script setup>
-import { ref, watch, computed, onBeforeUnmount } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, watch, computed } from 'vue';
 import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
-import { useAccentColor } from '../composables/useAccentColor.js';
 import { useApi } from '../composables/useApi.js';
+import { useContextMenu } from '../composables/useContextMenu.js';
+import { formatTime } from '../composables/useProgressScrub.js';
 import CoverArt from './CoverArt.vue';
 import TrackContextMenu from './TrackContextMenu.vue';
 
-const router = useRouter();
 const api = useApi();
 
 const props = defineProps({
@@ -50,52 +49,24 @@ function sortIcon(field) {
 
 const { state, playAlbum, playAll: _playAll, playShuffled: _playShuffled, playFromQueue, queueMatches, toggleLove } = usePlayer();
 
-const menuTrack = ref(null);
 const menuRowIndex = ref(null);
-const menuStyle = ref({});
+const { menuTrack, menuStyle, openMenu: _openMenu, closeMenu: _closeMenu, scheduleClose: scheduleCloseMenu, cancelClose: cancelCloseMenu } = useContextMenu({ menuWidth: 176, menuHeight: 96, align: 'left' });
+
+// Keep menuRowIndex in sync with the composable's menuTrack
+watch(menuTrack, (val) => { if (!val) menuRowIndex.value = null; });
 
 function openMenu(event, index, track) {
-  event.stopPropagation();
-  if (menuRowIndex.value === index) {
-    closeMenu();
-    return;
-  }
-  const rect = event.currentTarget.getBoundingClientRect();
-  const MENU_HEIGHT = 96;
-  const MENU_WIDTH = 176;
-  const top = rect.bottom + 4 + MENU_HEIGHT > window.innerHeight
-    ? rect.top - MENU_HEIGHT - 4
-    : rect.bottom + 4;
+  if (menuRowIndex.value === index) { _closeMenu(); return; }
   menuRowIndex.value = index;
-  menuTrack.value = track;
-  menuStyle.value = {
-    top: `${Math.max(0, top)}px`,
-    left: `${Math.min(rect.left, window.innerWidth - MENU_WIDTH)}px`,
-  };
+  _openMenu(event, track);
 }
 
 function closeMenu() {
-  menuTrack.value = null;
-  menuRowIndex.value = null;
+  _closeMenu();
 }
-
-let menuCloseTimer = null;
-
-function scheduleCloseMenu() {
-  menuCloseTimer = setTimeout(() => { menuTrack.value = null; menuRowIndex.value = null; }, 120);
-}
-
-function cancelCloseMenu() {
-  clearTimeout(menuCloseTimer);
-}
-
-onBeforeUnmount(() => {
-  clearTimeout(menuCloseTimer);
-});
 
 const { accentColor, accentRgb, density, showCoverArt, lovedUseAccent } = useTheme();
 const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
-const { accentColor: albumAccentColor } = useAccentColor();
 
 // When any track's love status changes (from PlayerBar or another TrackList instance),
 // keep the matching track object in this list in sync.
@@ -118,11 +89,6 @@ function timeAgo(date) {
   return `${months}mo ago`;
 }
 
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
-}
 
 function playTrack(index) {
   if (queueMatches(props.tracks)) {
@@ -384,7 +350,7 @@ defineExpose({ playAll, playShuffle });
             </button>
           </td>
           <td :class="[rowPy, 'px-3 text-right text-zinc-500']">
-            <span :class="menuRowIndex === i ? 'hidden' : 'group-hover:hidden sm:block hidden'" class="tabular-nums">{{ formatDuration(track.duration) }}</span>
+            <span :class="menuRowIndex === i ? 'hidden' : 'group-hover:hidden sm:block hidden'" class="tabular-nums">{{ formatTime(track.duration) }}</span>
             <button
               v-if="!track.deleted"
               :class="menuRowIndex === i ? 'flex' : 'flex sm:hidden sm:group-hover:flex'"
@@ -410,15 +376,6 @@ defineExpose({ playAll, playShuffle });
 </template>
 
 <style scoped>
-.menu-enter-active, .menu-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
-  transform-origin: top left;
-}
-.menu-enter-from, .menu-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
-}
-
 .drop-above > td {
   box-shadow: inset 0 2px 0 var(--indicator);
 }

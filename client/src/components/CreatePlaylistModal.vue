@@ -3,18 +3,22 @@ import { ref } from 'vue';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
+import FormInput from './FormInput.vue';
 import Spinner from './Spinner.vue';
 
 const props = defineProps({
   trackIds: { type: Array, default: null },
+  playlist: { type: Object, default: null },
 });
-const emit = defineEmits(['close', 'created']);
+const emit = defineEmits(['close', 'created', 'renamed']);
 
 const api = useApi();
 const { accentRgb } = useTheme();
-const name = ref('');
+const name = ref(props.playlist?.name ?? '');
 const saving = ref(false);
 const error = ref('');
+
+const isRename = !!props.playlist;
 
 async function save() {
   if (!name.value.trim()) {
@@ -24,13 +28,22 @@ async function save() {
   saving.value = true;
   error.value = '';
   try {
-    const playlist = await api.createPlaylist({ name: name.value.trim() });
-    if (props.trackIds?.length) {
-      await api.updatePlaylist(playlist._id, { trackIds: props.trackIds });
+    if (isRename) {
+      if (name.value.trim() === props.playlist.name) {
+        emit('close');
+        return;
+      }
+      const updated = await api.updatePlaylist(props.playlist._id, { name: name.value.trim() });
+      emit('renamed', updated);
+    } else {
+      const playlist = await api.createPlaylist({ name: name.value.trim() });
+      if (props.trackIds?.length) {
+        await api.updatePlaylist(playlist._id, { trackIds: props.trackIds });
+      }
+      emit('created', playlist);
     }
-    emit('created', playlist);
   } catch (err) {
-    error.value = err.message || 'Failed to create playlist.';
+    error.value = err.message || (isRename ? 'Failed to rename playlist.' : 'Failed to create playlist.');
   } finally {
     saving.value = false;
   }
@@ -40,13 +53,15 @@ async function save() {
 <template>
   <BaseModal :show="true" @close="emit('close')">
     <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 w-full max-w-sm shadow-2xl">
-      <h2 class="text-lg font-bold font-display mb-5">{{ trackIds?.length ? 'Save queue as playlist' : 'New playlist' }}</h2>
+      <h2 class="text-lg font-bold font-display mb-5">
+        {{ isRename ? 'Rename playlist' : (trackIds?.length ? 'Save queue as playlist' : 'New playlist') }}
+      </h2>
 
-      <input
+      <FormInput
         v-model="name"
         type="text"
         placeholder="Playlist name"
-        class="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-zinc-500"
+        class="w-full px-3 py-2"
         autofocus
         @keydown.enter="save"
       />
@@ -65,7 +80,7 @@ async function save() {
           :style="{ backgroundColor: `rgb(${accentRgb})` }"
         >
           <Spinner v-if="saving" class="w-4 h-4" />
-          Create
+          {{ isRename ? 'Save' : 'Create' }}
         </button>
       </div>
     </div>

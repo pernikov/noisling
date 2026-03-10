@@ -1,11 +1,12 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
-import { mdiMagnify, mdiCheck } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
-import Icon from './Icon.vue';
+import LoadingState from './LoadingState.vue';
+import SearchBox from './SearchBox.vue';
+import SelectionCheckbox from './SelectionCheckbox.vue';
 import Spinner from './Spinner.vue';
 
 const props = defineProps({
@@ -230,15 +231,10 @@ async function addTracks() {
 
       <!-- Search -->
       <div class="px-3 pb-2 shrink-0">
-        <div class="relative">
-          <Icon :path="mdiMagnify" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500 pointer-events-none" />
-          <input
-            v-model="search"
-            type="text"
-            :placeholder="activeTab === 'Genre' ? 'Search genres…' : `Search ${activeTab.toLowerCase()}s…`"
-            class="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-zinc-500 placeholder-zinc-600"
-          />
-        </div>
+        <SearchBox
+          v-model="search"
+          :placeholder="activeTab === 'Genre' ? 'Search genres…' : `Search ${activeTab.toLowerCase()}s…`"
+        />
       </div>
 
       <!-- List area — scroll container is always rendered so flex-1 gives it real height -->
@@ -249,9 +245,7 @@ async function addTracks() {
         @scroll="onScroll"
       >
         <!-- Loading -->
-        <div v-if="loadingGenres || searchLoading" class="px-3 py-4 text-sm text-zinc-500 flex items-center gap-2">
-          <Spinner class="w-4 h-4" /> Loading…
-        </div>
+        <LoadingState v-if="loadingGenres || searchLoading" />
         <!-- Prompt to search -->
         <div v-else-if="showPrompt" class="px-3 py-4 text-sm text-zinc-500 text-center">
           Type to search {{ activeTab.toLowerCase() }}s.
@@ -272,12 +266,7 @@ async function addTracks() {
                 :style="{ height: ITEM_HEIGHT + 'px' }"
               >
                 <!-- Checkbox first -->
-                <div
-                  class="w-4 h-4 rounded border shrink-0 flex items-center justify-center transition-colors"
-                  :class="isSelected(item) ? 'bg-white border-white' : 'border-zinc-600'"
-                >
-                  <Icon v-if="isSelected(item)" :path="mdiCheck" class="w-3 h-3 text-zinc-900" />
-                </div>
+                <SelectionCheckbox :checked="isSelected(item)" />
                 <!-- Cover -->
                 <CoverArt
                   v-if="showCoverArt && activeTab !== 'Genre'"

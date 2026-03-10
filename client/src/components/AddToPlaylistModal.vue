@@ -5,7 +5,9 @@ import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
+import FormInput from './FormInput.vue';
 import Icon from './Icon.vue';
+import LoadingState from './LoadingState.vue';
 import Spinner from './Spinner.vue';
 
 const props = defineProps({
@@ -81,9 +83,7 @@ async function confirmCreate() {
       </div>
 
       <div class="py-1 max-h-72 overflow-y-auto">
-        <div v-if="loading" class="px-5 py-4 text-sm text-zinc-500 flex items-center gap-2">
-          <Spinner class="w-4 h-4" /> Loading playlists…
-        </div>
+        <LoadingState v-if="loading" label="Loading playlists…" />
         <div v-else-if="playlists.length === 0" class="px-5 py-4 text-sm text-zinc-500 text-center">
           No playlists yet.
         </div>
@@ -101,12 +101,12 @@ async function confirmCreate() {
 
       <div class="border-t border-zinc-800">
         <div v-if="creating" class="flex items-center gap-2 px-5 py-3">
-          <input
+          <FormInput
             ref="nameInput"
             v-model="newName"
             type="text"
             placeholder="Playlist name"
-            class="flex-1 px-3 py-1.5 text-sm rounded-lg bg-zinc-800 border border-zinc-700 focus:outline-none focus:border-zinc-500 placeholder-zinc-600"
+            class="flex-1 px-3 py-1.5"
             @keydown.enter="confirmCreate"
             @keydown.esc="creating = false"
           />
