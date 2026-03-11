@@ -204,7 +204,7 @@ defineExpose({ playAll, playShuffle });
     <table class="w-full table-fixed text-sm border-separate border-spacing-0">
       <thead>
         <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800 select-none">
-          <th class="text-center py-2 px-1 w-8">#</th>
+          <th class="text-center py-2 px-1 w-8 hidden sm:table-cell">#</th>
           <th
             class="text-left py-2 px-3"
             :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
@@ -267,7 +267,7 @@ defineExpose({ playAll, playShuffle });
           >
             <span class="inline-flex items-center justify-end gap-0.5">
               <Icon v-if="sortable" :path="sortIcon('duration')" class="w-3 h-3 transition-opacity" :class="sortBy === 'duration' ? 'opacity-70' : 'opacity-0'" />
-              Time
+              <span class="hidden sm:inline">Time</span>
             </span>
           </th>
         </tr>
@@ -282,6 +282,7 @@ defineExpose({ playAll, playShuffle });
               ? 'cursor-default opacity-40'
               : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
             { [`text-${accentColor}-400`]: isCurrentTrack(track) },
+            { 'max-sm:[&>td]:bg-zinc-800/50': isCurrentTrack(track) },
             { '[&>td]:bg-zinc-800/50': menuRowIndex === i },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
@@ -297,7 +298,7 @@ defineExpose({ playAll, playShuffle });
           @drop="draggable && onDrop($event, i)"
           @dragend="draggable && onDragEnd()"
         >
-          <td :class="[rowPy, 'px-1 text-zinc-500 text-center']">
+          <td :class="[rowPy, 'px-1 text-zinc-500 text-center hidden sm:table-cell']">
             <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
               <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
             </span>
@@ -310,10 +311,10 @@ defineExpose({ playAll, playShuffle });
             </template>
             <span v-else>{{ startIndex + i + 1 }}</span>
           </td>
-          <td :class="[rowPy, 'px-3 font-medium overflow-hidden']">
+          <td :class="[rowPy, 'px-3 font-medium overflow-hidden max-sm:rounded-l-md']">
             <div class="flex items-center gap-2 min-w-0">
               <CoverArt v-if="showCover && showCoverArt" :cover="track.deleted ? '' : track.cover" :size="density === 'compact' ? 'w-6 h-6 shrink-0' : 'w-8 h-8 shrink-0'" />
-              <span class="truncate">{{ track.title }}</span>
+<span class="truncate">{{ track.title }}</span>
             </div>
           </td>
           <td v-if="showArtist" :class="[rowPy, 'px-3 text-zinc-400 hidden sm:table-cell overflow-hidden']">

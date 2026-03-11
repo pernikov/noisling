@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { mdiPlus, mdiPlaylistMusic, mdiPlay, mdiShuffle } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
@@ -13,7 +13,27 @@ import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 const api = useApi();
 const router = useRouter();
 const { playAlbum } = usePlayer();
-const { showCoverArt } = useTheme();
+const { showCoverArt, accentColor, accentRgb } = useTheme();
+
+const ACCENT_RGB = {
+  rose:    [244, 63,  94 ],
+  amber:   [245, 158, 11 ],
+  yellow:  [250, 204, 21 ],
+  emerald: [16,  185, 129],
+  teal:    [45,  212, 191],
+  sky:     [14,  165, 233],
+  indigo:  [99,  102, 241],
+  violet:  [139, 92,  246],
+  slate:   [148, 163, 184],
+}
+function luminance([r, g, b]) {
+  const f = c => { const s = c / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4 }
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b)
+}
+const accentTextColor = computed(() => {
+  const rgb = ACCENT_RGB[accentColor.value]
+  return rgb && luminance(rgb) > 0.179 ? '#0a0a0b' : '#ffffff'
+})
 
 const playlists = ref([]);
 const loading = ref(true);
@@ -129,32 +149,31 @@ function onCreated(playlist) {
             </div>
           </template>
 
-          <!-- Dim overlay on hover -->
-          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/50 transition-all duration-200" />
-
-          <!-- Play/Shuffle button overlay -->
-          <div class="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 scale-90 group-hover:scale-100 transition-all duration-200">
-            <button
-              @click.stop="shufflePlaylist(playlist, $event)"
-              class="flex items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-white/90 hover:scale-110 active:scale-95 transition-all duration-150 text-zinc-900 shadow-lg"
-              title="Shuffle"
-            >
-              <Icon :path="mdiShuffle" class="w-6 h-6" />
-            </button>
-            <button
-              @click.stop="playPlaylist(playlist, $event)"
-              class="flex items-center justify-center w-14 h-14 rounded-full bg-white hover:bg-white/90 hover:scale-110 active:scale-95 transition-all duration-150 text-zinc-900 shadow-lg"
-              title="Play"
-            >
-              <Icon :path="mdiPlay" class="w-6 h-6" />
-            </button>
-          </div>
         </div>
 
         <!-- Info -->
-        <div class="px-3 py-2.5">
-          <div class="font-medium font-display truncate text-sm">{{ playlist.name }}</div>
-          <div class="text-xs text-zinc-500 mt-0.5">{{ playlist.trackCount }} track{{ playlist.trackCount !== 1 ? 's' : '' }}</div>
+        <div class="px-3 py-2.5 flex items-center gap-2">
+          <div class="min-w-0 flex-1">
+            <div class="font-medium font-display truncate text-sm">{{ playlist.name }}</div>
+            <div class="text-xs text-zinc-500 mt-0.5">{{ playlist.trackCount }} track{{ playlist.trackCount !== 1 ? 's' : '' }}</div>
+          </div>
+          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+            <button
+              @click.stop="shufflePlaylist(playlist, $event)"
+              class="flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 active:scale-95 transition-all duration-150"
+              title="Shuffle"
+            >
+              <Icon :path="mdiShuffle" class="w-3.5 h-3.5" />
+            </button>
+            <button
+              @click.stop="playPlaylist(playlist, $event)"
+              class="flex items-center justify-center w-7 h-7 rounded-md active:scale-95 hover:brightness-110 transition-all duration-150"
+              :style="{ backgroundColor: `rgb(${accentRgb})`, color: accentTextColor }"
+              title="Play"
+            >
+              <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
