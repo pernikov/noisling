@@ -29,6 +29,7 @@ const results = ref({ tracks: [], artists: [], albums: [] });
 const loading = ref(false);
 const focusedIndex = ref(-1);
 const inputRef = ref(null);
+const resultsRef = ref(null);
 
 let debounceTimer = null;
 
@@ -98,6 +99,14 @@ const hasResults = computed(() =>
   results.value.artists.length > 0 ||
   results.value.albums.length > 0
 );
+
+watch(focusedIndex, (idx) => {
+  if (idx < 0 || !resultsRef.value) return;
+  nextTick(() => {
+    const el = resultsRef.value.querySelectorAll('[data-result-item]')[idx];
+    el?.scrollIntoView({ block: 'nearest' });
+  });
+});
 
 function onInputKeydown(e) {
   if (e.key === 'ArrowDown') {
@@ -170,7 +179,7 @@ function flatIndex(type, i) {
           </div>
 
           <!-- Results -->
-          <div class="max-h-[28rem] overflow-y-auto overscroll-contain">
+          <div ref="resultsRef" class="max-h-[28rem] overflow-y-auto overscroll-contain">
 
             <!-- Loading -->
             <div v-if="loading" class="p-3 space-y-1.5">
@@ -186,6 +195,7 @@ function flatIndex(type, i) {
                 <div
                   v-for="(track, i) in results.tracks"
                   :key="track._id"
+                  data-result-item
                   class="group flex items-center gap-3 px-4 text-left transition-colors cursor-pointer"
                   :class="[rowPy, focusedIndex === flatIndex('track', i) ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/50']"
                   @click="selectItem({ type: 'track', data: track })"
@@ -217,6 +227,7 @@ function flatIndex(type, i) {
                 <button
                   v-for="(artist, i) in results.artists"
                   :key="artist.name"
+                  data-result-item
                   class="w-full flex items-center gap-3 px-4 text-left transition-colors"
                   :class="[rowPy, focusedIndex === flatIndex('artist', i) ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/50']"
                   @click="selectItem({ type: 'artist', data: artist })"
@@ -241,6 +252,7 @@ function flatIndex(type, i) {
                 <button
                   v-for="(album, i) in results.albums"
                   :key="album.name"
+                  data-result-item
                   class="w-full flex items-center gap-3 px-4 text-left transition-colors"
                   :class="[rowPy, focusedIndex === flatIndex('album', i) ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/50']"
                   @click="selectItem({ type: 'album', data: album })"
