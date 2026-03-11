@@ -18,6 +18,7 @@ import {
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
+import TabBar from '../components/TabBar.vue';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import { usePlayer } from '../composables/usePlayer.js';
@@ -45,6 +46,11 @@ const {
 
 const VALID_TABS = ['appearance', 'library', 'stats'];
 const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'appearance');
+const TABS = [
+  { value: 'appearance', label: 'Appearance', icon: mdiPalette },
+  { value: 'library', label: 'Library', icon: mdiFolderOpen },
+  { value: 'stats', label: 'Stats', icon: mdiChartBar },
+];
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
@@ -224,32 +230,7 @@ onUnmounted(() => {
     <h1 class="text-2xl font-bold mb-6 font-display">Settings</h1>
 
     <!-- Segmented Nav -->
-    <div class="inline-flex p-1 mb-8 bg-zinc-900 rounded-xl border border-zinc-800">
-      <button
-        @click="activeTab = 'appearance'"
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-        :class="activeTab === 'appearance' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-      >
-        <Icon :path="mdiPalette" class="w-4 h-4" />
-        Appearance
-      </button>
-      <button
-        @click="activeTab = 'library'"
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-        :class="activeTab === 'library' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-      >
-        <Icon :path="mdiFolderOpen" class="w-4 h-4" />
-        Library
-      </button>
-      <button
-        @click="activeTab = 'stats'"
-        class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-        :class="activeTab === 'stats' ? 'bg-zinc-800 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-      >
-        <Icon :path="mdiChartBar" class="w-4 h-4" />
-        Stats
-      </button>
-    </div>
+    <TabBar v-model="activeTab" :tabs="TABS" class="mb-8" />
 
     <!-- Appearance tab -->
     <div v-if="activeTab === 'appearance'" class="space-y-6">
@@ -345,24 +326,15 @@ onUnmounted(() => {
         <div>
           <p class="text-sm font-medium text-zinc-200 mb-1">List density</p>
           <p class="text-xs text-zinc-500 mb-3">Control how compact track lists and search results appear.</p>
-          <div class="inline-flex p-1 bg-zinc-800 rounded-lg border border-zinc-700 gap-1">
-            <button
-              @click="setDensity('comfortable')"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
-              :class="density === 'comfortable' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-            >
-              <Icon :path="mdiViewAgenda" class="w-4 h-4" />
-              Comfortable
-            </button>
-            <button
-              @click="setDensity('compact')"
-              class="flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all"
-              :class="density === 'compact' ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-            >
-              <Icon :path="mdiViewHeadline" class="w-4 h-4" />
-              Compact
-            </button>
-          </div>
+          <TabBar
+            :model-value="density"
+            @update:model-value="setDensity"
+            :tabs="[
+              { value: 'comfortable', label: 'Comfortable', icon: mdiViewAgenda },
+              { value: 'compact', label: 'Compact', icon: mdiViewHeadline },
+            ]"
+            size="sm"
+          />
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -371,17 +343,16 @@ onUnmounted(() => {
         <div>
           <p class="text-sm font-medium text-zinc-200 mb-1">Font size</p>
           <p class="text-xs text-zinc-500 mb-3">Scale the interface text up or down.</p>
-          <div class="inline-flex p-1 bg-zinc-800 rounded-lg border border-zinc-700 gap-1">
-            <button
-              v-for="size in [{ value: 'small', label: 'Small' }, { value: 'medium', label: 'Medium' }, { value: 'large', label: 'Large' }]"
-              :key="size.value"
-              @click="setFontSize(size.value)"
-              class="px-3 py-1.5 rounded-md text-sm font-medium transition-all"
-              :class="fontSize === size.value ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-            >
-              {{ size.label }}
-            </button>
-          </div>
+          <TabBar
+            :model-value="fontSize"
+            @update:model-value="setFontSize"
+            :tabs="[
+              { value: 'small', label: 'Small' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'large', label: 'Large' },
+            ]"
+            size="sm"
+          />
         </div>
 
         <div class="border-t border-zinc-800" />

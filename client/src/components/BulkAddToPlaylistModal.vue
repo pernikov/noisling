@@ -8,6 +8,7 @@ import CoverArt from './CoverArt.vue';
 import LoadingState from './LoadingState.vue';
 import SearchBox from './SearchBox.vue';
 import SelectionCheckbox from './SelectionCheckbox.vue';
+import TabBar from './TabBar.vue';
 
 const props = defineProps({
   playlistId: { type: String, required: true },
@@ -18,6 +19,7 @@ const api = useApi();
 const { showCoverArt } = useTheme();
 
 const TABS = ['Track', 'Album', 'Artist', 'Genre'];
+const TAB_ITEMS = TABS.map(t => ({ value: t, label: t }));
 const ITEM_HEIGHT = 48;
 const OVERSCAN = 8;
 
@@ -218,15 +220,7 @@ async function addTracks() {
 
       <!-- Segmented tabs -->
       <div class="px-3 pt-3 pb-2 shrink-0">
-        <div class="flex w-full p-1 bg-zinc-800/50 rounded-xl border border-zinc-800">
-          <button
-            v-for="tab in TABS"
-            :key="tab"
-            @click="activeTab = tab"
-            class="flex-1 px-2 py-1.5 rounded-lg text-sm font-medium transition-all"
-            :class="activeTab === tab ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300'"
-          >{{ tab }}</button>
-        </div>
+        <TabBar v-model="activeTab" :tabs="TAB_ITEMS" :full="true" />
       </div>
 
       <!-- Search -->
