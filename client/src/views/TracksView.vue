@@ -13,7 +13,7 @@ import IconButton from '../components/IconButton.vue';
 
 const api = useApi();
 const { tracksColumns, tracksSort, setTracksSort } = useTheme();
-const { state: playerState, playAlbum } = usePlayer();
+const { state: playerState, playAlbum, playShuffled } = usePlayer();
 const { error: toastError } = useToast();
 const router = useRouter();
 const allTracks = ref([]);
@@ -78,7 +78,7 @@ async function playAll() {
 async function playShuffle() {
   const tracks = await fetchAllTracks();
   if (!tracks.length) return;
-  playAlbum(tracks, Math.floor(Math.random() * tracks.length));
+  playShuffled(tracks);
 }
 
 const totalPages = computed(() => Math.ceil(total.value / limit));

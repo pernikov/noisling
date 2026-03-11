@@ -16,7 +16,7 @@ import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 const route = useRoute();
 const router = useRouter();
 const api = useApi();
-const { playAlbum, state: playerState } = usePlayer();
+const { playAlbum, playShuffled, state: playerState } = usePlayer();
 const { tracksColumns, showCoverArt } = useTheme();
 
 const playlist = ref(null);
@@ -70,8 +70,7 @@ function playAll() {
 
 function playShuffle() {
   if (!tracks.value.length) return;
-  const idx = Math.floor(Math.random() * tracks.value.length);
-  playAlbum(tracks.value, idx);
+  playShuffled(tracks.value);
 }
 
 function startEditName() {

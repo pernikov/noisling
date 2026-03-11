@@ -12,7 +12,7 @@ import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 
 const api = useApi();
 const router = useRouter();
-const { playAlbum } = usePlayer();
+const { playAlbum, playShuffled } = usePlayer();
 const { showCoverArt, accentColor, accentRgb } = useTheme();
 
 const ACCENT_RGB = {
@@ -70,8 +70,7 @@ async function shufflePlaylist(playlist, event) {
   try {
     const data = await api.getPlaylist(playlist._id);
     if (data.tracks?.length) {
-      const idx = Math.floor(Math.random() * data.tracks.length);
-      playAlbum(data.tracks, idx);
+      playShuffled(data.tracks);
     }
   } catch (err) {
     console.error('Failed to shuffle playlist:', err);

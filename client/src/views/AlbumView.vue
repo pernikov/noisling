@@ -16,7 +16,7 @@ import { mdiMagnifyPlus, mdiPlay, mdiShuffle } from '@mdi/js';
 
 const api = useApi();
 const { wideLayout } = useTheme();
-const { playAlbum } = usePlayer();
+const { playAlbum, playShuffled } = usePlayer();
 const route = useRoute();
 const router = useRouter();
 const coverSize = computed(() =>
@@ -69,7 +69,7 @@ function playAll() {
 
 function playShuffle() {
   if (!tracks.value.length) return;
-  playAlbum(tracks.value, Math.floor(Math.random() * tracks.value.length));
+  playShuffled(tracks.value);
 }
 </script>
 
