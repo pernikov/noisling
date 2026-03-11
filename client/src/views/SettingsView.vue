@@ -33,14 +33,14 @@ const api = useApi();
 const appVersion = __APP_VERSION__;
 const {
   accentColor, accentRgb, themeColor, VALID_COLORS,
-  density, showCoverArt, fontSize,
+  density, showCoverArt, fontSize, sharpCorners, reduceMotion,
   lovedUseAccent, setLovedUseAccent,
   tracksColumns, setTracksColumn,
   showArtistsNav, wideLayout,
   homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
   showPlaylists,
   setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
-  setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists,
+  setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists, setSharpCorners, setReduceMotion,
 } = useTheme();
 
 const VALID_TABS = ['appearance', 'library', 'stats'];
@@ -382,6 +382,50 @@ onUnmounted(() => {
               {{ size.label }}
             </button>
           </div>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Sharp corners -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Sharp corners</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Remove all border radius for a flat, angular look.</p>
+          </div>
+          <button
+            @click="setSharpCorners(!sharpCorners)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="sharpCorners ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="sharpCorners"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="sharpCorners ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
+        </div>
+
+        <div class="border-t border-zinc-800" />
+
+        <!-- Reduce motion -->
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm font-medium text-zinc-200">Reduce motion</p>
+            <p class="text-xs text-zinc-500 mt-0.5">Disable all transitions and animations.</p>
+          </div>
+          <button
+            @click="setReduceMotion(!reduceMotion)"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
+            :class="reduceMotion ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+            role="switch"
+            :aria-checked="reduceMotion"
+          >
+            <span
+              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+              :class="reduceMotion ? 'translate-x-5' : 'translate-x-0'"
+            />
+          </button>
         </div>
       </section>
 

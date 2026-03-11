@@ -41,6 +41,8 @@ function buildResponse(s) {
     showBubbles:        s.showBubbles        ?? true,
     randomizeOnNewTrack: s.randomizeOnNewTrack ?? false,
     showPlaylists:      s.showPlaylists      ?? true,
+    sharpCorners:       s.sharpCorners       ?? false,
+    reduceMotion:       s.reduceMotion       ?? false,
   };
 }
 
@@ -58,7 +60,7 @@ router.patch('/settings', async (req, res) => {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, tracksColumns, tracksSort,
     lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
-    vizMode, showBubbles, randomizeOnNewTrack, showPlaylists,
+    vizMode, showBubbles, randomizeOnNewTrack, showPlaylists, sharpCorners, reduceMotion,
   } = req.body;
   const update = {};
 
@@ -135,6 +137,12 @@ router.patch('/settings', async (req, res) => {
   }
   if (showPlaylists !== undefined) {
     update.showPlaylists = Boolean(showPlaylists);
+  }
+  if (sharpCorners !== undefined) {
+    update.sharpCorners = Boolean(sharpCorners);
+  }
+  if (reduceMotion !== undefined) {
+    update.reduceMotion = Boolean(reduceMotion);
   }
 
   if (!Object.keys(update).length) return res.status(400).json({ error: 'No valid fields' });

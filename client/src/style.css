@@ -36,6 +36,12 @@ html {
 html.font-small { font-size: 13px; }
 html.font-large  { font-size: 18px; }
 
+/* Sharp corners — remove all border-radius from every element */
+html.sharp-corners * { border-radius: 0 !important; }
+
+/* Reduce motion — disable all transitions and animations */
+html.reduce-motion * { transition: none !important; animation: none !important; }
+
 /* Thin, subtle scrollbar */
 ::-webkit-scrollbar {
   width: 4px;

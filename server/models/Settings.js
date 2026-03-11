@@ -24,6 +24,8 @@ const settingsSchema = new mongoose.Schema({
   showBubbles:        { type: Boolean, default: true },
   randomizeOnNewTrack: { type: Boolean, default: false },
   showPlaylists:      { type: Boolean, default: true },
+  sharpCorners:       { type: Boolean, default: false },
+  reduceMotion:       { type: Boolean, default: false },
 }, { collection: 'settings' });
 
 export default mongoose.model('Settings', settingsSchema);

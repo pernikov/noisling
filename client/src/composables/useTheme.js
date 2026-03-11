@@ -53,6 +53,8 @@ const HOME_RECENT_KEY  = 'noisling_home_recent';
 const HOME_ALBUMS_KEY  = 'noisling_home_albums';
 const WIDE_LAYOUT_KEY  = 'noisling_wide_layout';
 const PLAYLISTS_KEY    = 'noisling_playlists';
+const SHARP_KEY        = 'noisling_sharp_corners';
+const MOTION_KEY       = 'noisling_reduce_motion';
 
 // Visualizer keys
 const VIZ_MODE_KEY  = 'noisling_vizmode';
@@ -86,6 +88,14 @@ function applyFontSize(size) {
 // Apply immediately to avoid flash
 applyFontSize(fontSize.value);
 
+function applySharpCorners(value) {
+  document.documentElement.classList.toggle('sharp-corners', value);
+}
+
+function applyReduceMotion(value) {
+  document.documentElement.classList.toggle('reduce-motion', value);
+}
+
 // Tracks columns visibility
 const DEFAULT_COLS = { artist: true, album: true, plays: true, lastPlayed: true };
 const tracksColumns = ref((() => {
@@ -106,6 +116,10 @@ function storedBool(key, defaultVal = true) {
   return v === null ? defaultVal : v !== 'false';
 }
 
+const sharpCorners      = ref(storedBool(SHARP_KEY, false));
+applySharpCorners(sharpCorners.value);
+const reduceMotion      = ref(storedBool(MOTION_KEY, false));
+applyReduceMotion(reduceMotion.value);
 const lovedUseAccent    = ref(storedBool(LOVED_ACCENT_KEY, false));
 const showArtistsNav    = ref(storedBool(ARTISTS_NAV_KEY));
 const showPlaylists     = ref(storedBool(PLAYLISTS_KEY, true));
@@ -245,6 +259,16 @@ export function useTheme() {
       if (typeof data.showPlaylists === 'boolean') {
         showPlaylists.value = data.showPlaylists;
         localStorage.setItem(PLAYLISTS_KEY, String(data.showPlaylists));
+      }
+      if (typeof data.sharpCorners === 'boolean') {
+        sharpCorners.value = data.sharpCorners;
+        localStorage.setItem(SHARP_KEY, String(data.sharpCorners));
+        applySharpCorners(data.sharpCorners);
+      }
+      if (typeof data.reduceMotion === 'boolean') {
+        reduceMotion.value = data.reduceMotion;
+        localStorage.setItem(MOTION_KEY, String(data.reduceMotion));
+        applyReduceMotion(data.reduceMotion);
       }
     } catch {
       // fall back to localStorage values already applied above
@@ -482,6 +506,38 @@ export function useTheme() {
     );
   }
 
+  async function setReduceMotion(value) {
+    const prev = reduceMotion.value;
+    reduceMotion.value = Boolean(value);
+    localStorage.setItem(MOTION_KEY, String(reduceMotion.value));
+    applyReduceMotion(reduceMotion.value);
+    await saveOrRollback(
+      { reduceMotion: reduceMotion.value },
+      () => {
+        reduceMotion.value = prev;
+        localStorage.setItem(MOTION_KEY, String(prev));
+        applyReduceMotion(prev);
+      },
+      'Failed to save motion setting.'
+    );
+  }
+
+  async function setSharpCorners(value) {
+    const prev = sharpCorners.value;
+    sharpCorners.value = Boolean(value);
+    localStorage.setItem(SHARP_KEY, String(sharpCorners.value));
+    applySharpCorners(sharpCorners.value);
+    await saveOrRollback(
+      { sharpCorners: sharpCorners.value },
+      () => {
+        sharpCorners.value = prev;
+        localStorage.setItem(SHARP_KEY, String(prev));
+        applySharpCorners(prev);
+      },
+      'Failed to save corner style setting.'
+    );
+  }
+
   return {
     accentColor, accentRgb, accentDarkRgb,
     themeColor, themeBgRgb, themeBgDarkRgb, VALID_COLORS, VALID_THEME_COLORS,
@@ -495,12 +551,13 @@ export function useTheme() {
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
     vizMode, showBubbles, randomizeOnNewTrack, VALID_VIZ_MODES,
     showPlaylists,
+    sharpCorners, reduceMotion,
     loadTheme, setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
     setTracksColumn, setTracksSort,
     setShowArtistsNav, setWideLayout,
     setVizMode, setShowBubbles, setRandomizeOnNewTrack,
-    setShowPlaylists,
+    setShowPlaylists, setSharpCorners, setReduceMotion,
     setHomeSection: (key, value) => {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);
       if (key === 'recent')    _setHomeSection(homeShowRecent,    HOME_RECENT_KEY, 'homeShowRecent', value);
