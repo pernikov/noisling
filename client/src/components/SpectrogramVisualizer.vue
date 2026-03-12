@@ -52,7 +52,6 @@ const PILL_SIZE = { min: 0.5, max: 1.25 };
 const PILL_COUNT = 150;
 const NUM_BANDS = 128;
 const BUTTERCHURN_BLEND_SECONDS = 2.4;
-const BUTTERCHURN_ROTATE_MS = 30000;
 const HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_chrome';
 const LEGACY_HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_fullscreen_chrome';
 const butterchurnPresetMap = butterchurnPresets.getPresets();
@@ -125,7 +124,6 @@ let butterchurnSupported = null;
 const butterchurnPresetLoaded = ref(false);
 const butterchurnPresetName = ref(null);
 let butterchurnWasPlaying = false;
-let butterchurnPresetTimer = 0;
 const butterchurnPresetIndex = ref(-1);
 let butterchurnTrackStep = 0;
 const butterchurnDesiredIndex = ref(0);
@@ -315,31 +313,6 @@ function disposeButterchurnVisualizer() {
   butterchurnPresetName.value = null;
   butterchurnWasPlaying = false;
   butterchurnVisualizer = null;
-}
-
-function clearButterchurnPresetTimer() {
-  if (!butterchurnPresetTimer) return;
-  window.clearInterval(butterchurnPresetTimer);
-  butterchurnPresetTimer = 0;
-}
-
-function syncButterchurnPresetTimer() {
-  clearButterchurnPresetTimer();
-  if (
-    !isButterchurnMode.value
-    || butterchurnPresetMode.value !== 'random'
-    || !randomizeOnNewTrack.value
-    || !state.isPlaying
-    || !state.currentTrack
-  ) {
-    return;
-  }
-
-  butterchurnPresetTimer = window.setInterval(() => {
-    if (!state.isPlaying || !state.currentTrack || !isButterchurnMode.value) return;
-    rotateButterchurnPreset();
-    syncButterchurnPreset();
-  }, BUTTERCHURN_ROTATE_MS);
 }
 
 function rotateButterchurnPreset() {
@@ -909,30 +882,24 @@ watch(vizMode, () => {
   resizeCanvas();
   paintBackground();
   syncButterchurnPreset();
-  syncButterchurnPresetTimer();
 });
 watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
   if (!trackId || trackId === previousTrackId) {
     if (!trackId) clearButterchurnCanvas();
-    syncButterchurnPresetTimer();
     return;
   }
 
   advanceButterchurnPresetForTrack();
   syncButterchurnPreset();
-  syncButterchurnPresetTimer();
 });
 watch(() => state.isPlaying, () => {
   syncButterchurnPreset();
-  syncButterchurnPresetTimer();
 });
 watch(randomizeOnNewTrack, () => {
   syncButterchurnPreset();
-  syncButterchurnPresetTimer();
 });
 watch(butterchurnPresetMode, () => {
   syncButterchurnPreset();
-  syncButterchurnPresetTimer();
 });
 watch(butterchurnPreset, () => {
   syncButterchurnPreset();
@@ -959,7 +926,6 @@ onMounted(() => {
 onUnmounted(() => {
   stop();
   disposeButterchurnVisualizer();
-  clearButterchurnPresetTimer();
   clearOverlayHideTimer();
   resizeObserver?.disconnect();
   resizeObserver = null;
