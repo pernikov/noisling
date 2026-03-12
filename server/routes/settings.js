@@ -9,16 +9,7 @@ const VALID_DENSITY   = ['comfortable', 'compact'];
 const VALID_FONT      = ['small', 'medium', 'large'];
 const VALID_VIZ_MODES = ['spiral', 'pills', 'butterchurn'];
 const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
-const VALID_BUTTERCHURN_PRESETS = [
-  'Flexi, martin + geiss - dedicated to the sherwin maxawow',
-  'martin - mandelbox explorer - high speed demo version',
-  'Zylot - Paint Spill (Music Reactive Paint Mix)',
-  '$$$ Royal - Mashup (197)',
-  '$$$ Royal - Mashup (220)',
-  '$$$ Royal - Mashup (431)',
-  'Aderrasi - Storm of the Eye (Thunder) - mash0000 - quasi pseudo meta concentrics',
-  'An AdamFX n Martin Infusion 2 flexi - Why The Sky Looks Diffrent Today - AdamFx n Martin Infusion - Tack Tile Disfunction B',
-];
+const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to the sherwin maxawow';
 const VALID_SORT_DIRS = ['asc', 'desc'];
 const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
 const VALID_COL_KEYS  = ['artist', 'album', 'plays', 'lastPlayed'];
@@ -51,9 +42,9 @@ function buildResponse(s) {
     vizMode:            s.vizMode            ?? 'spiral',
     randomizeOnNewTrack: s.randomizeOnNewTrack ?? false,
     butterchurnPresetMode: s.butterchurnPresetMode ?? ((s.randomizeOnNewTrack ?? false) ? 'random' : 'single'),
-    butterchurnPreset:  VALID_BUTTERCHURN_PRESETS.includes(s.butterchurnPreset)
+    butterchurnPreset: typeof s.butterchurnPreset === 'string' && s.butterchurnPreset.trim()
       ? s.butterchurnPreset
-      : VALID_BUTTERCHURN_PRESETS[0],
+      : DEFAULT_BUTTERCHURN_PRESET,
     showPlaylists:      s.showPlaylists      ?? true,
     sharpCorners:       s.sharpCorners       ?? false,
     reduceMotion:       s.reduceMotion       ?? false,
@@ -158,7 +149,7 @@ router.patch('/settings', async (req, res) => {
     update.randomizeOnNewTrack = butterchurnPresetMode === 'random';
   }
   if (butterchurnPreset !== undefined) {
-    if (!VALID_BUTTERCHURN_PRESETS.includes(butterchurnPreset)) return res.status(400).json({ error: 'Invalid butterchurnPreset' });
+    if (typeof butterchurnPreset !== 'string' || !butterchurnPreset.trim()) return res.status(400).json({ error: 'Invalid butterchurnPreset' });
     update.butterchurnPreset = butterchurnPreset;
   }
   if (showPlaylists !== undefined) {

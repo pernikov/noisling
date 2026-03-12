@@ -5,6 +5,7 @@ import {
   BUTTERCHURN_PRESET_OPTIONS,
   DEFAULT_BUTTERCHURN_PRESET,
   DEFAULT_BUTTERCHURN_PRESET_MODE,
+  VALID_BUTTERCHURN_PRESETS,
   VALID_BUTTERCHURN_PRESET_MODES,
 } from '../constants/butterchurnPresets.js';
 
@@ -68,8 +69,6 @@ const RANDOMIZE_KEY = 'noisling_randomize';
 const BUTTERCHURN_PRESET_MODE_KEY = 'noisling_butterchurn_preset_mode';
 const BUTTERCHURN_PRESET_KEY = 'noisling_butterchurn_preset';
 const VALID_VIZ_MODES = ['spiral', 'pills', 'butterchurn'];
-const VALID_BUTTERCHURN_PRESETS = BUTTERCHURN_PRESET_OPTIONS.map(option => option.value);
-
 function normalizeVizMode(value) {
   if (value === 'nebula') return 'pills';
   return value;
