@@ -1,6 +1,12 @@
 import { ref, computed } from 'vue';
 import { useApi } from './useApi.js';
 import { useToast } from './useToast.js';
+import {
+  BUTTERCHURN_PRESET_OPTIONS,
+  DEFAULT_BUTTERCHURN_PRESET,
+  DEFAULT_BUTTERCHURN_PRESET_MODE,
+  VALID_BUTTERCHURN_PRESET_MODES,
+} from '../constants/butterchurnPresets.js';
 
 const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
@@ -59,7 +65,10 @@ const MOTION_KEY       = 'noisling_reduce_motion';
 // Visualizer keys
 const VIZ_MODE_KEY  = 'noisling_vizmode';
 const RANDOMIZE_KEY = 'noisling_randomize';
-const VALID_VIZ_MODES = ['spiral', 'pills'];
+const BUTTERCHURN_PRESET_MODE_KEY = 'noisling_butterchurn_preset_mode';
+const BUTTERCHURN_PRESET_KEY = 'noisling_butterchurn_preset';
+const VALID_VIZ_MODES = ['spiral', 'pills', 'butterchurn'];
+const VALID_BUTTERCHURN_PRESETS = BUTTERCHURN_PRESET_OPTIONS.map(option => option.value);
 
 function normalizeVizMode(value) {
   if (value === 'nebula') return 'pills';
@@ -135,7 +144,22 @@ const homeShowAlbums    = ref(storedBool(HOME_ALBUMS_KEY));
 // Visualizer prefs
 const storedViz = normalizeVizMode(localStorage.getItem(VIZ_MODE_KEY));
 const vizMode            = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'spiral');
-const randomizeOnNewTrack = ref(storedBool(RANDOMIZE_KEY, false));
+const storedRandomize = localStorage.getItem(RANDOMIZE_KEY);
+const randomizeOnNewTrack = ref(storedRandomize === null ? false : storedRandomize !== 'false');
+const storedButterchurnPresetMode = localStorage.getItem(BUTTERCHURN_PRESET_MODE_KEY);
+const butterchurnPresetMode = ref(
+  VALID_BUTTERCHURN_PRESET_MODES.includes(storedButterchurnPresetMode)
+    ? storedButterchurnPresetMode
+    : (storedRandomize !== null
+      ? (randomizeOnNewTrack.value ? 'random' : 'single')
+      : DEFAULT_BUTTERCHURN_PRESET_MODE)
+);
+const storedButterchurnPreset = localStorage.getItem(BUTTERCHURN_PRESET_KEY);
+const butterchurnPreset = ref(
+  VALID_BUTTERCHURN_PRESETS.includes(storedButterchurnPreset)
+    ? storedButterchurnPreset
+    : DEFAULT_BUTTERCHURN_PRESET
+);
 
 const homeVisibleCount = computed(
   () => [homeShowQuickPlay.value, homeShowRecent.value, homeShowAlbums.value].filter(Boolean).length
@@ -255,6 +279,17 @@ export function useTheme() {
       if (typeof data.randomizeOnNewTrack === 'boolean') {
         randomizeOnNewTrack.value = data.randomizeOnNewTrack;
         localStorage.setItem(RANDOMIZE_KEY, String(data.randomizeOnNewTrack));
+      }
+      if (VALID_BUTTERCHURN_PRESET_MODES.includes(data.butterchurnPresetMode)) {
+        butterchurnPresetMode.value = data.butterchurnPresetMode;
+        localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, data.butterchurnPresetMode);
+      } else if (typeof data.randomizeOnNewTrack === 'boolean') {
+        butterchurnPresetMode.value = data.randomizeOnNewTrack ? 'random' : 'single';
+        localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, butterchurnPresetMode.value);
+      }
+      if (VALID_BUTTERCHURN_PRESETS.includes(data.butterchurnPreset)) {
+        butterchurnPreset.value = data.butterchurnPreset;
+        localStorage.setItem(BUTTERCHURN_PRESET_KEY, data.butterchurnPreset);
       }
       if (typeof data.showPlaylists === 'boolean') {
         showPlaylists.value = data.showPlaylists;
@@ -479,6 +514,44 @@ export function useTheme() {
     );
   }
 
+  async function setButterchurnPresetMode(value) {
+    if (!VALID_BUTTERCHURN_PRESET_MODES.includes(value)) return;
+    const prevMode = butterchurnPresetMode.value;
+    const prevRandomize = randomizeOnNewTrack.value;
+    butterchurnPresetMode.value = value;
+    randomizeOnNewTrack.value = value === 'random';
+    localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, value);
+    localStorage.setItem(RANDOMIZE_KEY, String(randomizeOnNewTrack.value));
+    await saveOrRollback(
+      {
+        butterchurnPresetMode: value,
+        randomizeOnNewTrack: randomizeOnNewTrack.value,
+      },
+      () => {
+        butterchurnPresetMode.value = prevMode;
+        randomizeOnNewTrack.value = prevRandomize;
+        localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, prevMode);
+        localStorage.setItem(RANDOMIZE_KEY, String(prevRandomize));
+      },
+      'Failed to save Butterchurn preset mode.'
+    );
+  }
+
+  async function setButterchurnPreset(value) {
+    if (!VALID_BUTTERCHURN_PRESETS.includes(value)) return;
+    const prev = butterchurnPreset.value;
+    butterchurnPreset.value = value;
+    localStorage.setItem(BUTTERCHURN_PRESET_KEY, value);
+    await saveOrRollback(
+      { butterchurnPreset: value },
+      () => {
+        butterchurnPreset.value = prev;
+        localStorage.setItem(BUTTERCHURN_PRESET_KEY, prev);
+      },
+      'Failed to save Butterchurn preset.'
+    );
+  }
+
   async function setShowPlaylists(value) {
     const prev = showPlaylists.value;
     showPlaylists.value = Boolean(value);
@@ -537,13 +610,15 @@ export function useTheme() {
     wideLayout,
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
     vizMode, randomizeOnNewTrack, VALID_VIZ_MODES,
+    butterchurnPresetMode, butterchurnPreset,
+    BUTTERCHURN_PRESET_OPTIONS, VALID_BUTTERCHURN_PRESET_MODES,
     showPlaylists,
     sharpCorners, reduceMotion,
     loadTheme, setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
     setTracksColumn, setTracksSort,
     setShowArtistsNav, setWideLayout,
-    setVizMode, setRandomizeOnNewTrack,
+    setVizMode, setRandomizeOnNewTrack, setButterchurnPresetMode, setButterchurnPreset,
     setShowPlaylists, setSharpCorners, setReduceMotion,
     setHomeSection: (key, value) => {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);

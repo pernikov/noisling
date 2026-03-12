@@ -37,6 +37,11 @@ const audio = new Audio();
 let visualizerNode = null;
 let visualizerDisabled = null;
 
+function getAudioContextCtor() {
+  if (typeof window === 'undefined') return null;
+  return window.AudioContext || window.webkitAudioContext || null;
+}
+
 const state = reactive({
   currentTrack:      null,
   queue:             [],
@@ -65,6 +70,7 @@ const state = reactive({
   showQueue:         false,
   showShortcuts:     false,
   playReportCount:   0,
+  visualizerTrackTick: 0,
   transcodeWaiting:  false,
   transcodeActive:   false,
   loveToggled:       null, // { id, isLoved } — updated on every love toggle so any component can react
@@ -118,7 +124,7 @@ function _setTrackSource(track, { forceTranscode = false, markWaiting = true, ca
 
 function isVisualizerDisabled() {
   if (visualizerDisabled !== null) return visualizerDisabled;
-  if (typeof window === 'undefined' || typeof AudioContext === 'undefined') {
+  if (!getAudioContextCtor()) {
     visualizerDisabled = true;
     return visualizerDisabled;
   }
@@ -133,7 +139,10 @@ function getVisualizerNode() {
   if (visualizerNode) return visualizerNode;
   if (isVisualizerDisabled()) return null;
 
-  const ctx = new AudioContext();
+  const AudioContextCtor = getAudioContextCtor();
+  if (!AudioContextCtor) return null;
+
+  const ctx = new AudioContextCtor();
   const analyser = ctx.createAnalyser();
   analyser.fftSize = 2048;
   analyser.smoothingTimeConstant = 0.82;
@@ -149,6 +158,10 @@ function getVisualizerNode() {
 
 function getVisualizerAnalyser() {
   return getVisualizerNode()?.analyser ?? null;
+}
+
+function getVisualizerGraph() {
+  return getVisualizerNode();
 }
 
 function resumeVisualizerContext() {
@@ -548,6 +561,11 @@ async function loadPlayerPrefs() {
 
 function play(track) {
   console.log(`[player] play — "${track?.title}" (prev: "${state.currentTrack?.title}")`);
+  const previousTrackId = state.currentTrack?._id?.toString?.() ?? null;
+  const nextTrackId = track?._id?.toString?.() ?? null;
+  if (nextTrackId && nextTrackId !== previousTrackId) {
+    state.visualizerTrackTick += 1;
+  }
   // Explicit user playback should always start fresh for the selected track.
   _pendingRestore = null;
   // Do not call pause() before src swap: on iOS background playback this can
@@ -1149,6 +1167,7 @@ export function usePlayer() {
     cycleRepeat,
     audio,
     getVisualizerAnalyser,
+    getVisualizerGraph,
     resumeVisualizerContext,
     moveTrack,
     playFromQueue,

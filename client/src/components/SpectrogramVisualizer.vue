@@ -1,5 +1,11 @@
 <script setup>
+import butterchurn from 'butterchurn';
+import butterchurnPresets from 'butterchurn-presets';
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
+import {
+  BUTTERCHURN_PRESET_OPTIONS,
+  DEFAULT_BUTTERCHURN_PRESET,
+} from '../constants/butterchurnPresets.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -27,6 +33,15 @@ const VIZ_OPTIONS = [
       url: 'https://codepen.io/soulwire/pen/kGjRpg',
     },
   },
+  {
+    value: 'butterchurn',
+    label: 'Butterchurn',
+    icon: '<path d="M4 16c2.5-5.6 5.2-8.4 8-8.4s5.5 2.8 8 8.4"/><path d="M4 9.5c2.5 3.7 5.2 5.5 8 5.5s5.5-1.8 8-5.5" stroke-linecap="round"/>',
+    credit: {
+      label: 'Butterchurn by Jordan Berg',
+      url: 'https://github.com/jberg/butterchurn',
+    },
+  },
 ];
 
 const PILL_SCALE = { min: 5, max: 80 };
@@ -36,6 +51,14 @@ const PILL_SPIN = { min: 0.001, max: 0.005 };
 const PILL_SIZE = { min: 0.5, max: 1.25 };
 const PILL_COUNT = 150;
 const NUM_BANDS = 128;
+const BUTTERCHURN_BLEND_SECONDS = 2.4;
+const BUTTERCHURN_ROTATE_MS = 30000;
+const butterchurnPresetMap = butterchurnPresets.getPresets();
+const butterchurnPresetNames = BUTTERCHURN_PRESET_OPTIONS
+  .map(option => option.value)
+  .filter(name => butterchurnPresetMap[name]);
+const butterchurnPresetOptions = BUTTERCHURN_PRESET_OPTIONS
+  .filter(option => butterchurnPresetMap[option.value]);
 
 const BUBBLES = [
   { phase: 0, speed: 0.4, orbitX: 0.28, orbitY: 0.22, band: 'bass', baseSize: 0.45 },
@@ -48,7 +71,8 @@ const BUBBLES = [
 ];
 
 const containerRef = ref(null);
-const canvasRef = ref(null);
+const canvas2dRef = ref(null);
+const butterchurnCanvasRef = ref(null);
 const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
 const showModeDropdown = ref(false);
@@ -56,9 +80,18 @@ const pillsNoiseUrl = ref('');
 const hideChromeInFullscreen = ref(localStorage.getItem('noisling_viz_hide_fullscreen_chrome') === 'true');
 const overlayVisible = ref(true);
 
-const { state, getVisualizerAnalyser, resumeVisualizerContext } = usePlayer();
-const { accentColor } = useAccentColor();
-const { vizMode, setVizMode } = useTheme();
+const { state, getVisualizerAnalyser, getVisualizerGraph, resumeVisualizerContext } = usePlayer();
+const { accentColor: artworkAccentColor } = useAccentColor();
+const {
+  accentRgb,
+  vizMode,
+  randomizeOnNewTrack,
+  butterchurnPresetMode,
+  butterchurnPreset,
+  setButterchurnPreset: persistButterchurnPreset,
+  setButterchurnPresetMode,
+  setVizMode,
+} = useTheme();
 
 let ctx = null;
 let animationFrameId = 0;
@@ -78,10 +111,24 @@ let spiralAngle = 2.44;
 let spiralDirection = true;
 let overlayHideTimer = 0;
 let lastOverlayRevealAt = 0;
+let butterchurnVisualizer = null;
+let butterchurnConnected = false;
+let butterchurnSupported = null;
+const butterchurnPresetLoaded = ref(false);
+const butterchurnPresetName = ref(null);
+let butterchurnWasPlaying = false;
+let butterchurnPresetTimer = 0;
+const butterchurnPresetIndex = ref(-1);
+let butterchurnTrackStep = 0;
+const butterchurnDesiredIndex = ref(0);
 
 const currentMode = computed(() =>
   VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
 );
+const isButterchurnMode = computed(() => currentMode.value.value === 'butterchurn');
+const showButterchurnPresetPicker = computed(() => (
+  butterchurnPresetMode.value === 'single'
+));
 
 const shouldShowOverlay = computed(() => {
   if (showModeDropdown.value) return true;
@@ -89,8 +136,14 @@ const shouldShowOverlay = computed(() => {
   if (!hideChromeInFullscreen.value) return true;
   return overlayVisible.value;
 });
-
 const message = computed(() => {
+  if (isButterchurnMode.value && !isButterchurnAvailable()) {
+    return {
+      title: 'Butterchurn unavailable',
+      body: 'This browser does not expose the shared Web Audio graph with WebGL 2 support.',
+    };
+  }
+
   if (!analyserRef.value) {
     return {
       title: 'Visualizer unavailable',
@@ -105,8 +158,208 @@ function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
 
-function randomChoice(values) {
-  return values[Math.floor(Math.random() * values.length)];
+function getButterchurnPresetAt(index) {
+  if (!butterchurnPresetNames.length) return null;
+  const safeIndex = ((index % butterchurnPresetNames.length) + butterchurnPresetNames.length) % butterchurnPresetNames.length;
+  butterchurnPresetIndex.value = safeIndex;
+  return butterchurnPresetNames[safeIndex];
+}
+
+function isButterchurnAvailable() {
+  if (butterchurnSupported !== null) return butterchurnSupported;
+  if (typeof document === 'undefined') {
+    butterchurnSupported = false;
+    return butterchurnSupported;
+  }
+
+  const graph = getVisualizerGraph();
+  if (!graph?.ctx || !graph?.source) {
+    butterchurnSupported = false;
+    return butterchurnSupported;
+  }
+
+  const canvas = document.createElement('canvas');
+  let gl = null;
+
+  try {
+    gl = canvas.getContext('webgl2');
+  } catch {
+    gl = null;
+  }
+
+  butterchurnSupported = Boolean(gl);
+  return butterchurnSupported;
+}
+
+function ensureButterchurnVisualizer() {
+  if (!isButterchurnMode.value || !isButterchurnAvailable()) return null;
+
+  const canvas = butterchurnCanvasRef.value;
+  const graph = getVisualizerGraph();
+  if (!canvas || !graph?.ctx || !graph?.source) return null;
+
+  if (!butterchurnVisualizer) {
+    butterchurnVisualizer = butterchurn.createVisualizer(graph.ctx, canvas, {
+      width: Math.max(1, canvas.width || 1),
+      height: Math.max(1, canvas.height || 1),
+    });
+  }
+
+  if (!butterchurnConnected) {
+    butterchurnVisualizer.connectAudio(graph.source);
+    butterchurnConnected = true;
+  }
+
+  return butterchurnVisualizer;
+}
+
+function loadButterchurnPreset({ index = 0, blendTime = BUTTERCHURN_BLEND_SECONDS } = {}) {
+  const visualizer = ensureButterchurnVisualizer();
+  if (!visualizer) return;
+
+  const presetName = getButterchurnPresetAt(index);
+  const preset = presetName ? butterchurnPresetMap[presetName] : null;
+  if (!preset) return;
+
+  visualizer.loadPreset(preset, butterchurnPresetLoaded.value ? blendTime : 0);
+  butterchurnPresetLoaded.value = true;
+  butterchurnPresetName.value = presetName;
+}
+
+function setButterchurnPreset(index, { blendTime = BUTTERCHURN_BLEND_SECONDS } = {}) {
+  if (!butterchurnPresetNames.length) return;
+  butterchurnDesiredIndex.value = index;
+  butterchurnTrackStep = ((index % butterchurnPresetNames.length) + butterchurnPresetNames.length) % butterchurnPresetNames.length;
+  loadButterchurnPreset({ index: butterchurnDesiredIndex.value, blendTime });
+}
+
+function getButterchurnPresetIndexByName(name) {
+  const index = butterchurnPresetNames.indexOf(name);
+  return index >= 0 ? index : 0;
+}
+
+function cycleButterchurnPreset(step = 1) {
+  if (!butterchurnPresetNames.length) return;
+  const baseIndex = butterchurnPresetIndex.value >= 0
+    ? butterchurnPresetIndex.value
+    : butterchurnDesiredIndex.value;
+  setButterchurnPreset(baseIndex + step);
+}
+
+function getRandomButterchurnPresetIndex(excludeIndex = -1) {
+  if (!butterchurnPresetNames.length) return -1;
+  if (butterchurnPresetNames.length === 1) return 0;
+
+  let nextIndex = excludeIndex;
+  while (nextIndex === excludeIndex) {
+    nextIndex = Math.floor(Math.random() * butterchurnPresetNames.length);
+  }
+
+  return nextIndex;
+}
+
+function advanceButterchurnPresetForTrack() {
+  if (!state.currentTrack || !butterchurnPresetNames.length) return;
+  if (butterchurnPresetMode.value === 'single') {
+    setButterchurnPreset(getButterchurnPresetIndexByName(butterchurnPreset.value));
+    return;
+  }
+  setButterchurnPreset(getRandomButterchurnPresetIndex(butterchurnPresetIndex.value));
+}
+
+function syncButterchurnPreset() {
+  if (!state.currentTrack || !isButterchurnMode.value) return;
+
+  if (butterchurnPresetMode.value === 'single') {
+    const selectedIndex = getButterchurnPresetIndexByName(butterchurnPreset.value || DEFAULT_BUTTERCHURN_PRESET);
+    if (!butterchurnPresetLoaded.value || butterchurnPresetIndex.value !== selectedIndex) {
+      loadButterchurnPreset({ index: selectedIndex, blendTime: butterchurnPresetLoaded.value ? BUTTERCHURN_BLEND_SECONDS : 0 });
+    }
+    return;
+  }
+
+  if (!butterchurnPresetLoaded.value) {
+    loadButterchurnPreset({ index: butterchurnDesiredIndex.value, blendTime: 0 });
+    return;
+  }
+
+  if (butterchurnDesiredIndex.value !== butterchurnPresetIndex.value) {
+    loadButterchurnPreset({ index: butterchurnDesiredIndex.value });
+  }
+}
+
+function disposeButterchurnVisualizer() {
+  if (!butterchurnVisualizer) return;
+
+  const graph = getVisualizerGraph();
+  if (butterchurnConnected && graph?.source) {
+    try {
+      butterchurnVisualizer.disconnectAudio(graph.source);
+    } catch {
+      // Ignore disconnect errors from stale audio graph nodes.
+    }
+  }
+
+  butterchurnConnected = false;
+  butterchurnPresetLoaded.value = false;
+  butterchurnPresetIndex.value = -1;
+  butterchurnTrackStep = 0;
+  butterchurnDesiredIndex.value = 0;
+  butterchurnPresetName.value = null;
+  butterchurnWasPlaying = false;
+  butterchurnVisualizer = null;
+}
+
+function clearButterchurnPresetTimer() {
+  if (!butterchurnPresetTimer) return;
+  window.clearInterval(butterchurnPresetTimer);
+  butterchurnPresetTimer = 0;
+}
+
+function syncButterchurnPresetTimer() {
+  clearButterchurnPresetTimer();
+  if (
+    !isButterchurnMode.value
+    || butterchurnPresetMode.value !== 'random'
+    || !randomizeOnNewTrack.value
+    || !state.isPlaying
+    || !state.currentTrack
+  ) {
+    return;
+  }
+
+  butterchurnPresetTimer = window.setInterval(() => {
+    if (!state.isPlaying || !state.currentTrack || !isButterchurnMode.value) return;
+    rotateButterchurnPreset();
+    syncButterchurnPreset();
+  }, BUTTERCHURN_ROTATE_MS);
+}
+
+function rotateButterchurnPreset() {
+  if (
+    !state.currentTrack
+    || !randomizeOnNewTrack.value
+    || butterchurnPresetMode.value !== 'random'
+    || !butterchurnPresetNames.length
+  ) return;
+  setButterchurnPreset(getRandomButterchurnPresetIndex(butterchurnPresetIndex.value));
+}
+
+function clearButterchurnCanvas() {
+  const canvas = butterchurnCanvasRef.value;
+  if (!canvas) return;
+
+  let gl = null;
+  try {
+    gl = canvas.getContext('webgl2');
+  } catch {
+    gl = null;
+  }
+  if (!gl) return;
+
+  gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.clearColor(0.0745, 0.1412, 0.1843, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT);
 }
 
 function createPillParticle(x = 0, y = 0) {
@@ -197,8 +450,8 @@ function ensurePillsNoiseUrl() {
 }
 
 function getAccentRgb() {
-  if (!accentColor.value) return [52, 211, 153];
-  const parts = accentColor.value.split(',').map(Number);
+  if (!artworkAccentColor.value) return [52, 211, 153];
+  const parts = artworkAccentColor.value.split(',').map(Number);
   return parts.length === 3 ? parts : [52, 211, 153];
 }
 
@@ -229,10 +482,10 @@ function resetMotionState() {
 }
 
 function resizeCanvas() {
-  const canvas = canvasRef.value;
-  if (!canvas) return;
+  const container = containerRef.value;
+  if (!container) return;
 
-  const bounds = canvas.getBoundingClientRect();
+  const bounds = container.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const previousWidth = viewportWidth;
   const previousHeight = viewportHeight;
@@ -242,11 +495,27 @@ function resizeCanvas() {
 
   if (!viewportWidth || !viewportHeight) return;
 
-  canvas.width = Math.round(viewportWidth * dpr);
-  canvas.height = Math.round(viewportHeight * dpr);
+  const canvas2d = canvas2dRef.value;
+  if (canvas2d) {
+    canvas2d.width = Math.round(viewportWidth * dpr);
+    canvas2d.height = Math.round(viewportHeight * dpr);
 
-  ctx = canvas.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx = canvas2d.getContext('2d');
+    ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
+  } else {
+    ctx = null;
+  }
+
+  const butterchurnCanvas = butterchurnCanvasRef.value;
+  if (butterchurnCanvas) {
+    butterchurnCanvas.width = Math.round(viewportWidth * dpr);
+    butterchurnCanvas.height = Math.round(viewportHeight * dpr);
+    ensureButterchurnVisualizer()?.setRendererSize(
+      butterchurnCanvas.width,
+      butterchurnCanvas.height,
+    );
+  }
+
   resizePills(previousWidth, previousHeight);
   paintBackground();
 }
@@ -501,9 +770,35 @@ function drawPillsFrame() {
   ctx.globalCompositeOperation = 'source-over';
 }
 
+function drawButterchurnFrame() {
+  if (!state.currentTrack) {
+    clearButterchurnCanvas();
+    butterchurnWasPlaying = false;
+    return;
+  }
+
+  syncButterchurnPreset();
+
+  if (!state.isPlaying) {
+    if (butterchurnWasPlaying) butterchurnVisualizer?.render();
+    butterchurnWasPlaying = false;
+    return;
+  }
+
+  ensureButterchurnVisualizer()?.render();
+  butterchurnWasPlaying = true;
+}
+
 function render() {
   animationFrameId = window.requestAnimationFrame(render);
-  if (!ctx || !viewportWidth || !viewportHeight) return;
+  if (!viewportWidth || !viewportHeight) return;
+
+  if (isButterchurnMode.value) {
+    drawButterchurnFrame();
+    return;
+  }
+
+  if (!ctx) return;
 
   if (currentMode.value.value === 'pills') {
     drawPillsFrame();
@@ -583,10 +878,57 @@ function setHideChromeInFullscreen(value) {
   revealOverlay();
 }
 
+function toggleButterchurnPresetShuffle() {
+  const nextMode = butterchurnPresetMode.value === 'random' ? 'single' : 'random';
+  if (nextMode === 'single') {
+    const currentPreset = butterchurnPresetName.value
+      ?? butterchurnPresetNames[butterchurnPresetIndex.value]
+      ?? butterchurnPreset.value
+      ?? DEFAULT_BUTTERCHURN_PRESET;
+    persistButterchurnPreset(currentPreset);
+  }
+  setButterchurnPresetMode(nextMode);
+}
+
+function handleButterchurnPresetChange(event) {
+  const nextPreset = event.target.value;
+  persistButterchurnPreset(nextPreset);
+}
+
 watch(() => props.analyser, syncAnalyser);
 watch(vizMode, () => {
   resetMotionState();
+  ensureButterchurnVisualizer();
+  resizeCanvas();
   paintBackground();
+  syncButterchurnPreset();
+  syncButterchurnPresetTimer();
+});
+watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
+  if (!trackId || trackId === previousTrackId) {
+    if (!trackId) clearButterchurnCanvas();
+    syncButterchurnPresetTimer();
+    return;
+  }
+
+  advanceButterchurnPresetForTrack();
+  syncButterchurnPreset();
+  syncButterchurnPresetTimer();
+});
+watch(() => state.isPlaying, () => {
+  syncButterchurnPreset();
+  syncButterchurnPresetTimer();
+});
+watch(randomizeOnNewTrack, () => {
+  syncButterchurnPreset();
+  syncButterchurnPresetTimer();
+});
+watch(butterchurnPresetMode, () => {
+  syncButterchurnPreset();
+  syncButterchurnPresetTimer();
+});
+watch(butterchurnPreset, () => {
+  syncButterchurnPreset();
 });
 watch(showModeDropdown, (open) => {
   if (open) {
@@ -609,6 +951,8 @@ onMounted(() => {
 
 onUnmounted(() => {
   stop();
+  disposeButterchurnVisualizer();
+  clearButterchurnPresetTimer();
   clearOverlayHideTimer();
   resizeObserver?.disconnect();
   resizeObserver = null;
@@ -626,7 +970,16 @@ onUnmounted(() => {
     @pointerdown="revealOverlay"
     @focusin="revealOverlay"
   >
-    <canvas ref="canvasRef" class="relative z-0 block size-full" />
+    <canvas
+      ref="canvas2dRef"
+      class="relative z-0 block size-full"
+      :class="currentMode.value === 'butterchurn' && 'hidden'"
+    />
+    <canvas
+      ref="butterchurnCanvasRef"
+      class="relative z-0 block size-full"
+      :class="currentMode.value !== 'butterchurn' && 'hidden'"
+    />
     <div
       v-if="currentMode.value === 'pills'"
       class="pointer-events-none absolute inset-0 z-[1] mix-blend-screen [background:radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.06),transparent_18%),radial-gradient(circle_at_50%_48%,rgba(255,255,255,0.03),transparent_34%)]"
@@ -688,26 +1041,90 @@ onUnmounted(() => {
         <div class="px-3 py-[0.45rem] pb-[0.2rem] text-[0.66rem] font-semibold uppercase tracking-[0.08em] text-zinc-400/90">
           Mode
         </div>
-        <button
-          v-for="option in VIZ_OPTIONS"
-          :key="option.value"
-          type="button"
-          class="flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
-          :class="currentMode.value === option.value && 'bg-zinc-800/95 text-zinc-50'"
-          @click="selectMode(option.value)"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2"
-            v-html="option.icon"
-          />
-          <span>{{ option.label }}</span>
-        </button>
+        <template v-for="option in VIZ_OPTIONS" :key="option.value">
+          <div
+            role="button"
+            tabindex="0"
+            class="relative flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+            :class="currentMode.value === option.value && 'bg-zinc-800/95 text-zinc-50'"
+            @click="selectMode(option.value)"
+            @keydown.enter.prevent="selectMode(option.value)"
+            @keydown.space.prevent="selectMode(option.value)"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2"
+              v-html="option.icon"
+            />
+            <span
+              class="min-w-0 flex-1"
+              :class="option.value === 'butterchurn' && 'pr-8'"
+            >
+              {{ option.label }}
+            </span>
+            <button
+              v-if="option.value === 'butterchurn'"
+              type="button"
+              class="absolute right-3 top-1/2 inline-flex size-[1.75rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/15 p-0 text-zinc-300/85 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:border-white/20 hover:bg-black/30 hover:text-white"
+              :title="butterchurnPresetMode === 'random' ? 'Shuffle presets on' : 'Shuffle presets off'"
+              :style="butterchurnPresetMode === 'random'
+                ? {
+                    borderColor: `rgba(${accentRgb}, 0.55)`,
+                    backgroundColor: `rgba(${accentRgb}, 0.18)`,
+                    color: `rgb(${accentRgb})`,
+                    boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.18)`,
+                  }
+                : null"
+              @click.stop="toggleButterchurnPresetShuffle"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.92rem] shrink-0 fill-none stroke-current stroke-2">
+                <path d="M16 3h5v5" />
+                <path d="M4 20 20 4" />
+                <path d="M21 16v5h-5" />
+                <path d="M15 15 21 21" />
+                <path d="M4 4l5 5" />
+              </svg>
+            </button>
+          </div>
+
+          <div
+            v-if="option.value === 'butterchurn' && showButterchurnPresetPicker"
+            class="flex flex-col gap-2 px-3 pb-[0.35rem] pt-[0.1rem]"
+          >
+            <label for="butterchurn-preset-picker" class="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-zinc-400/90">
+              Butterchurn Preset
+            </label>
+            <div class="relative">
+              <select
+                id="butterchurn-preset-picker"
+                :value="butterchurnPreset"
+                class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-white/20 focus:border-white/25"
+                @click.stop
+                @change="handleButterchurnPresetChange"
+              >
+                <option
+                  v-for="presetOption in butterchurnPresetOptions"
+                  :key="presetOption.value"
+                  :value="presetOption.value"
+                >
+                  {{ presetOption.label }}
+                </option>
+              </select>
+              <svg
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+                class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 fill-none stroke-zinc-400 stroke-2"
+              >
+                <path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+          </div>
+        </template>
 
         <button
           type="button"
-          class="mt-[0.2rem] flex w-full items-center gap-[0.65rem] border-t border-white/10 px-3 pb-[0.65rem] pt-[0.8rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:rounded-[0.7rem] hover:bg-zinc-800/95 hover:text-zinc-50"
+          class="mt-[0.2rem] flex w-full items-center gap-[0.65rem] border-t border-white/10 rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
           :class="hideChromeInFullscreen && 'rounded-[0.7rem] bg-zinc-800/95 text-zinc-50'"
           @click="setHideChromeInFullscreen(!hideChromeInFullscreen)"
         >
@@ -717,6 +1134,7 @@ onUnmounted(() => {
           </svg>
           <span>Hide in fullscreen</span>
         </button>
+
       </div>
 
       <button
