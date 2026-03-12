@@ -19,12 +19,6 @@ const props = defineProps({
 
 const VIZ_OPTIONS = [
   {
-    value: 'spiral',
-    label: 'Spiral',
-    icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3"/>',
-    credit: null,
-  },
-  {
     value: 'pills',
     label: 'Pills',
     icon: '<path d="M7 16l4-8M13 16l4-8M6 12h12" stroke-linecap="round"/>',
@@ -32,6 +26,12 @@ const VIZ_OPTIONS = [
       label: 'Inspired by soulwire',
       url: 'https://codepen.io/soulwire/pen/kGjRpg',
     },
+  },
+  {
+    value: 'spiral',
+    label: 'Spiral',
+    icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3"/>',
+    credit: null,
   },
   {
     value: 'butterchurn',
@@ -53,6 +53,8 @@ const PILL_COUNT = 150;
 const NUM_BANDS = 128;
 const BUTTERCHURN_BLEND_SECONDS = 2.4;
 const BUTTERCHURN_ROTATE_MS = 30000;
+const HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_chrome';
+const LEGACY_HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_fullscreen_chrome';
 const butterchurnPresetMap = butterchurnPresets.getPresets();
 const butterchurnPresetNames = BUTTERCHURN_PRESET_OPTIONS
   .map(option => option.value)
@@ -77,7 +79,13 @@ const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
 const showModeDropdown = ref(false);
 const pillsNoiseUrl = ref('');
-const hideChromeInFullscreen = ref(localStorage.getItem('noisling_viz_hide_fullscreen_chrome') === 'true');
+const hideChrome = ref(
+  (
+    localStorage.getItem(HIDE_CHROME_STORAGE_KEY)
+    ?? localStorage.getItem(LEGACY_HIDE_CHROME_STORAGE_KEY)
+    ?? 'true'
+  ) === 'true'
+);
 const overlayVisible = ref(true);
 
 const { state, getVisualizerAnalyser, getVisualizerGraph, resumeVisualizerContext } = usePlayer();
@@ -132,8 +140,7 @@ const showButterchurnPresetPicker = computed(() => (
 
 const shouldShowOverlay = computed(() => {
   if (showModeDropdown.value) return true;
-  if (!isFullscreen.value) return true;
-  if (!hideChromeInFullscreen.value) return true;
+  if (!hideChrome.value) return true;
   return overlayVisible.value;
 });
 const message = computed(() => {
@@ -858,7 +865,7 @@ function clearOverlayHideTimer() {
 
 function scheduleOverlayHide() {
   clearOverlayHideTimer();
-  if (!isFullscreen.value || !hideChromeInFullscreen.value || showModeDropdown.value) return;
+  if (!hideChrome.value || showModeDropdown.value) return;
   overlayHideTimer = window.setTimeout(() => {
     overlayVisible.value = false;
   }, 1800);
@@ -872,9 +879,9 @@ function revealOverlay() {
   scheduleOverlayHide();
 }
 
-function setHideChromeInFullscreen(value) {
-  hideChromeInFullscreen.value = Boolean(value);
-  localStorage.setItem('noisling_viz_hide_fullscreen_chrome', String(hideChromeInFullscreen.value));
+function setHideChrome(value) {
+  hideChrome.value = Boolean(value);
+  localStorage.setItem(HIDE_CHROME_STORAGE_KEY, String(hideChrome.value));
   revealOverlay();
 }
 
@@ -1010,14 +1017,18 @@ onUnmounted(() => {
       target="_blank"
       rel="noopener noreferrer"
       class="absolute left-[0.65rem] top-[calc(var(--visualizer-nav-offset)+0.65rem)] z-[5] inline-flex min-h-[1.85rem] max-w-[7.5rem] items-center overflow-hidden rounded-full border border-white/10 bg-[rgba(5,7,10,0.24)] px-[0.58rem] py-[0.34rem] text-[0.68rem] tracking-[0.03em] text-zinc-100/65 no-underline text-ellipsis whitespace-nowrap shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-[14px] backdrop-saturate-[120%] transition-[opacity,transform,background-color,color] duration-180 ease-out hover:bg-[rgba(5,7,10,0.42)] hover:text-zinc-50/90 sm:left-[0.8rem] sm:top-[calc(var(--visualizer-nav-offset)+0.8rem)] sm:max-w-[min(32vw,12rem)]"
-      :class="!shouldShowOverlay && 'pointer-events-none -translate-y-2 opacity-0'"
+      :class="shouldShowOverlay
+        ? null
+        : 'pointer-events-none -translate-y-2 opacity-0'"
     >
       {{ currentMode.credit.label }}
     </a>
 
     <div
       class="absolute right-[0.65rem] top-[calc(var(--visualizer-nav-offset)+0.65rem)] z-[5] flex items-center gap-[0.45rem] transition-[opacity,transform] duration-180 ease-out sm:right-[0.8rem] sm:top-[calc(var(--visualizer-nav-offset)+0.8rem)]"
-      :class="!shouldShowOverlay && 'pointer-events-none -translate-y-2 opacity-0'"
+      :class="shouldShowOverlay
+        ? null
+        : 'pointer-events-none -translate-y-2 opacity-0'"
     >
       <button
         type="button"
@@ -1125,14 +1136,14 @@ onUnmounted(() => {
         <button
           type="button"
           class="mt-[0.2rem] flex w-full items-center gap-[0.65rem] border-t border-white/10 rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
-          :class="hideChromeInFullscreen && 'rounded-[0.7rem] bg-zinc-800/95 text-zinc-50'"
-          @click="setHideChromeInFullscreen(!hideChromeInFullscreen)"
+          :class="hideChrome && 'rounded-[0.7rem] bg-zinc-800/95 text-zinc-50'"
+          @click="setHideChrome(!hideChrome)"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
             <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
             <circle cx="12" cy="12" r="3" />
           </svg>
-          <span>Hide in fullscreen</span>
+          <span>Auto-hide controls</span>
         </button>
 
       </div>

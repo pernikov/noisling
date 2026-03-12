@@ -143,7 +143,7 @@ const homeShowAlbums    = ref(storedBool(HOME_ALBUMS_KEY));
 
 // Visualizer prefs
 const storedViz = normalizeVizMode(localStorage.getItem(VIZ_MODE_KEY));
-const vizMode            = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'spiral');
+const vizMode            = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'pills');
 const storedRandomize = localStorage.getItem(RANDOMIZE_KEY);
 const randomizeOnNewTrack = ref(storedRandomize === null ? false : storedRandomize !== 'false');
 const storedButterchurnPresetMode = localStorage.getItem(BUTTERCHURN_PRESET_MODE_KEY);
