@@ -83,7 +83,10 @@ watch(
     "
   >
     <!-- Spacer to offset fixed nav (includes safe-area-inset-top for PWA notch) -->
-    <div class="h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0" />
+    <div
+      v-if="!playerState.showVisualizer"
+      class="h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0"
+    />
 
     <!-- Top nav -->
     <nav

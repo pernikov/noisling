@@ -58,9 +58,13 @@ const MOTION_KEY       = 'noisling_reduce_motion';
 
 // Visualizer keys
 const VIZ_MODE_KEY  = 'noisling_vizmode';
-const BUBBLES_KEY   = 'noisling_showbubbles';
 const RANDOMIZE_KEY = 'noisling_randomize';
-const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'nebula', 'bubbles'];
+const VALID_VIZ_MODES = ['spiral', 'pills'];
+
+function normalizeVizMode(value) {
+  if (value === 'nebula') return 'pills';
+  return value;
+}
 
 // Module-level singletons — read from localStorage immediately so there's no
 // flash of the wrong value before the API call returns.
@@ -129,9 +133,8 @@ const homeShowRecent    = ref(storedBool(HOME_RECENT_KEY));
 const homeShowAlbums    = ref(storedBool(HOME_ALBUMS_KEY));
 
 // Visualizer prefs
-const storedViz = localStorage.getItem(VIZ_MODE_KEY);
+const storedViz = normalizeVizMode(localStorage.getItem(VIZ_MODE_KEY));
 const vizMode            = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'spiral');
-const showBubbles        = ref(storedBool(BUBBLES_KEY, true));
 const randomizeOnNewTrack = ref(storedBool(RANDOMIZE_KEY, false));
 
 const homeVisibleCount = computed(
@@ -244,13 +247,10 @@ export function useTheme() {
         homeShowAlbums.value = data.homeShowAlbums;
         localStorage.setItem(HOME_ALBUMS_KEY, String(data.homeShowAlbums));
       }
-      if (VALID_VIZ_MODES.includes(data.vizMode)) {
-        vizMode.value = data.vizMode;
-        localStorage.setItem(VIZ_MODE_KEY, data.vizMode);
-      }
-      if (typeof data.showBubbles === 'boolean') {
-        showBubbles.value = data.showBubbles;
-        localStorage.setItem(BUBBLES_KEY, String(data.showBubbles));
+      const normalizedVizMode = normalizeVizMode(data.vizMode);
+      if (VALID_VIZ_MODES.includes(normalizedVizMode)) {
+        vizMode.value = normalizedVizMode;
+        localStorage.setItem(VIZ_MODE_KEY, normalizedVizMode);
       }
       if (typeof data.randomizeOnNewTrack === 'boolean') {
         randomizeOnNewTrack.value = data.randomizeOnNewTrack;
@@ -450,6 +450,7 @@ export function useTheme() {
   }
 
   async function setVizMode(value) {
+    value = normalizeVizMode(value);
     if (!VALID_VIZ_MODES.includes(value)) return;
     const prev = vizMode.value;
     vizMode.value = value;
@@ -461,20 +462,6 @@ export function useTheme() {
         localStorage.setItem(VIZ_MODE_KEY, prev);
       },
       'Failed to save visualizer mode.'
-    );
-  }
-
-  async function setShowBubbles(value) {
-    const prev = showBubbles.value;
-    showBubbles.value = Boolean(value);
-    localStorage.setItem(BUBBLES_KEY, String(showBubbles.value));
-    await saveOrRollback(
-      { showBubbles: showBubbles.value },
-      () => {
-        showBubbles.value = prev;
-        localStorage.setItem(BUBBLES_KEY, String(prev));
-      },
-      'Failed to save bubbles visibility.'
     );
   }
 
@@ -549,14 +536,14 @@ export function useTheme() {
     showArtistsNav,
     wideLayout,
     homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
-    vizMode, showBubbles, randomizeOnNewTrack, VALID_VIZ_MODES,
+    vizMode, randomizeOnNewTrack, VALID_VIZ_MODES,
     showPlaylists,
     sharpCorners, reduceMotion,
     loadTheme, setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
     setLovedUseAccent,
     setTracksColumn, setTracksSort,
     setShowArtistsNav, setWideLayout,
-    setVizMode, setShowBubbles, setRandomizeOnNewTrack,
+    setVizMode, setRandomizeOnNewTrack,
     setShowPlaylists, setSharpCorners, setReduceMotion,
     setHomeSection: (key, value) => {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);

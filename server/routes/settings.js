@@ -7,7 +7,7 @@ const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 const VALID_REPEAT    = ['off', 'all', 'one'];
 const VALID_DENSITY   = ['comfortable', 'compact'];
 const VALID_FONT      = ['small', 'medium', 'large'];
-const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'nebula', 'bubbles'];
+const VALID_VIZ_MODES = ['spiral', 'pills'];
 const VALID_SORT_DIRS = ['asc', 'desc'];
 const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
 const VALID_COL_KEYS  = ['artist', 'album', 'plays', 'lastPlayed'];
@@ -38,12 +38,16 @@ function buildResponse(s) {
     homeShowRecent:     s.homeShowRecent     ?? true,
     homeShowAlbums:     s.homeShowAlbums     ?? true,
     vizMode:            s.vizMode            ?? 'spiral',
-    showBubbles:        s.showBubbles        ?? true,
     randomizeOnNewTrack: s.randomizeOnNewTrack ?? false,
     showPlaylists:      s.showPlaylists      ?? true,
     sharpCorners:       s.sharpCorners       ?? false,
     reduceMotion:       s.reduceMotion       ?? false,
   };
+}
+
+function normalizeVizMode(value) {
+  if (value === 'nebula') return 'pills';
+  return value;
 }
 
 router.get('/settings', async (req, res) => {
@@ -60,7 +64,7 @@ router.patch('/settings', async (req, res) => {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, tracksColumns, tracksSort,
     lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
-    vizMode, showBubbles, randomizeOnNewTrack, showPlaylists, sharpCorners, reduceMotion,
+    vizMode, randomizeOnNewTrack, showPlaylists, sharpCorners, reduceMotion,
   } = req.body;
   const update = {};
 
@@ -126,11 +130,9 @@ router.patch('/settings', async (req, res) => {
     update.homeShowAlbums = Boolean(homeShowAlbums);
   }
   if (vizMode !== undefined) {
-    if (!VALID_VIZ_MODES.includes(vizMode)) return res.status(400).json({ error: 'Invalid vizMode' });
-    update.vizMode = vizMode;
-  }
-  if (showBubbles !== undefined) {
-    update.showBubbles = Boolean(showBubbles);
+    const normalizedVizMode = normalizeVizMode(vizMode);
+    if (!VALID_VIZ_MODES.includes(normalizedVizMode)) return res.status(400).json({ error: 'Invalid vizMode' });
+    update.vizMode = normalizedVizMode;
   }
   if (randomizeOnNewTrack !== undefined) {
     update.randomizeOnNewTrack = Boolean(randomizeOnNewTrack);

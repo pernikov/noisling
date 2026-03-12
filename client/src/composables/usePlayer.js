@@ -34,6 +34,8 @@ try { _savedPrefs = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}'); } catch
 // ─────────────────────────────────────────────────────────────────────────────
 
 const audio = new Audio();
+let visualizerNode = null;
+let visualizerDisabled = null;
 
 const state = reactive({
   currentTrack:      null,
@@ -114,11 +116,50 @@ function _setTrackSource(track, { forceTranscode = false, markWaiting = true, ca
   return transcode;
 }
 
-function maybeResumeVizContext() {
-  const ctx = audio._vizCtx?.ctx;
+function isVisualizerDisabled() {
+  if (visualizerDisabled !== null) return visualizerDisabled;
+  if (typeof window === 'undefined' || typeof AudioContext === 'undefined') {
+    visualizerDisabled = true;
+    return visualizerDisabled;
+  }
+
+  visualizerDisabled = /iP(ad|hone|od)/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+  return visualizerDisabled;
+}
+
+function getVisualizerNode() {
+  if (visualizerNode) return visualizerNode;
+  if (isVisualizerDisabled()) return null;
+
+  const ctx = new AudioContext();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.82;
+
+  // Keep a single MediaElementSource for the shared player audio element.
+  const source = ctx.createMediaElementSource(audio);
+  source.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  visualizerNode = { ctx, analyser, source };
+  return visualizerNode;
+}
+
+function getVisualizerAnalyser() {
+  return getVisualizerNode()?.analyser ?? null;
+}
+
+function resumeVisualizerContext() {
+  const ctx = getVisualizerNode()?.ctx;
   if (!ctx || ctx.state !== 'suspended') return;
   if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
   ctx.resume().catch(() => {});
+}
+
+function maybeResumeVizContext() {
+  resumeVisualizerContext();
 }
 
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
@@ -1107,6 +1148,8 @@ export function usePlayer() {
     toggleLove,
     cycleRepeat,
     audio,
+    getVisualizerAnalyser,
+    resumeVisualizerContext,
     moveTrack,
     playFromQueue,
     queueMatches,

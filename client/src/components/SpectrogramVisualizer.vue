@@ -1,63 +1,198 @@
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
-import { usePlayer } from '../composables/usePlayer.js';
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue';
 import { useAccentColor } from '../composables/useAccentColor.js';
+import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 
-const { audio } = usePlayer();
-const { accentColor } = useAccentColor();
-const { vizMode, showBubbles, randomizeOnNewTrack, setVizMode, setShowBubbles, setRandomizeOnNewTrack } = useTheme();
+const props = defineProps({
+  analyser: {
+    type: Object,
+    default: null,
+  },
+});
+
+const VIZ_OPTIONS = [
+  {
+    value: 'spiral',
+    label: 'Spiral',
+    icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3"/>',
+    credit: null,
+  },
+  {
+    value: 'pills',
+    label: 'Pills',
+    icon: '<path d="M7 16l4-8M13 16l4-8M6 12h12" stroke-linecap="round"/>',
+    credit: {
+      label: 'Inspired by soulwire',
+      url: 'https://codepen.io/soulwire/pen/kGjRpg',
+    },
+  },
+];
+
+const PILL_SCALE = { min: 5, max: 80 };
+const PILL_SPEED = { min: 0.2, max: 1.0 };
+const PILL_ALPHA = { min: 0.8, max: 0.9 };
+const PILL_SPIN = { min: 0.001, max: 0.005 };
+const PILL_SIZE = { min: 0.5, max: 1.25 };
+const PILL_COUNT = 150;
+const NUM_BANDS = 128;
+
+const BUBBLES = [
+  { phase: 0, speed: 0.4, orbitX: 0.28, orbitY: 0.22, band: 'bass', baseSize: 0.45 },
+  { phase: 1.2, speed: 0.3, orbitX: 0.32, orbitY: 0.28, band: 'bass', baseSize: 0.4 },
+  { phase: 2.5, speed: 0.45, orbitX: 0.22, orbitY: 0.32, band: 'mid', baseSize: 0.35 },
+  { phase: 3.8, speed: 0.35, orbitX: 0.38, orbitY: 0.18, band: 'mid', baseSize: 0.3 },
+  { phase: 5.0, speed: 0.5, orbitX: 0.18, orbitY: 0.38, band: 'high', baseSize: 0.25 },
+  { phase: 0.7, speed: 0.25, orbitX: 0.3, orbitY: 0.3, band: 'bass', baseSize: 0.5 },
+  { phase: 4.2, speed: 0.42, orbitX: 0.25, orbitY: 0.2, band: 'high', baseSize: 0.22 },
+];
 
 const containerRef = ref(null);
 const canvasRef = ref(null);
+const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
 const showModeDropdown = ref(false);
-let animId = null;
+const pillsNoiseUrl = ref('');
 
-const vizModes = [
-  { value: 'spiral',    label: 'Spiral',       icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3"/>' },
-  { value: 'wave',      label: 'Lissajous',    icon: '<path d="M4,12 C4,8 8,8 12,12 C16,16 20,16 20,12 C20,8 16,8 12,12 C8,16 4,16 4,12"/>' },
-  { value: 'particles', label: 'Particles',    icon: '<circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2"/>' },
-  { value: 'polar',     label: 'Polar',        icon: '<path stroke-linecap="round" d="M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>' },
-  { value: 'spectrum',  label: 'Equalizer',    icon: '<path d="M4 20V8M8 20V4M12 20V10M16 20V6M20 20V12" stroke-linecap="round"/>' },
-  { value: 'nebula',    label: 'Nebula',       icon: '<circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.4 6.4l2.1 2.1M15.5 15.5l2.1 2.1M6.4 17.6l2.1-2.1M15.5 8.5l2.1-2.1" stroke-linecap="round"/>' },
-  { value: 'bubbles',   label: 'Bubbles only', icon: '<circle cx="7" cy="15" r="3"/><circle cx="15" cy="9" r="2"/><circle cx="17" cy="17" r="1.5"/>' },
-];
+const { state, getVisualizerAnalyser, resumeVisualizerContext } = usePlayer();
+const { accentColor } = useAccentColor();
+const { vizMode, setVizMode } = useTheme();
 
-function ensureAudioContext() {
-  if (audio._vizCtx) return audio._vizCtx;
+let ctx = null;
+let animationFrameId = 0;
+let resizeObserver = null;
+let viewportWidth = 0;
+let viewportHeight = 0;
+let frequencyData = null;
+let timeDomainData = null;
+let pillsParticles = [];
+let visualTime = 0;
+let smoothBass = 0;
+let smoothMid = 0;
+let smoothHigh = 0;
+let prevBass = 0;
+let beatBoost = 0;
+let spiralAngle = 2.44;
+let spiralDirection = true;
 
-  const isIOS = /iP(ad|hone|od)/.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  if (isIOS) {
-    audio._vizCtx = { ctx: null, analyser: null, src: null, sourceType: 'disabled' };
-    return audio._vizCtx;
+const currentMode = computed(() =>
+  VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
+);
+
+const message = computed(() => {
+  if (!analyserRef.value) {
+    return {
+      title: 'Visualizer unavailable',
+      body: 'This device or browser does not expose the shared Web Audio analyser.',
+    };
   }
 
-  const ctx = new AudioContext();
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 2048;
-  analyser.smoothingTimeConstant = 0.75;
+  return null;
+});
 
-  // Use MediaElementSource — it persists across audio.src / audio.load() changes.
-  // (captureStream() tracks are ended by audio.load(), breaking the analyser permanently.)
-  const src = ctx.createMediaElementSource(audio);
-  src.connect(analyser);
-  analyser.connect(ctx.destination);
-  audio._vizCtx = { ctx, analyser, src, sourceType: 'element' };
-  return audio._vizCtx;
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
 }
 
-function getColor() {
-  if (accentColor.value) {
-    const parts = accentColor.value.split(',').map(Number);
-    if (parts.length === 3) return parts;
+function randomChoice(values) {
+  return values[Math.floor(Math.random() * values.length)];
+}
+
+function createPillParticle(x = 0, y = 0) {
+  return {
+    x,
+    y,
+    level: 1,
+    scale: 1,
+    alpha: 1,
+    speed: 1,
+    colorIndex: 0,
+    size: 1,
+    spin: 0,
+    band: 0,
+    smoothedScale: 0,
+    smoothedAlpha: 0,
+    decayScale: 0,
+    decayAlpha: 0,
+    rotation: 0,
+    energy: 0,
+  };
+}
+
+function resetPillParticle(particle) {
+  particle.level = 1 + Math.floor(Math.random() * 4);
+  particle.scale = randomBetween(PILL_SCALE.min, PILL_SCALE.max);
+  particle.alpha = randomBetween(PILL_ALPHA.min, PILL_ALPHA.max);
+  particle.speed = randomBetween(PILL_SPEED.min, PILL_SPEED.max);
+  particle.colorIndex = Math.floor(Math.random() * 5);
+  particle.size = randomBetween(PILL_SIZE.min, PILL_SIZE.max);
+  particle.spin = randomBetween(PILL_SPIN.min, PILL_SPIN.max) * (Math.random() < 0.5 ? -1 : 1);
+  particle.band = Math.floor(Math.random() * NUM_BANDS);
+  particle.smoothedScale = 0;
+  particle.smoothedAlpha = 0;
+  particle.decayScale = 0;
+  particle.decayAlpha = 0;
+  particle.rotation = Math.random() * Math.PI * 2;
+  particle.energy = 0;
+}
+
+function seedPills() {
+  pillsParticles = Array.from({ length: PILL_COUNT }, () => {
+    const particle = createPillParticle(
+      Math.random() * viewportWidth,
+      Math.random() * viewportHeight * 2,
+    );
+    resetPillParticle(particle);
+    particle.energy = particle.band / 256;
+    return particle;
+  });
+}
+
+function resizePills(previousWidth, previousHeight) {
+  if (!previousWidth || !previousHeight || !pillsParticles.length) {
+    seedPills();
+    return;
   }
-  return [52, 211, 153];
+
+  const widthRatio = viewportWidth / previousWidth;
+  const heightRatio = viewportHeight / previousHeight;
+
+  for (let index = 0; index < pillsParticles.length; index += 1) {
+    const particle = pillsParticles[index];
+    particle.x *= widthRatio;
+    particle.y *= heightRatio;
+  }
 }
 
-function getColorPalette() {
-  const [r, g, b] = getColor();
+function ensurePillsNoiseUrl() {
+  if (pillsNoiseUrl.value) return;
+
+  const noiseCanvas = document.createElement('canvas');
+  noiseCanvas.width = 160;
+  noiseCanvas.height = 160;
+  const noiseContext = noiseCanvas.getContext('2d', { alpha: true });
+  const image = noiseContext.createImageData(noiseCanvas.width, noiseCanvas.height);
+
+  for (let index = 0; index < image.data.length; index += 4) {
+    const value = 160 + Math.random() * 95;
+    image.data[index] = value;
+    image.data[index + 1] = value;
+    image.data[index + 2] = value;
+    image.data[index + 3] = 26 + Math.random() * 34;
+  }
+
+  noiseContext.putImageData(image, 0, 0);
+  pillsNoiseUrl.value = noiseCanvas.toDataURL('image/png');
+}
+
+function getAccentRgb() {
+  if (!accentColor.value) return [52, 211, 153];
+  const parts = accentColor.value.split(',').map(Number);
+  return parts.length === 3 ? parts : [52, 211, 153];
+}
+
+function getSpiralPalette() {
+  const [r, g, b] = getAccentRgb();
   return [
     [r, g, b],
     [Math.min(255, r + 80), Math.max(0, g - 40), Math.min(255, b + 30)],
@@ -67,975 +202,670 @@ function getColorPalette() {
   ];
 }
 
-// Nebula — own vibrant palette, independent of accent color
-const NEBULA_PALETTE = [
-  [255, 60,  60 ],
-  [255, 140, 40 ],
-  [255, 220, 40 ],
-  [80,  220, 80 ],
-  [40,  200, 255],
-  [80,  80,  255],
-  [160, 60,  255],
-  [255, 60,  180],
-  [255, 255, 200],
-  [60,  255, 180],
-  [255, 100, 100],
-];
+function syncAnalyser() {
+  analyserRef.value = props.analyser ?? getVisualizerAnalyser();
+  frequencyData = analyserRef.value ? new Uint8Array(analyserRef.value.frequencyBinCount) : null;
+  timeDomainData = analyserRef.value ? new Float32Array(analyserRef.value.fftSize) : null;
+}
 
-// Blobs
-const blobs = [
-  { phase: 0,    speed: 0.4,  orbitX: 0.28, orbitY: 0.22, band: 'bass',  baseSize: 0.45 },
-  { phase: 1.2,  speed: 0.3,  orbitX: 0.32, orbitY: 0.28, band: 'bass',  baseSize: 0.4  },
-  { phase: 2.5,  speed: 0.45, orbitX: 0.22, orbitY: 0.32, band: 'mid',   baseSize: 0.35 },
-  { phase: 3.8,  speed: 0.35, orbitX: 0.38, orbitY: 0.18, band: 'mid',   baseSize: 0.3  },
-  { phase: 5.0,  speed: 0.5,  orbitX: 0.18, orbitY: 0.38, band: 'high',  baseSize: 0.25 },
-  { phase: 0.7,  speed: 0.25, orbitX: 0.3,  orbitY: 0.3,  band: 'bass',  baseSize: 0.5  },
-  { phase: 4.2,  speed: 0.42, orbitX: 0.25, orbitY: 0.2,  band: 'high',  baseSize: 0.22 },
-];
+function resetMotionState() {
+  smoothBass = 0;
+  smoothMid = 0;
+  smoothHigh = 0;
+  prevBass = 0;
+  beatBoost = 0;
+  visualTime = 0;
+}
 
-let smoothBass = 0;
-let smoothMid = 0;
-let smoothHigh = 0;
-let prevBass = 0;      // for transient detection
-let beatBoost = 0;     // 0–1, decays after a detected transient
-let spiralAngle = 2.44;
-let spiralDir = true;
-let time = 0;
-let vizCtx = null;
-let particlePool = null;
-let nebulaParticles = null;
-let pillsParticles = null;
-let pillsGrain = null;
-let pendingModeSwitch = false;
-let shuffleBag = [];
+function resizeCanvas() {
+  const canvas = canvasRef.value;
+  if (!canvas) return;
 
-function onNewTrack() {
-  if (!randomizeOnNewTrack.value) return;
-  // Just flag that a switch is pending — the actual mode is picked at apply time
-  // so it's always guaranteed to differ from whatever mode is active then
-  pendingModeSwitch = true;
+  const bounds = canvas.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const previousWidth = viewportWidth;
+  const previousHeight = viewportHeight;
+
+  viewportWidth = bounds.width;
+  viewportHeight = bounds.height;
+
+  if (!viewportWidth || !viewportHeight) return;
+
+  canvas.width = Math.round(viewportWidth * dpr);
+  canvas.height = Math.round(viewportHeight * dpr);
+
+  ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  resizePills(previousWidth, previousHeight);
+  paintBackground();
+}
+
+function paintBackground() {
+  if (!ctx) return;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.clearRect(0, 0, viewportWidth, viewportHeight);
+  ctx.fillStyle = '#13242f';
+  ctx.fillRect(0, 0, viewportWidth, viewportHeight);
+}
+
+function coolPills() {
+  for (let index = 0; index < pillsParticles.length; index += 1) {
+    const particle = pillsParticles[index];
+    particle.energy *= 0.94;
+    particle.decayScale *= 0.972;
+    particle.decayAlpha *= 0.95;
+    particle.smoothedAlpha *= 0.958;
+    particle.smoothedScale *= 0.975;
+  }
+}
+
+function updateBeatBoost(rawBass) {
+  const delta = rawBass - prevBass;
+  if (delta > 0.08) beatBoost = Math.min(1, beatBoost + delta * 4);
+  beatBoost *= 0.88;
+  prevBass = rawBass;
+}
+
+function analyzeAudioFrame() {
+  if (!analyserRef.value || !frequencyData || !timeDomainData) return null;
+
+  analyserRef.value.getByteFrequencyData(frequencyData);
+  analyserRef.value.getFloatTimeDomainData(timeDomainData);
+
+  const third = Math.floor(frequencyData.length / 3);
+  let bass = 0;
+  let mid = 0;
+  let high = 0;
+
+  for (let index = 0; index < third; index += 1) bass += frequencyData[index];
+  for (let index = third; index < third * 2; index += 1) mid += frequencyData[index];
+  for (let index = third * 2; index < frequencyData.length; index += 1) high += frequencyData[index];
+
+  bass = bass / third / 255;
+  mid = mid / third / 255;
+  high = high / Math.max(1, frequencyData.length - third * 2) / 255;
+
+  smoothBass += (bass - smoothBass) * 0.18;
+  smoothMid += (mid - smoothMid) * 0.15;
+  smoothHigh += (high - smoothHigh) * 0.12;
+  updateBeatBoost(bass);
+
+  return {
+    bass,
+    mid,
+    high,
+    energy: (smoothBass + smoothMid + smoothHigh) / 3,
+  };
+}
+
+function drawSpiralBubbles(palette, gateFactor, width, height, centerX, centerY, minDim) {
+  ctx.globalCompositeOperation = 'screen';
+
+  for (let index = 0; index < BUBBLES.length; index += 1) {
+    const bubble = BUBBLES[index];
+    const [r, g, b] = palette[index % palette.length];
+    const bandValue = bubble.band === 'bass'
+      ? smoothBass
+      : bubble.band === 'mid'
+        ? smoothMid
+        : smoothHigh;
+
+    const orbitTime = visualTime * bubble.speed + bubble.phase;
+    const bubbleX = centerX + Math.sin(orbitTime) * width * bubble.orbitX + Math.cos(orbitTime * 0.7) * width * 0.1;
+    const bubbleY = centerY + Math.cos(orbitTime) * height * bubble.orbitY + Math.sin(orbitTime * 0.6) * height * 0.08;
+    const radius = minDim * bubble.baseSize * (0.1 + bandValue * 1.6);
+
+    if (radius < 2) continue;
+
+    const gradient = ctx.createRadialGradient(bubbleX, bubbleY, 0, bubbleX, bubbleY, radius);
+    const alpha = (0.1 + bandValue * 0.22) * gateFactor;
+    gradient.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
+    gradient.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
+    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(bubbleX - radius, bubbleY - radius, radius * 2, radius * 2);
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawSpiralFrame() {
+  const frame = analyzeAudioFrame();
+  if (!frame) return;
+
+  const { energy } = frame;
+  const width = viewportWidth;
+  const height = viewportHeight;
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const minDim = Math.min(width, height);
+
+  const idle = !state.isPlaying || energy < 0.006;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = idle
+    ? 'rgba(9, 9, 11, 0.28)'
+    : `rgba(9, 9, 11, ${0.12 + (1 - energy) * 0.18})`;
+  ctx.fillRect(0, 0, width, height);
+
+  if (idle && energy < 0.0012) return;
+
+  const gateFactor = Math.min(1, energy / 0.018);
+  visualTime += 0.008;
+
+  if (spiralDirection) {
+    spiralAngle += 0.0000015;
+    if (spiralAngle >= 2.48) spiralDirection = false;
+  } else {
+    spiralAngle -= 0.000002;
+    if (spiralAngle <= 2.42) spiralDirection = true;
+  }
+
+  const palette = getSpiralPalette();
+  const [pr, pg, pb] = palette[0];
+  const coreGlow = ctx.createRadialGradient(
+    centerX,
+    centerY,
+    minDim * 0.04,
+    centerX,
+    centerY,
+    minDim * (0.34 + smoothBass * 0.16),
+  );
+  coreGlow.addColorStop(0, `rgba(${pr},${pg},${pb},${0.12 + energy * 0.18})`);
+  coreGlow.addColorStop(0.45, `rgba(${pr},${pg},${pb},${0.05 + energy * 0.06})`);
+  coreGlow.addColorStop(1, 'rgba(9,9,11,0)');
+  ctx.fillStyle = coreGlow;
+  ctx.fillRect(0, 0, width, height);
+
+  drawSpiralBubbles(palette, gateFactor, width, height, centerX, centerY, minDim);
+
+  const pointCount = 256;
+  const baseRadius = minDim * (0.15 + smoothBass * 0.07 + beatBoost * 0.06);
+  const waveAmplitude = minDim * (0.1 + beatBoost * 0.05) * (0.3 + energy * 0.7);
+  const ringPoints = [];
+
+  for (let index = 0; index <= pointCount; index += 1) {
+    const sampleIndex = Math.floor((index % pointCount) / pointCount * timeDomainData.length);
+    const sample = timeDomainData[sampleIndex] || 0;
+    const angle = (index / pointCount) * Math.PI * 2 - Math.PI / 2 + spiralAngle;
+    const radius = baseRadius + sample * waveAmplitude + Math.sin(angle * 3 + visualTime * 1.2) * minDim * 0.012 * gateFactor;
+    ringPoints.push({
+      x: centerX + Math.cos(angle) * radius,
+      y: centerY + Math.sin(angle) * radius,
+    });
+  }
+
+  const ringAlpha = (0.15 + energy * 0.5 + beatBoost * 0.3) * gateFactor;
+
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+
+  const strokeRing = (strokeStyle, lineWidth) => {
+    ctx.beginPath();
+    for (let index = 0; index <= pointCount; index += 1) {
+      if (index === 0) ctx.moveTo(ringPoints[index].x, ringPoints[index].y);
+      else ctx.lineTo(ringPoints[index].x, ringPoints[index].y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = strokeStyle;
+    ctx.lineWidth = lineWidth;
+    ctx.stroke();
+  };
+
+  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha * 0.05})`, 16);
+  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha * 0.18})`, 5);
+  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha})`, 1.5);
+  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha * 0.08})`, 9);
+
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function drawPillsFrame() {
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = state.isPlaying ? 'rgba(19, 36, 47, 0.42)' : 'rgba(19, 36, 47, 0.66)';
+  ctx.fillRect(0, 0, viewportWidth, viewportHeight);
+
+  let averageEnergy = 0;
+  const palette = getSpiralPalette();
+
+  if (state.isPlaying && analyserRef.value && frequencyData) {
+    analyserRef.value.getByteFrequencyData(frequencyData);
+    for (let index = 0; index < pillsParticles.length; index += 1) {
+      const particle = pillsParticles[index];
+      particle.energy = frequencyData[Math.min(particle.band, frequencyData.length - 1)] / 256;
+      averageEnergy += particle.energy;
+    }
+    averageEnergy /= Math.max(1, pillsParticles.length);
+    if (averageEnergy < 0.012) coolPills();
+  } else {
+    coolPills();
+  }
+
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (let index = 0; index < pillsParticles.length; index += 1) {
+    const particle = pillsParticles[index];
+
+    if (particle.y < -particle.size * particle.level * particle.scale * 2) {
+      resetPillParticle(particle);
+      particle.x = Math.random() * viewportWidth;
+      particle.y = viewportHeight + particle.size * particle.scale * particle.level;
+    }
+
+    const power = Math.exp(particle.energy);
+    const scale = particle.scale * power;
+    const alpha = particle.alpha * particle.energy * 0.68;
+
+    particle.decayScale = Math.max(particle.decayScale, scale);
+    particle.decayAlpha = Math.max(particle.decayAlpha, alpha);
+
+    particle.smoothedScale += (particle.decayScale - particle.smoothedScale) * 0.3;
+    particle.smoothedAlpha += (particle.decayAlpha - particle.smoothedAlpha) * 0.3;
+
+    particle.decayScale *= 0.982;
+    particle.decayAlpha *= 0.92;
+    particle.rotation += particle.spin;
+    particle.y -= particle.speed * particle.level;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.translate(
+      particle.x + Math.cos(particle.rotation * particle.speed) * 220,
+      particle.y,
+    );
+    ctx.rotate(particle.rotation);
+    ctx.scale(particle.smoothedScale * particle.level, particle.smoothedScale * particle.level);
+    ctx.moveTo(particle.size * 0.5, 0);
+    ctx.lineTo(particle.size * -0.5, 0);
+    ctx.lineWidth = 1;
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = Math.min(0.4, particle.smoothedAlpha / (particle.level * 1.65));
+    const [r, g, b] = palette[particle.colorIndex % palette.length];
+    ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function render() {
+  animationFrameId = window.requestAnimationFrame(render);
+  if (!ctx || !viewportWidth || !viewportHeight) return;
+
+  if (currentMode.value.value === 'pills') {
+    drawPillsFrame();
+    return;
+  }
+
+  drawSpiralFrame();
+}
+
+function start() {
+  syncAnalyser();
+  resizeCanvas();
+  resumeVisualizerContext();
+
+  if (!animationFrameId) {
+    animationFrameId = window.requestAnimationFrame(render);
+  }
+}
+
+function stop() {
+  if (animationFrameId) {
+    window.cancelAnimationFrame(animationFrameId);
+    animationFrameId = 0;
+  }
+}
+
+function toggleFullscreen() {
+  if (!containerRef.value) return;
+
+  if (document.fullscreenElement) {
+    document.exitFullscreen();
+    return;
+  }
+
+  containerRef.value.requestFullscreen?.();
+}
+
+function handleFullscreenChange() {
+  isFullscreen.value = !!document.fullscreenElement;
+  resizeCanvas();
 }
 
 function selectMode(mode) {
   setVizMode(mode);
   showModeDropdown.value = false;
-  const canvas = canvasRef.value;
-  if (canvas) {
-    const c = canvas.getContext('2d');
-    c.fillStyle = 'rgb(9, 9, 11)';
-    c.fillRect(0, 0, canvas.width, canvas.height);
-  }
+  resetMotionState();
+  paintBackground();
 }
 
-
-function toggleBubbles() {
-  if (showBubbles.value && vizMode.value === 'bubbles') {
-    // Turning off bubbles while in bubbles-only mode would show nothing — switch to spiral first
-    setVizMode('spiral');
-  }
-  setShowBubbles(!showBubbles.value);
-}
-
-function toggleFullscreen() {
-  if (!containerRef.value) return;
-  if (!document.fullscreenElement) {
-    containerRef.value.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
-}
-
-function onFullscreenChange() {
-  isFullscreen.value = !!document.fullscreenElement;
-}
-
-function setupCanvas() {
-  const canvas = canvasRef.value;
-  if (!canvas) return null;
-  const c = canvas.getContext('2d');
-  const dpr = window.devicePixelRatio || 1;
-  const rect = canvas.getBoundingClientRect();
-  if (canvas.width !== rect.width * dpr || canvas.height !== rect.height * dpr) {
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    c.scale(dpr, dpr);
-  }
-  return { c, w: rect.width, h: rect.height };
-}
-
-function drawBars() {
-  const canvas = canvasRef.value;
-  const analyser = vizCtx?.analyser;
-  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
-
-  const setup = setupCanvas();
-  if (!setup) { animId = requestAnimationFrame(draw); return; }
-  const { c, w, h } = setup;
-  const cx = w / 2;
-  const cy = h / 2;
-  const minDim = Math.min(w, h);
-
-  const freqData = new Uint8Array(analyser.frequencyBinCount);
-  const floatTimeData = new Float32Array(analyser.fftSize);
-  analyser.getByteFrequencyData(freqData);
-  analyser.getFloatTimeDomainData(floatTimeData);
-
-  const bufLen = freqData.length;
-  const third = Math.floor(bufLen / 3);
-
-  let bass = 0, mid = 0, high = 0;
-  for (let i = 0; i < third; i++) bass += freqData[i];
-  for (let i = third; i < third * 2; i++) mid += freqData[i];
-  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
-  bass = bass / third / 255;
-  mid = mid / third / 255;
-  high = high / (bufLen - third * 2) / 255;
-
-  smoothBass += (bass - smoothBass) * 0.18;
-  smoothMid += (mid - smoothMid) * 0.15;
-  smoothHigh += (high - smoothHigh) * 0.12;
-  updateBeatBoost(bass);
-
-  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
-
-  c.fillStyle = `rgba(9, 9, 11, ${0.12 + (1 - energy) * 0.18})`;
-  c.fillRect(0, 0, w, h);
-
-  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
-
-  // Soft gate: smoothly ramp alpha to 0 as energy fades below threshold
-  const gateFactor = Math.min(1, energy / 0.018);
-
-  time += 0.008;
-
-  const palette = getColorPalette();
-  const [pr, pg, pb] = palette[0];
-
-  // ── Layer 1: Gradient blobs ──
-  if (showBubbles.value) {
-    c.globalCompositeOperation = 'screen';
-
-    for (let i = 0; i < blobs.length; i++) {
-      const blob = blobs[i];
-      const [r, g, b] = palette[i % palette.length];
-
-      let bandVal;
-      if (blob.band === 'bass') bandVal = smoothBass;
-      else if (blob.band === 'mid') bandVal = smoothMid;
-      else bandVal = smoothHigh;
-
-      const t = time * blob.speed + blob.phase;
-      const blobX = cx + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
-      const blobY = cy + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
-
-      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
-      if (radius < 2) continue;
-
-      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
-      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
-      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-
-      c.fillStyle = grad;
-      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
-    }
-
-    c.globalCompositeOperation = 'source-over';
-  }
-
-  if (vizMode.value === 'bubbles') { animId = requestAnimationFrame(draw); return; }
-
-  // ── Layer 2: Lissajous ──
-  // Bass drives X amplitude, mids drive Y, highs nudge the phase; beat boost expands both
-  const ampX = minDim * 0.22 * (0.15 + smoothBass * 1.5 + beatBoost * 0.4);
-  const ampY = minDim * 0.22 * (0.15 + smoothMid * 1.5 + beatBoost * 0.25);
-  const delta = time * 1.5 + smoothHigh * 3.0;
-
-  const numLissPts = 512;
-  const lissPts = [];
-  for (let i = 0; i <= numLissPts; i++) {
-    const t = (i / numLissPts) * Math.PI * 2;
-    const audioIdx = Math.floor((i / numLissPts) * analyser.fftSize);
-    const nudge = (floatTimeData[audioIdx] || 0) * minDim * 0.04 * energy;
-    lissPts.push({
-      x: cx + Math.sin(2 * t + delta) * ampX + nudge,
-      y: cy + Math.sin(3 * t)         * ampY + nudge,
-    });
-  }
-
-  const lissAlpha = (0.10 + energy * 0.42) * gateFactor;
-
-  c.globalCompositeOperation = 'lighter';
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
-
-  // Wide glow
-  c.beginPath();
-  for (let i = 0; i <= numLissPts; i++) {
-    if (i === 0) c.moveTo(lissPts[i].x, lissPts[i].y);
-    else c.lineTo(lissPts[i].x, lissPts[i].y);
-  }
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${lissAlpha * 0.06})`;
-  c.lineWidth = 14;
-  c.stroke();
-
-  // Medium glow
-  c.beginPath();
-  for (let i = 0; i <= numLissPts; i++) {
-    if (i === 0) c.moveTo(lissPts[i].x, lissPts[i].y);
-    else c.lineTo(lissPts[i].x, lissPts[i].y);
-  }
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${lissAlpha * 0.22})`;
-  c.lineWidth = 4;
-  c.stroke();
-
-  // Core line
-  c.beginPath();
-  for (let i = 0; i <= numLissPts; i++) {
-    if (i === 0) c.moveTo(lissPts[i].x, lissPts[i].y);
-    else c.lineTo(lissPts[i].x, lissPts[i].y);
-  }
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${lissAlpha})`;
-  c.lineWidth = 1.5;
-  c.stroke();
-
-  c.globalCompositeOperation = 'source-over';
-
-  animId = requestAnimationFrame(draw);
-}
-
-function initParticles() {
-  particlePool = Array.from({ length: 120 }, (_, i) => ({
-    angle: (i / 120) * Math.PI * 2,
-    baseRadius: 0.08 + Math.random() * 0.22,
-    speed: (0.005 + Math.random() * 0.012) * (Math.random() < 0.5 ? 1 : -1),
-    size: 0.8 + Math.random() * 3,
-    colorIdx: i % 5,
-    phase: Math.random() * Math.PI * 2,
-    orbitVariance: 0.03 + Math.random() * 0.07,
-    // per-particle personality
-    opacity: 0.12 + Math.random() * Math.random(), // skewed toward dim
-    glowScale: 2 + Math.random() * 7,              // tight sparkle → wide soft halo
-    twinkleAmt: Math.random() * 0.4,               // 0 = steady, 0.4 = shimmer
-    twinkleSpeed: 0.8 + Math.random() * 2.5,
-  }));
-}
-
-function drawParticles() {
-  const canvas = canvasRef.value;
-  const analyser = vizCtx?.analyser;
-  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
-  if (!particlePool) initParticles();
-
-  const setup = setupCanvas();
-  if (!setup) { animId = requestAnimationFrame(draw); return; }
-  const { c, w, h } = setup;
-  const cx = w / 2, cy = h / 2, minDim = Math.min(w, h);
-
-  const freqData = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(freqData);
-  const bufLen = freqData.length, third = Math.floor(bufLen / 3);
-  let bass = 0, mid = 0, high = 0;
-  for (let i = 0; i < third; i++) bass += freqData[i];
-  for (let i = third; i < third * 2; i++) mid += freqData[i];
-  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
-  bass = bass / third / 255;
-  mid = mid / third / 255;
-  high = high / (bufLen - third * 2) / 255;
-  smoothBass += (bass - smoothBass) * 0.18;
-  smoothMid += (mid - smoothMid) * 0.15;
-  smoothHigh += (high - smoothHigh) * 0.12;
-  updateBeatBoost(bass);
-  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
-
-  c.fillStyle = `rgba(9, 9, 11, ${0.14 + (1 - energy) * 0.16})`;
-  c.fillRect(0, 0, w, h);
-  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
-  const gateFactor = Math.min(1, energy / 0.018);
-  time += 0.008;
-
-  const palette = getColorPalette();
-
-  if (showBubbles.value) {
-    c.globalCompositeOperation = 'screen';
-    for (let i = 0; i < blobs.length; i++) {
-      const blob = blobs[i];
-      const [r, g, b] = palette[i % palette.length];
-      const bandVal = blob.band === 'bass' ? smoothBass : blob.band === 'mid' ? smoothMid : smoothHigh;
-      const t = time * blob.speed + blob.phase;
-      const blobX = cx + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
-      const blobY = cy + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
-      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
-      if (radius < 2) continue;
-      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
-      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
-      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-      c.fillStyle = grad;
-      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
-    }
-    c.globalCompositeOperation = 'source-over';
-  }
-
-  c.globalCompositeOperation = 'lighter';
-  for (const p of particlePool) {
-    p.angle += p.speed * (1 + smoothHigh * 4);
-    const pulse = Math.sin(p.phase + time * 2.5) * p.orbitVariance;
-    const orbitR = minDim * (p.baseRadius + smoothBass * 0.15 + pulse);
-    const x = cx + Math.cos(p.angle) * orbitR;
-    const y = cy + Math.sin(p.angle) * orbitR;
-    const dotSize = p.size * (1 + smoothMid * 2.5) * gateFactor;
-    if (dotSize < 0.2) continue;
-    const [pr, pg, pb] = palette[p.colorIdx];
-    const twinkle = 1 + Math.sin(p.phase + time * p.twinkleSpeed) * p.twinkleAmt;
-    const alpha = (0.45 + smoothMid * 0.55) * gateFactor * p.opacity * twinkle;
-    if (alpha < 0.01) continue;
-    const glowR = dotSize * p.glowScale;
-    // diffuse glow: larger halos get proportionally dimmer at center
-    const glowPeak = alpha * 0.35 * (3.5 / p.glowScale);
-    const glow = c.createRadialGradient(x, y, 0, x, y, glowR);
-    glow.addColorStop(0, `rgba(${pr},${pg},${pb},${glowPeak})`);
-    glow.addColorStop(1, `rgba(${pr},${pg},${pb},0)`);
-    c.fillStyle = glow;
-    c.beginPath();
-    c.arc(x, y, glowR, 0, Math.PI * 2);
-    c.fill();
-    c.fillStyle = `rgba(${pr},${pg},${pb},${alpha})`;
-    c.beginPath();
-    c.arc(x, y, dotSize, 0, Math.PI * 2);
-    c.fill();
-  }
-  c.globalCompositeOperation = 'source-over';
-  animId = requestAnimationFrame(draw);
-}
-
-function drawPolar() {
-  const canvas = canvasRef.value;
-  const analyser = vizCtx?.analyser;
-  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
-
-  const setup = setupCanvas();
-  if (!setup) { animId = requestAnimationFrame(draw); return; }
-  const { c, w, h } = setup;
-  const cx = w / 2, cy = h / 2, minDim = Math.min(w, h);
-
-  const bufferLength = analyser.fftSize;
-  const floatTimeData = new Float32Array(bufferLength);
-  const freqData = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getFloatTimeDomainData(floatTimeData);
-  analyser.getByteFrequencyData(freqData);
-  const bufLen = freqData.length, third = Math.floor(bufLen / 3);
-  let bass = 0, mid = 0, high = 0;
-  for (let i = 0; i < third; i++) bass += freqData[i];
-  for (let i = third; i < third * 2; i++) mid += freqData[i];
-  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
-  bass = bass / third / 255;
-  mid = mid / third / 255;
-  high = high / (bufLen - third * 2) / 255;
-  smoothBass += (bass - smoothBass) * 0.18;
-  smoothMid += (mid - smoothMid) * 0.15;
-  smoothHigh += (high - smoothHigh) * 0.12;
-  updateBeatBoost(bass);
-  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
-
-  c.fillStyle = `rgba(9, 9, 11, ${0.10 + (1 - energy) * 0.18})`;
-  c.fillRect(0, 0, w, h);
-  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
-  const gateFactor = Math.min(1, energy / 0.018);
-  time += 0.008;
-
-  const palette = getColorPalette();
-  const [pr, pg, pb] = palette[0];
-
-  if (showBubbles.value) {
-    c.globalCompositeOperation = 'screen';
-    for (let i = 0; i < blobs.length; i++) {
-      const blob = blobs[i];
-      const [r, g, b] = palette[i % palette.length];
-      const bandVal = blob.band === 'bass' ? smoothBass : blob.band === 'mid' ? smoothMid : smoothHigh;
-      const t = time * blob.speed + blob.phase;
-      const blobX = cx + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
-      const blobY = cy + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
-      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
-      if (radius < 2) continue;
-      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
-      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
-      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-      c.fillStyle = grad;
-      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
-    }
-    c.globalCompositeOperation = 'source-over';
-  }
-
-  // Polar mandala — 6-fold mirrored symmetry
-  const SYMMETRY = 6;
-  const numPts = 256;
-  const baseR = minDim * (0.10 + smoothBass * 0.06);
-  const amplitude = minDim * 0.12 * (0.5 + energy * 0.8);
-  const wedgeAngle = Math.PI / SYMMETRY;
-  const rotation = time * 0.3;
-
-  const radii = new Array(numPts + 1);
-  for (let i = 0; i <= numPts; i++) {
-    const audioIdx = Math.floor((i / numPts) * (bufferLength / 2));
-    radii[i] = baseR + (floatTimeData[audioIdx] || 0) * amplitude;
-  }
-
-  const alpha = (0.12 + energy * 0.5) * gateFactor;
-  c.globalCompositeOperation = 'lighter';
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
-
-  const strokeArms = () => {
-    c.save();
-    c.translate(cx, cy);
-    for (let sym = 0; sym < SYMMETRY; sym++) {
-      const symRot = (sym / SYMMETRY) * Math.PI * 2 + rotation;
-      for (const mirror of [1, -1]) {
-        c.save();
-        c.rotate(symRot);
-        c.scale(1, mirror);
-        c.beginPath();
-        for (let i = 0; i <= numPts; i++) {
-          const angle = (i / numPts) * wedgeAngle;
-          const x = Math.cos(angle) * radii[i];
-          const y = Math.sin(angle) * radii[i];
-          if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
-        }
-        c.stroke();
-        c.restore();
-      }
-    }
-    c.restore();
-  };
-
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * 0.06})`;
-  c.lineWidth = 14;
-  strokeArms();
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${alpha * 0.20})`;
-  c.lineWidth = 4;
-  strokeArms();
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${alpha})`;
-  c.lineWidth = 1.5;
-  strokeArms();
-
-  c.globalCompositeOperation = 'source-over';
-  animId = requestAnimationFrame(draw);
-}
-
-// Detect bass transients and update beatBoost. Call once per frame after smoothBass is updated.
-function updateBeatBoost(rawBass) {
-  const drop = rawBass - prevBass;
-  if (drop > 0.08) beatBoost = Math.min(1, beatBoost + drop * 4); // sharp rise → boost
-  beatBoost *= 0.88; // exponential decay (~12 frames to halve)
-  prevBass = rawBass;
-}
-
-function drawSpectrum() {
-  const canvas = canvasRef.value;
-  const analyser = vizCtx?.analyser;
-  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
-
-  const setup = setupCanvas();
-  if (!setup) { animId = requestAnimationFrame(draw); return; }
-  const { c, w, h } = setup;
-
-  const freqData = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(freqData);
-  const bufLen = freqData.length;
-  const third = Math.floor(bufLen / 3);
-
-  let bass = 0, mid = 0, high = 0;
-  for (let i = 0; i < third; i++) bass += freqData[i];
-  for (let i = third; i < third * 2; i++) mid += freqData[i];
-  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
-  bass = bass / third / 255;
-  mid = mid / third / 255;
-  high = high / (bufLen - third * 2) / 255;
-
-  smoothBass += (bass - smoothBass) * 0.18;
-  smoothMid += (mid - smoothMid) * 0.15;
-  smoothHigh += (high - smoothHigh) * 0.12;
-  updateBeatBoost(bass);
-
-  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
-
-  // Faster fade for crisp bar edges
-  c.fillStyle = `rgba(9, 9, 11, ${0.35 + (1 - energy) * 0.45})`;
-  c.fillRect(0, 0, w, h);
-
-  if (energy < 0.0002) { animId = requestAnimationFrame(draw); return; }
-  const gateFactor = Math.min(1, energy / 0.018);
-
-  time += 0.008;
-
-  const palette = getColorPalette();
-  const [pr, pg, pb] = palette[0];
-
-  // Bubbles behind bars
-  if (showBubbles.value) {
-    c.globalCompositeOperation = 'screen';
-    for (let i = 0; i < blobs.length; i++) {
-      const blob = blobs[i];
-      const [r, g, b] = palette[i % palette.length];
-      const bandVal = blob.band === 'bass' ? smoothBass : blob.band === 'mid' ? smoothMid : smoothHigh;
-      const t = time * blob.speed + blob.phase;
-      const blobX = (w / 2) + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
-      const blobY = (h / 2) + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
-      const minDim = Math.min(w, h);
-      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
-      if (radius < 2) continue;
-      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = (0.06 + bandVal * 0.14) * gateFactor;
-      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
-      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-      c.fillStyle = grad;
-      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
-    }
-    c.globalCompositeOperation = 'source-over';
-  }
-
-  // Classic spectrum bars — logarithmically spaced bins
-  const NUM_BARS = 64;
-  const barGap = 2;
-  const totalBarW = w - barGap;
-  const barW = Math.max(2, totalBarW / NUM_BARS - barGap);
-  const step = totalBarW / NUM_BARS;
-
-  // Beat boost widens and brightens bars
-  const boostH = 1 + beatBoost * 0.7;
-  const maxBarH = h * 0.88 * boostH;
-
-  c.globalCompositeOperation = 'lighter';
-
-  for (let i = 0; i < NUM_BARS; i++) {
-    // Logarithmic bin mapping: gives more bars to bass/mids like a real EQ
-    const logMin = Math.log10(1);
-    const logMax = Math.log10(bufLen * 0.8);
-    const binIdx = Math.floor(Math.pow(10, logMin + (i / NUM_BARS) * (logMax - logMin)));
-    const value = (freqData[Math.min(binIdx, bufLen - 1)] / 255) * gateFactor;
-
-    const barH = value * maxBarH;
-    if (barH < 1) continue;
-
-    const x = i * step + barGap / 2;
-    const y = h - barH;
-
-    // Vertical gradient: dim at base, bright at peak
-    const grad = c.createLinearGradient(x, h, x, y);
-    const alpha = (0.5 + beatBoost * 0.5) * gateFactor;
-    grad.addColorStop(0, `rgba(${pr},${pg},${pb},${alpha * 0.25})`);
-    grad.addColorStop(0.6, `rgba(${pr},${pg},${pb},${alpha * 0.7})`);
-    grad.addColorStop(1, `rgba(${pr},${pg},${pb},${alpha})`);
-
-    // Glow pass
-    c.fillStyle = `rgba(${pr},${pg},${pb},${alpha * 0.08})`;
-    c.fillRect(x - barGap, y - 4, barW + barGap * 2, barH + 4);
-
-    // Core bar
-    c.fillStyle = grad;
-    c.fillRect(x, y, barW, barH);
-
-    // Peak cap — bright dot at top
-    c.fillStyle = `rgba(${pr},${pg},${pb},${Math.min(1, alpha * 1.4)})`;
-    c.fillRect(x, y, barW, Math.min(2, barH));
-  }
-
-  c.globalCompositeOperation = 'source-over';
-  animId = requestAnimationFrame(draw);
-}
-
-// Nebula — inspired by soulwire's audio visualizer (codepen.io/soulwire/pen/kGjRpg)
-// Particles float upward, each mapped to a frequency bin; size driven by that bin's energy.
-function initNebula() {
-  nebulaParticles = Array.from({ length: 150 }, (_, i) => ({
-    x:        Math.random(),                                           // 0–1 fraction of canvas width
-    y:        Math.random(),                                           // 0–1 fraction of canvas height (random start)
-    freqBin:  Math.floor((i / 150) * 128),
-    speed:    (0.2 + Math.random() * 0.8) * 0.0012,                  // upward drift per frame (fraction of h)
-    maxR:     5 + Math.random() * 75,                                 // max px radius at 500px reference
-    energy:   0,                                                       // smoothed 0–1
-    alpha:    0.8 + Math.random() * 0.15,
-    rotation: Math.random() * Math.PI * 2,
-    rotSpeed: (Math.random() - 0.5) * 0.004,
-    colorIdx: Math.floor(Math.random() * NEBULA_PALETTE.length),
-  }));
-}
-
-function drawNebula() {
-  const canvas = canvasRef.value;
-  const analyser = vizCtx?.analyser;
-  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
-
-  const setup = setupCanvas();
-  if (!setup) { animId = requestAnimationFrame(draw); return; }
-  const { c, w, h } = setup;
-  const pxScale = Math.min(w, h) / 500;
-
-  if (!nebulaParticles) initNebula();
-
-  const freqData = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getByteFrequencyData(freqData);
-
-  // Near-opaque clear — particle size is driven fresh each frame by frequency data
-  c.fillStyle = 'rgba(9,9,11,0.88)';
-  c.fillRect(0, 0, w, h);
-
-  c.globalCompositeOperation = 'lighter';
-
-  for (const p of nebulaParticles) {
-    // Float upward; wrap to bottom when offscreen
-    p.y -= p.speed;
-    p.rotation += p.rotSpeed;
-    if (p.y < -0.08) { p.y = 1.08; p.x = Math.random(); }
-
-    // Energy smoothly tracks this particle's frequency bin
-    const target = freqData[Math.min(p.freqBin, freqData.length - 1)] / 255;
-    p.energy += (target - p.energy) * 0.35;
-    if (p.energy < 0.01) continue;
-
-    const px = p.x * w;
-    const py = p.y * h;
-    const r  = p.maxR * pxScale * p.energy;
-    if (r < 0.5) continue;
-
-    const [cr, cg, cb] = NEBULA_PALETTE[p.colorIdx];
-    const alpha = p.alpha * p.energy;
-
-    c.save();
-    c.translate(px, py);
-    c.rotate(p.rotation);
-
-    // Soft outer glow
-    const glow = c.createRadialGradient(0, 0, 0, 0, 0, r * 3);
-    glow.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha * 0.3})`);
-    glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-    c.fillStyle = glow;
-    c.beginPath();
-    c.arc(0, 0, r * 3, 0, Math.PI * 2);
-    c.fill();
-
-    // Bright core
-    c.fillStyle = `rgba(${cr},${cg},${cb},${Math.min(1, alpha)})`;
-    c.beginPath();
-    c.arc(0, 0, r, 0, Math.PI * 2);
-    c.fill();
-
-    c.restore();
-  }
-
-  c.globalCompositeOperation = 'source-over';
-  animId = requestAnimationFrame(draw);
-}
-
-function draw() {
-  // Apply queued mode switch only once the current visualization has faded to silence
-  if (pendingModeSwitch) {
-    const currentEnergy = (smoothBass + smoothMid + smoothHigh) / 3;
-    if (currentEnergy < 0.003) {
-      pendingModeSwitch = false;
-      if (shuffleBag.length === 0) {
-        shuffleBag = vizModes
-          .filter(m => m.value !== 'bubbles' && m.value !== vizMode.value)
-          .map(m => m.value)
-          .sort(() => Math.random() - 0.5);
-      }
-      if (shuffleBag.length) selectMode(shuffleBag.pop());
-      animId = requestAnimationFrame(draw);
-      return;
-    }
-  }
-
-  if (vizMode.value === 'wave' || vizMode.value === 'bubbles') { drawBars(); return; }
-  if (vizMode.value === 'particles') { drawParticles(); return; }
-  if (vizMode.value === 'polar') { drawPolar(); return; }
-  if (vizMode.value === 'nebula') { drawNebula(); return; }
-  if (vizMode.value === 'spectrum') { drawSpectrum(); return; }
-
-  const canvas = canvasRef.value;
-  const analyser = vizCtx?.analyser;
-  if (!canvas || !analyser) {
-    animId = requestAnimationFrame(draw);
-    return;
-  }
-
-  const setup = setupCanvas();
-  if (!setup) { animId = requestAnimationFrame(draw); return; }
-  const { c, w, h } = setup;
-  const cx = w / 2;
-  const cy = h / 2;
-  const minDim = Math.min(w, h);
-
-  // Get waveform + frequency data
-  const bufferLength = analyser.fftSize;
-  const floatTimeData = new Float32Array(bufferLength);
-  const timeData = new Uint8Array(bufferLength);
-  const freqData = new Uint8Array(analyser.frequencyBinCount);
-  analyser.getFloatTimeDomainData(floatTimeData);
-  analyser.getByteTimeDomainData(timeData);
-  analyser.getByteFrequencyData(freqData);
-
-  const bufLen = freqData.length;
-  const third = Math.floor(bufLen / 3);
-
-  let bass = 0, mid = 0, high = 0;
-  for (let i = 0; i < third; i++) bass += freqData[i];
-  for (let i = third; i < third * 2; i++) mid += freqData[i];
-  for (let i = third * 2; i < bufLen; i++) high += freqData[i];
-  bass = bass / third / 255;
-  mid = mid / third / 255;
-  high = high / (bufLen - third * 2) / 255;
-
-  smoothBass += (bass - smoothBass) * 0.18;
-  smoothMid += (mid - smoothMid) * 0.15;
-  smoothHigh += (high - smoothHigh) * 0.12;
-  updateBeatBoost(bass);
-
-  const energy = (smoothBass + smoothMid + smoothHigh) / 3;
-
-  // Fade — moderate trail
-  c.fillStyle = `rgba(9, 9, 11, ${0.12 + (1 - energy) * 0.18})`;
-  c.fillRect(0, 0, w, h);
-
-  if (energy < 0.0002) {
-    animId = requestAnimationFrame(draw);
-    return;
-  }
-
-  // Soft gate: smoothly ramp alpha to 0 as energy fades below threshold
-  const gateFactor = Math.min(1, energy / 0.018);
-
-  time += 0.008;
-
-  // Spiral morph — very slow rotation
-  if (spiralDir) {
-    spiralAngle += 0.0000015;
-    if (spiralAngle >= 2.48) spiralDir = false;
-  } else {
-    spiralAngle -= 0.000002;
-    if (spiralAngle <= 2.42) spiralDir = true;
-  }
-
-  const palette = getColorPalette();
-  const [pr, pg, pb] = palette[0];
-
-  // ── Layer 1: Gradient blobs (screen blended) ──
-  if (showBubbles.value) {
-    c.globalCompositeOperation = 'screen';
-
-    for (let i = 0; i < blobs.length; i++) {
-      const blob = blobs[i];
-      const [r, g, b] = palette[i % palette.length];
-
-      let bandVal;
-      if (blob.band === 'bass') bandVal = smoothBass;
-      else if (blob.band === 'mid') bandVal = smoothMid;
-      else bandVal = smoothHigh;
-
-      const t = time * blob.speed + blob.phase;
-      const blobX = cx + Math.sin(t) * w * blob.orbitX + Math.cos(t * 0.7) * w * 0.1;
-      const blobY = cy + Math.cos(t) * h * blob.orbitY + Math.sin(t * 0.6) * h * 0.08;
-
-      const radius = minDim * blob.baseSize * (0.1 + bandVal * 1.6);
-      if (radius < 2) continue;
-
-      const grad = c.createRadialGradient(blobX, blobY, 0, blobX, blobY, radius);
-      const alpha = (0.1 + bandVal * 0.22) * gateFactor;
-      grad.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-      grad.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
-      grad.addColorStop(1, `rgba(${r},${g},${b},0)`);
-
-      c.fillStyle = grad;
-      c.fillRect(blobX - radius, blobY - radius, radius * 2, radius * 2);
-    }
-
-    c.globalCompositeOperation = 'source-over';
-  }
-
-  // ── Layer 2: Waveform ring ──
-  const numRingPts = 256;
-  const baseR = minDim * (0.15 + smoothBass * 0.07 + beatBoost * 0.06);
-  const waveAmp = minDim * (0.10 + beatBoost * 0.05) * (0.3 + energy * 0.7);
-
-  const ringPts = [];
-  for (let i = 0; i <= numRingPts; i++) {
-    const idx = Math.floor((i % numRingPts) / numRingPts * bufferLength);
-    const sample = floatTimeData[idx] || 0;
-    const angle = (i / numRingPts) * Math.PI * 2 - Math.PI / 2;
-    const r = baseR + sample * waveAmp;
-    ringPts.push({ x: cx + Math.cos(angle) * r, y: cy + Math.sin(angle) * r });
-  }
-
-  const ringAlpha = (0.15 + energy * 0.5 + beatBoost * 0.3) * gateFactor;
-
-  c.globalCompositeOperation = 'lighter';
-  c.lineCap = 'round';
-  c.lineJoin = 'round';
-
-  // Wide outer glow
-  c.beginPath();
-  for (let i = 0; i <= numRingPts; i++) {
-    if (i === 0) c.moveTo(ringPts[i].x, ringPts[i].y);
-    else c.lineTo(ringPts[i].x, ringPts[i].y);
-  }
-  c.closePath();
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${ringAlpha * 0.05})`;
-  c.lineWidth = 16;
-  c.stroke();
-
-  // Medium glow
-  c.beginPath();
-  for (let i = 0; i <= numRingPts; i++) {
-    if (i === 0) c.moveTo(ringPts[i].x, ringPts[i].y);
-    else c.lineTo(ringPts[i].x, ringPts[i].y);
-  }
-  c.closePath();
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${ringAlpha * 0.18})`;
-  c.lineWidth = 5;
-  c.stroke();
-
-  // Core line
-  c.beginPath();
-  for (let i = 0; i <= numRingPts; i++) {
-    if (i === 0) c.moveTo(ringPts[i].x, ringPts[i].y);
-    else c.lineTo(ringPts[i].x, ringPts[i].y);
-  }
-  c.closePath();
-  c.strokeStyle = `rgba(${pr},${pg},${pb},${ringAlpha})`;
-  c.lineWidth = 1.5;
-  c.stroke();
-
-  c.globalCompositeOperation = 'source-over';
-
-  animId = requestAnimationFrame(draw);
-}
+watch(() => props.analyser, syncAnalyser);
+watch(vizMode, () => {
+  resetMotionState();
+  paintBackground();
+});
 
 onMounted(() => {
-  vizCtx = ensureAudioContext();
-  if (vizCtx.ctx?.state === 'suspended') {
-    vizCtx.ctx.resume();
-  }
-  document.addEventListener('fullscreenchange', onFullscreenChange);
-  audio.addEventListener('loadstart', onNewTrack);
+  ensurePillsNoiseUrl();
+  start();
 
-  // Pre-fill the canvas immediately so it's fully dark before the first draw()
-  // fires. Without this, the canvas starts transparent and takes many frames to
-  // reach full opacity due to the low-alpha trail fill, creating a visible gap
-  // during the fade-in transition.
-  const canvas = canvasRef.value;
-  if (canvas) {
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width && rect.height) {
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      const c = canvas.getContext('2d');
-      c.scale(dpr, dpr);
-      c.fillStyle = 'rgb(9, 9, 11)';
-      c.fillRect(0, 0, rect.width, rect.height);
-    }
-  }
+  resizeObserver = new ResizeObserver(() => resizeCanvas());
+  if (containerRef.value) resizeObserver.observe(containerRef.value);
 
-  animId = requestAnimationFrame(draw);
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('visibilitychange', resumeVisualizerContext);
 });
 
 onUnmounted(() => {
-  if (animId) {
-    cancelAnimationFrame(animId);
-    animId = null;
-  }
-  document.removeEventListener('fullscreenchange', onFullscreenChange);
-  audio.removeEventListener('loadstart', onNewTrack);
+  stop();
+  resizeObserver?.disconnect();
+  resizeObserver = null;
+  document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  document.removeEventListener('visibilitychange', resumeVisualizerContext);
 });
 </script>
 
 <template>
-  <div
+  <section
     ref="containerRef"
-    class="w-full flex-1 bg-zinc-950 relative overflow-hidden"
-    :class="isFullscreen ? '' : 'h-[calc(100vh-3.5rem-5.5rem)]'"
+    class="visualizer"
+    :class="{ 'visualizer--fullscreen': isFullscreen }"
   >
-    <canvas ref="canvasRef" class="w-full h-full block bg-zinc-950" />
+    <canvas ref="canvasRef" class="visualizer__canvas" />
+    <div
+      v-if="currentMode.value === 'pills'"
+      class="visualizer__pills-glow"
+    />
+    <div
+      v-if="currentMode.value === 'pills' && pillsNoiseUrl"
+      class="visualizer__pills-noise"
+      :style="{ backgroundImage: `url(${pillsNoiseUrl})` }"
+    />
+    <div
+      v-if="currentMode.value === 'pills'"
+      class="visualizer__pills-vignette"
+    />
 
-    <button
-      class="absolute top-3 right-[4.75rem] transition-colors z-10"
-      :class="vizMode === 'bubbles' ? 'text-zinc-700 pointer-events-none' : showBubbles ? 'text-zinc-400 hover:text-zinc-200' : 'text-zinc-600 hover:text-zinc-200'"
-      @click="toggleBubbles"
-      :title="showBubbles ? 'Hide bubbles' : 'Show bubbles'"
-    >
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <circle cx="7" cy="15" r="3" /><circle cx="15" cy="9" r="2" /><circle cx="17" cy="17" r="1.5" />
-      </svg>
-    </button>
-
-    <!-- Mode selector dropdown -->
-    <div class="absolute top-3 right-12 z-30">
-      <button
-        class="text-zinc-500 hover:text-zinc-200 transition-colors"
-        @click="showModeDropdown = !showModeDropdown"
-        title="Visualizer mode"
-      >
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-      </button>
-      <div v-if="showModeDropdown" class="absolute right-0 top-8 bg-zinc-900 border border-zinc-800 rounded-lg py-1 shadow-2xl min-w-[130px]">
-        <button
-          v-for="m in vizModes"
-          :key="m.value"
-          class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2.5"
-          :class="[
-            vizMode === m.value ? 'text-zinc-100' : 'text-zinc-400',
-            m.value === 'bubbles' && !showBubbles ? 'opacity-30 pointer-events-none' : 'hover:bg-zinc-800 hover:text-zinc-200',
-          ]"
-          @click="selectMode(m.value)"
-        >
-          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" v-html="m.icon" />
-          <span class="flex-1">{{ m.label }}</span>
-          <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="vizMode === m.value ? 'opacity-100' : 'opacity-0'" />
-        </button>
-        <div class="border-t border-zinc-800 mx-2 my-1" />
-        <button
-          class="w-full px-3 py-1.5 text-left text-xs transition-colors flex items-center gap-2.5 hover:bg-zinc-800"
-          :class="randomizeOnNewTrack ? 'text-zinc-200' : 'text-zinc-500 hover:text-zinc-300'"
-          @click="setRandomizeOnNewTrack(!randomizeOnNewTrack)"
-        >
-          <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
-          </svg>
-          <span class="flex-1">Shuffle on new track</span>
-          <span class="w-1 h-1 rounded-full bg-current flex-shrink-0" :class="randomizeOnNewTrack ? 'opacity-100' : 'opacity-0'" />
-        </button>
-      </div>
+    <div v-if="message" class="visualizer__message">
+      <h1>{{ message.title }}</h1>
+      <h2>{{ message.body }}</h2>
     </div>
-    <div v-if="showModeDropdown" class="fixed inset-0 z-20" @click="showModeDropdown = false" />
-
-    <button
-      class="absolute top-3 right-3 text-zinc-500 hover:text-zinc-200 transition-colors z-10"
-      @click="toggleFullscreen"
-      :title="isFullscreen ? 'Exit fullscreen' : 'Fullscreen'"
-    >
-      <svg v-if="!isFullscreen" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-      </svg>
-      <svg v-else class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path d="M4 14h6v6M14 4h6v6M14 10l7-7M3 21l7-7" />
-      </svg>
-    </button>
 
     <a
-      v-if="vizMode === 'nebula'"
-      href="https://codepen.io/soulwire/pen/kGjRpg"
+      v-if="currentMode.credit"
+      :href="currentMode.credit.url"
       target="_blank"
       rel="noopener noreferrer"
-      class="absolute bottom-2.5 right-3 text-zinc-600 hover:text-zinc-400 text-[10px] transition-colors z-10 leading-none"
-    >soulwire</a>
+      class="visualizer__credit"
+    >
+      {{ currentMode.credit.label }}
+    </a>
 
-  </div>
+    <div class="visualizer__controls">
+      <button
+        type="button"
+        class="visualizer__icon-button"
+        title="Visualizer mode"
+        @click="showModeDropdown = !showModeDropdown"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1" />
+          <rect x="14" y="3" width="7" height="7" rx="1" />
+          <rect x="3" y="14" width="7" height="7" rx="1" />
+          <rect x="14" y="14" width="7" height="7" rx="1" />
+        </svg>
+      </button>
+
+      <div v-if="showModeDropdown" class="visualizer__mode-menu">
+        <button
+          v-for="option in VIZ_OPTIONS"
+          :key="option.value"
+          type="button"
+          class="visualizer__mode-option"
+          :class="{ 'visualizer__mode-option--active': currentMode.value === option.value }"
+          @click="selectMode(option.value)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" v-html="option.icon" />
+          <span>{{ option.label }}</span>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        class="visualizer__icon-button"
+        :title="isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
+        @click="toggleFullscreen"
+      >
+        <svg v-if="!isFullscreen" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+        </svg>
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 14h6v6M14 4h6v6M14 10l7-7M3 21l7-7" />
+        </svg>
+      </button>
+    </div>
+
+    <div v-if="showModeDropdown" class="visualizer__scrim" @click="showModeDropdown = false" />
+  </section>
 </template>
+
+<style scoped>
+.visualizer {
+  --visualizer-nav-offset: calc(env(safe-area-inset-top) + 3.5rem);
+  position: relative;
+  flex: 1;
+  min-height: calc(100vh - 5.5rem);
+  overflow: hidden;
+  background: #13242f;
+  font-family: 'Lato', 'Inter', sans-serif;
+}
+
+.visualizer--fullscreen {
+  --visualizer-nav-offset: 0px;
+  min-height: 100vh;
+}
+
+.visualizer::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: '';
+  opacity: 0.9;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 20%, rgba(0, 0, 0, 1) 95%);
+  pointer-events: none;
+}
+
+.visualizer::after {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  content: '';
+  opacity: 0.42;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.08) 0.6px, transparent 0.6px),
+    radial-gradient(rgba(255, 255, 255, 0.06) 0.7px, transparent 0.7px);
+  background-position: 0 0, 11px 13px;
+  background-size: 17px 17px, 21px 21px;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.visualizer__canvas {
+  position: relative;
+  z-index: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.visualizer__pills-noise {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0.48;
+  background-position: 0 0;
+  background-repeat: repeat;
+  background-size: 160px 160px;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.visualizer__pills-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  opacity: 0.88;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 24%, rgba(0, 0, 0, 0.92) 95%);
+  pointer-events: none;
+}
+
+.visualizer__pills-glow {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.06), transparent 18%),
+    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.03), transparent 34%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.visualizer__message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 5;
+  width: min(360px, calc(100% - 2rem));
+  min-height: 60px;
+  padding: 20px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.8);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  color: #fff;
+  text-align: center;
+  text-transform: uppercase;
+  transform: translate(-50%, -50%);
+}
+
+.visualizer__message h1,
+.visualizer__message h2 {
+  margin: 10px 0;
+  font-weight: 300;
+  line-height: 1.2;
+}
+
+.visualizer__message h1 {
+  font-size: 1.65rem;
+}
+
+.visualizer__message h2 {
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.visualizer__credit {
+  position: absolute;
+  top: calc(var(--visualizer-nav-offset) + 0.85rem);
+  left: 0.95rem;
+  z-index: 4;
+  color: rgba(228, 228, 231, 0.72);
+  font-size: 0.74rem;
+  text-decoration: none;
+  transition: color 140ms ease;
+}
+
+.visualizer__credit:hover {
+  color: rgba(250, 250, 250, 0.98);
+}
+
+.visualizer__controls {
+  position: absolute;
+  top: calc(var(--visualizer-nav-offset) + 0.75rem);
+  right: 0.75rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.visualizer__mode-menu {
+  position: absolute;
+  top: calc(var(--visualizer-nav-offset) + 2.8rem);
+  right: 3.1rem;
+  min-width: 152px;
+  padding: 0.35rem;
+  border: 1px solid rgba(63, 63, 70, 0.9);
+  border-radius: 0.8rem;
+  background: rgba(9, 9, 11, 0.92);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(18px);
+}
+
+.visualizer__mode-option {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.55rem;
+  color: rgba(212, 212, 216, 0.86);
+  font-size: 0.78rem;
+  text-align: left;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.visualizer__mode-option:hover,
+.visualizer__mode-option--active {
+  background: rgba(39, 39, 42, 0.9);
+  color: rgba(250, 250, 250, 0.98);
+}
+
+.visualizer__mode-option svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.visualizer__icon-button {
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(12px);
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.visualizer__icon-button:hover {
+  background: rgba(0, 0, 0, 0.52);
+  border-color: rgba(255, 255, 255, 0.32);
+  color: rgba(250, 250, 250, 1);
+}
+
+.visualizer__icon-button svg {
+  width: 1rem;
+  height: 1rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.visualizer__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+}
+</style>
