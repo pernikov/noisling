@@ -60,7 +60,7 @@ const MOTION_KEY       = 'noisling_reduce_motion';
 const VIZ_MODE_KEY  = 'noisling_vizmode';
 const BUBBLES_KEY   = 'noisling_showbubbles';
 const RANDOMIZE_KEY = 'noisling_randomize';
-const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bubbles'];
+const VALID_VIZ_MODES = ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'nebula', 'bubbles'];
 
 // Module-level singletons — read from localStorage immediately so there's no
 // flash of the wrong value before the API call returns.

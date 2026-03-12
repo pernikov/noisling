@@ -20,6 +20,7 @@ const vizModes = [
   { value: 'particles', label: 'Particles',    icon: '<circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none"/><circle cx="20" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none"/><circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="2"/>' },
   { value: 'polar',     label: 'Polar',        icon: '<path stroke-linecap="round" d="M12 2v4M12 18v4M2 12h4M18 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8"/>' },
   { value: 'spectrum',  label: 'Equalizer',    icon: '<path d="M4 20V8M8 20V4M12 20V10M16 20V6M20 20V12" stroke-linecap="round"/>' },
+  { value: 'nebula',    label: 'Nebula',       icon: '<circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/><path d="M12 4v3M12 17v3M4 12h3M17 12h3M6.4 6.4l2.1 2.1M15.5 15.5l2.1 2.1M6.4 17.6l2.1-2.1M15.5 8.5l2.1-2.1" stroke-linecap="round"/>' },
   { value: 'bubbles',   label: 'Bubbles only', icon: '<circle cx="7" cy="15" r="3"/><circle cx="15" cy="9" r="2"/><circle cx="17" cy="17" r="1.5"/>' },
 ];
 
@@ -66,6 +67,21 @@ function getColorPalette() {
   ];
 }
 
+// Nebula — own vibrant palette, independent of accent color
+const NEBULA_PALETTE = [
+  [255, 60,  60 ],
+  [255, 140, 40 ],
+  [255, 220, 40 ],
+  [80,  220, 80 ],
+  [40,  200, 255],
+  [80,  80,  255],
+  [160, 60,  255],
+  [255, 60,  180],
+  [255, 255, 200],
+  [60,  255, 180],
+  [255, 100, 100],
+];
+
 // Blobs
 const blobs = [
   { phase: 0,    speed: 0.4,  orbitX: 0.28, orbitY: 0.22, band: 'bass',  baseSize: 0.45 },
@@ -87,6 +103,9 @@ let spiralDir = true;
 let time = 0;
 let vizCtx = null;
 let particlePool = null;
+let nebulaParticles = null;
+let pillsParticles = null;
+let pillsGrain = null;
 let pendingModeSwitch = false;
 let shuffleBag = [];
 
@@ -631,6 +650,89 @@ function drawSpectrum() {
   animId = requestAnimationFrame(draw);
 }
 
+// Nebula — inspired by soulwire's audio visualizer (codepen.io/soulwire/pen/kGjRpg)
+// Particles float upward, each mapped to a frequency bin; size driven by that bin's energy.
+function initNebula() {
+  nebulaParticles = Array.from({ length: 150 }, (_, i) => ({
+    x:        Math.random(),                                           // 0–1 fraction of canvas width
+    y:        Math.random(),                                           // 0–1 fraction of canvas height (random start)
+    freqBin:  Math.floor((i / 150) * 128),
+    speed:    (0.2 + Math.random() * 0.8) * 0.0012,                  // upward drift per frame (fraction of h)
+    maxR:     5 + Math.random() * 75,                                 // max px radius at 500px reference
+    energy:   0,                                                       // smoothed 0–1
+    alpha:    0.8 + Math.random() * 0.15,
+    rotation: Math.random() * Math.PI * 2,
+    rotSpeed: (Math.random() - 0.5) * 0.004,
+    colorIdx: Math.floor(Math.random() * NEBULA_PALETTE.length),
+  }));
+}
+
+function drawNebula() {
+  const canvas = canvasRef.value;
+  const analyser = vizCtx?.analyser;
+  if (!canvas || !analyser) { animId = requestAnimationFrame(draw); return; }
+
+  const setup = setupCanvas();
+  if (!setup) { animId = requestAnimationFrame(draw); return; }
+  const { c, w, h } = setup;
+  const pxScale = Math.min(w, h) / 500;
+
+  if (!nebulaParticles) initNebula();
+
+  const freqData = new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+
+  // Near-opaque clear — particle size is driven fresh each frame by frequency data
+  c.fillStyle = 'rgba(9,9,11,0.88)';
+  c.fillRect(0, 0, w, h);
+
+  c.globalCompositeOperation = 'lighter';
+
+  for (const p of nebulaParticles) {
+    // Float upward; wrap to bottom when offscreen
+    p.y -= p.speed;
+    p.rotation += p.rotSpeed;
+    if (p.y < -0.08) { p.y = 1.08; p.x = Math.random(); }
+
+    // Energy smoothly tracks this particle's frequency bin
+    const target = freqData[Math.min(p.freqBin, freqData.length - 1)] / 255;
+    p.energy += (target - p.energy) * 0.35;
+    if (p.energy < 0.01) continue;
+
+    const px = p.x * w;
+    const py = p.y * h;
+    const r  = p.maxR * pxScale * p.energy;
+    if (r < 0.5) continue;
+
+    const [cr, cg, cb] = NEBULA_PALETTE[p.colorIdx];
+    const alpha = p.alpha * p.energy;
+
+    c.save();
+    c.translate(px, py);
+    c.rotate(p.rotation);
+
+    // Soft outer glow
+    const glow = c.createRadialGradient(0, 0, 0, 0, 0, r * 3);
+    glow.addColorStop(0, `rgba(${cr},${cg},${cb},${alpha * 0.3})`);
+    glow.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+    c.fillStyle = glow;
+    c.beginPath();
+    c.arc(0, 0, r * 3, 0, Math.PI * 2);
+    c.fill();
+
+    // Bright core
+    c.fillStyle = `rgba(${cr},${cg},${cb},${Math.min(1, alpha)})`;
+    c.beginPath();
+    c.arc(0, 0, r, 0, Math.PI * 2);
+    c.fill();
+
+    c.restore();
+  }
+
+  c.globalCompositeOperation = 'source-over';
+  animId = requestAnimationFrame(draw);
+}
+
 function draw() {
   // Apply queued mode switch only once the current visualization has faded to silence
   if (pendingModeSwitch) {
@@ -652,6 +754,7 @@ function draw() {
   if (vizMode.value === 'wave' || vizMode.value === 'bubbles') { drawBars(); return; }
   if (vizMode.value === 'particles') { drawParticles(); return; }
   if (vizMode.value === 'polar') { drawPolar(); return; }
+  if (vizMode.value === 'nebula') { drawNebula(); return; }
   if (vizMode.value === 'spectrum') { drawSpectrum(); return; }
 
   const canvas = canvasRef.value;
@@ -925,6 +1028,14 @@ onUnmounted(() => {
         <path d="M4 14h6v6M14 4h6v6M14 10l7-7M3 21l7-7" />
       </svg>
     </button>
+
+    <a
+      v-if="vizMode === 'nebula'"
+      href="https://codepen.io/soulwire/pen/kGjRpg"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="absolute bottom-2.5 right-3 text-zinc-600 hover:text-zinc-400 text-[10px] transition-colors z-10 leading-none"
+    >soulwire</a>
 
   </div>
 </template>

@@ -20,7 +20,7 @@ const settingsSchema = new mongoose.Schema({
   homeShowQuickPlay:  { type: Boolean, default: true },
   homeShowRecent:     { type: Boolean, default: true },
   homeShowAlbums:     { type: Boolean, default: true },
-  vizMode:            { type: String, enum: ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'bubbles'], default: 'spiral' },
+  vizMode:            { type: String, enum: ['spiral', 'wave', 'particles', 'polar', 'spectrum', 'nebula', 'bubbles'], default: 'spiral' },
   showBubbles:        { type: Boolean, default: true },
   randomizeOnNewTrack: { type: Boolean, default: false },
   showPlaylists:      { type: Boolean, default: true },
