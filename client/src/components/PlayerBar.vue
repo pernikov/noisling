@@ -17,7 +17,7 @@ import {
   mdiRepeatOnce,
   mdiShuffle,
   mdiPlaylistMusic,
-  mdiWaveform,
+  mdiEyeOutline,
   mdiHeart,
   mdiHeartOutline,
 } from "@mdi/js";
@@ -344,7 +344,7 @@ const hoverTime = computed(() => {
           :disabled="!state.currentTrack"
           @click="toggleVisualizer"
         >
-          <Icon :path="mdiWaveform" class="w-4 h-4" />
+          <Icon :path="mdiEyeOutline" class="w-4 h-4" />
         </button>
       </Tooltip>
 
