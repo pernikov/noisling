@@ -53,6 +53,8 @@ const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
 const showModeDropdown = ref(false);
 const pillsNoiseUrl = ref('');
+const hideChromeInFullscreen = ref(localStorage.getItem('noisling_viz_hide_fullscreen_chrome') === 'true');
+const overlayVisible = ref(true);
 
 const { state, getVisualizerAnalyser, resumeVisualizerContext } = usePlayer();
 const { accentColor } = useAccentColor();
@@ -74,10 +76,19 @@ let prevBass = 0;
 let beatBoost = 0;
 let spiralAngle = 2.44;
 let spiralDirection = true;
+let overlayHideTimer = 0;
+let lastOverlayRevealAt = 0;
 
 const currentMode = computed(() =>
   VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
 );
+
+const shouldShowOverlay = computed(() => {
+  if (showModeDropdown.value) return true;
+  if (!isFullscreen.value) return true;
+  if (!hideChromeInFullscreen.value) return true;
+  return overlayVisible.value;
+});
 
 const message = computed(() => {
   if (!analyserRef.value) {
@@ -532,6 +543,8 @@ function toggleFullscreen() {
 
 function handleFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
+  overlayVisible.value = true;
+  scheduleOverlayHide();
   resizeCanvas();
 }
 
@@ -542,10 +555,45 @@ function selectMode(mode) {
   paintBackground();
 }
 
+function clearOverlayHideTimer() {
+  if (!overlayHideTimer) return;
+  window.clearTimeout(overlayHideTimer);
+  overlayHideTimer = 0;
+}
+
+function scheduleOverlayHide() {
+  clearOverlayHideTimer();
+  if (!isFullscreen.value || !hideChromeInFullscreen.value || showModeDropdown.value) return;
+  overlayHideTimer = window.setTimeout(() => {
+    overlayVisible.value = false;
+  }, 1800);
+}
+
+function revealOverlay() {
+  const now = Date.now();
+  if (now - lastOverlayRevealAt < 120) return;
+  lastOverlayRevealAt = now;
+  overlayVisible.value = true;
+  scheduleOverlayHide();
+}
+
+function setHideChromeInFullscreen(value) {
+  hideChromeInFullscreen.value = Boolean(value);
+  localStorage.setItem('noisling_viz_hide_fullscreen_chrome', String(hideChromeInFullscreen.value));
+  revealOverlay();
+}
+
 watch(() => props.analyser, syncAnalyser);
 watch(vizMode, () => {
   resetMotionState();
   paintBackground();
+});
+watch(showModeDropdown, (open) => {
+  if (open) {
+    revealOverlay();
+    return;
+  }
+  scheduleOverlayHide();
 });
 
 onMounted(() => {
@@ -561,6 +609,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stop();
+  clearOverlayHideTimer();
   resizeObserver?.disconnect();
   resizeObserver = null;
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -571,27 +620,35 @@ onUnmounted(() => {
 <template>
   <section
     ref="containerRef"
-    class="visualizer"
-    :class="{ 'visualizer--fullscreen': isFullscreen }"
+    class="visualizer relative flex-1 overflow-hidden bg-[#13242f] font-sans"
+    :style="{ '--visualizer-nav-offset': isFullscreen ? '0px' : 'calc(env(safe-area-inset-top) + 3.5rem)' }"
+    @pointermove="revealOverlay"
+    @pointerdown="revealOverlay"
+    @focusin="revealOverlay"
   >
-    <canvas ref="canvasRef" class="visualizer__canvas" />
+    <canvas ref="canvasRef" class="relative z-0 block size-full" />
     <div
       v-if="currentMode.value === 'pills'"
-      class="visualizer__pills-glow"
+      class="pointer-events-none absolute inset-0 z-[1] mix-blend-screen [background:radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.06),transparent_18%),radial-gradient(circle_at_50%_48%,rgba(255,255,255,0.03),transparent_34%)]"
     />
     <div
       v-if="currentMode.value === 'pills' && pillsNoiseUrl"
-      class="visualizer__pills-noise"
+      class="pointer-events-none absolute inset-0 z-[2] bg-[length:160px_160px] bg-repeat opacity-50 mix-blend-screen"
       :style="{ backgroundImage: `url(${pillsNoiseUrl})` }"
     />
     <div
       v-if="currentMode.value === 'pills'"
-      class="visualizer__pills-vignette"
+      class="pointer-events-none absolute inset-0 z-[3] opacity-[0.88] [background:radial-gradient(ellipse_at_center,rgba(0,0,0,0)_24%,rgba(0,0,0,0.92)_95%)]"
     />
 
-    <div v-if="message" class="visualizer__message">
-      <h1>{{ message.title }}</h1>
-      <h2>{{ message.body }}</h2>
+    <div
+      v-if="message"
+      class="absolute left-1/2 top-1/2 z-[5] min-h-[60px] w-[min(360px,calc(100%-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-[3px] bg-black/80 p-5 text-center uppercase text-white shadow-[0_2px_4px_rgba(0,0,0,0.2)]"
+    >
+      <h1 class="my-[10px] text-[1.65rem] font-light leading-[1.2]">{{ message.title }}</h1>
+      <h2 class="my-[10px] text-[0.82rem] font-normal leading-[1.2] tracking-[0.06em] text-white/80">
+        {{ message.body }}
+      </h2>
     </div>
 
     <a
@@ -599,19 +656,24 @@ onUnmounted(() => {
       :href="currentMode.credit.url"
       target="_blank"
       rel="noopener noreferrer"
-      class="visualizer__credit"
+      class="absolute left-[0.65rem] top-[calc(var(--visualizer-nav-offset)+0.65rem)] z-[5] inline-flex min-h-[1.85rem] max-w-[7.5rem] items-center overflow-hidden rounded-full border border-white/10 bg-[rgba(5,7,10,0.24)] px-[0.58rem] py-[0.34rem] text-[0.68rem] tracking-[0.03em] text-zinc-100/65 no-underline text-ellipsis whitespace-nowrap shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-[14px] backdrop-saturate-[120%] transition-[opacity,transform,background-color,color] duration-180 ease-out hover:bg-[rgba(5,7,10,0.42)] hover:text-zinc-50/90 sm:left-[0.8rem] sm:top-[calc(var(--visualizer-nav-offset)+0.8rem)] sm:max-w-[min(32vw,12rem)]"
+      :class="!shouldShowOverlay && 'pointer-events-none -translate-y-2 opacity-0'"
     >
       {{ currentMode.credit.label }}
     </a>
 
-    <div class="visualizer__controls">
+    <div
+      class="absolute right-[0.65rem] top-[calc(var(--visualizer-nav-offset)+0.65rem)] z-[5] flex items-center gap-[0.45rem] transition-[opacity,transform] duration-180 ease-out sm:right-[0.8rem] sm:top-[calc(var(--visualizer-nav-offset)+0.8rem)]"
+      :class="!shouldShowOverlay && 'pointer-events-none -translate-y-2 opacity-0'"
+    >
       <button
         type="button"
-        class="visualizer__icon-button"
+        class="z-[4] inline-flex size-[2.2rem] items-center justify-center rounded-full border border-white/10 bg-[rgba(5,7,10,0.22)] text-white/70 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-[14px] transition-[background-color,border-color,color] duration-150 ease-out hover:border-white/20 hover:bg-[rgba(5,7,10,0.42)] hover:text-white"
+        :class="showModeDropdown && 'border-white/20 bg-[rgba(5,7,10,0.42)] text-white'"
         title="Visualizer mode"
         @click="showModeDropdown = !showModeDropdown"
       >
-        <svg viewBox="0 0 24 24" aria-hidden="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="size-4 fill-none stroke-current stroke-2">
           <rect x="3" y="3" width="7" height="7" rx="1" />
           <rect x="14" y="3" width="7" height="7" rx="1" />
           <rect x="3" y="14" width="7" height="7" rx="1" />
@@ -619,53 +681,66 @@ onUnmounted(() => {
         </svg>
       </button>
 
-      <div v-if="showModeDropdown" class="visualizer__mode-menu">
+      <div
+        v-if="showModeDropdown"
+        class="absolute right-0 top-[calc(100%+0.65rem)] flex min-w-[min(260px,calc(100vw-1.3rem))] flex-col gap-1 rounded-[0.95rem] border border-white/10 bg-zinc-950/90 p-1 shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-[18px] sm:min-w-[260px]"
+      >
+        <div class="px-3 py-[0.45rem] pb-[0.2rem] text-[0.66rem] font-semibold uppercase tracking-[0.08em] text-zinc-400/90">
+          Mode
+        </div>
         <button
           v-for="option in VIZ_OPTIONS"
           :key="option.value"
           type="button"
-          class="visualizer__mode-option"
-          :class="{ 'visualizer__mode-option--active': currentMode.value === option.value }"
+          class="flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+          :class="currentMode.value === option.value && 'bg-zinc-800/95 text-zinc-50'"
           @click="selectMode(option.value)"
         >
-          <svg viewBox="0 0 24 24" aria-hidden="true" v-html="option.icon" />
+          <svg
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+            class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2"
+            v-html="option.icon"
+          />
           <span>{{ option.label }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="mt-[0.2rem] flex w-full items-center gap-[0.65rem] border-t border-white/10 px-3 pb-[0.65rem] pt-[0.8rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:rounded-[0.7rem] hover:bg-zinc-800/95 hover:text-zinc-50"
+          :class="hideChromeInFullscreen && 'rounded-[0.7rem] bg-zinc-800/95 text-zinc-50'"
+          @click="setHideChromeInFullscreen(!hideChromeInFullscreen)"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
+            <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+          <span>Hide in fullscreen</span>
         </button>
       </div>
 
       <button
         type="button"
-        class="visualizer__icon-button"
+        class="z-[4] inline-flex size-[2.2rem] items-center justify-center rounded-full border border-white/10 bg-[rgba(5,7,10,0.22)] text-white/70 shadow-[0_10px_24px_rgba(0,0,0,0.12)] backdrop-blur-[14px] transition-[background-color,border-color,color] duration-150 ease-out hover:border-white/20 hover:bg-[rgba(5,7,10,0.42)] hover:text-white"
         :title="isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'"
         @click="toggleFullscreen"
       >
-        <svg v-if="!isFullscreen" viewBox="0 0 24 24" aria-hidden="true">
+        <svg v-if="!isFullscreen" viewBox="0 0 24 24" aria-hidden="true" class="size-4 fill-none stroke-current stroke-2">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
         </svg>
-        <svg v-else viewBox="0 0 24 24" aria-hidden="true">
+        <svg v-else viewBox="0 0 24 24" aria-hidden="true" class="size-4 fill-none stroke-current stroke-2">
           <path d="M4 14h6v6M14 4h6v6M14 10l7-7M3 21l7-7" />
         </svg>
       </button>
     </div>
 
-    <div v-if="showModeDropdown" class="visualizer__scrim" @click="showModeDropdown = false" />
+    <div v-if="showModeDropdown" class="absolute inset-0 z-[3]" @click="showModeDropdown = false" />
   </section>
 </template>
 
 <style scoped>
 .visualizer {
-  --visualizer-nav-offset: calc(env(safe-area-inset-top) + 3.5rem);
-  position: relative;
-  flex: 1;
   min-height: calc(100vh - 5.5rem);
-  overflow: hidden;
-  background: #13242f;
-  font-family: 'Lato', 'Inter', sans-serif;
-}
-
-.visualizer--fullscreen {
-  --visualizer-nav-offset: 0px;
-  min-height: 100vh;
 }
 
 .visualizer::before {
@@ -693,179 +768,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.visualizer__canvas {
-  position: relative;
-  z-index: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
-}
-
-.visualizer__pills-noise {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  opacity: 0.48;
-  background-position: 0 0;
-  background-repeat: repeat;
-  background-size: 160px 160px;
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
-.visualizer__pills-vignette {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  opacity: 0.88;
-  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 24%, rgba(0, 0, 0, 0.92) 95%);
-  pointer-events: none;
-}
-
-.visualizer__pills-glow {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255, 255, 255, 0.06), transparent 18%),
-    radial-gradient(circle at 50% 48%, rgba(255, 255, 255, 0.03), transparent 34%);
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-
-.visualizer__message {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 5;
-  width: min(360px, calc(100% - 2rem));
-  min-height: 60px;
-  padding: 20px;
-  border-radius: 3px;
-  background: rgba(0, 0, 0, 0.8);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  color: #fff;
-  text-align: center;
-  text-transform: uppercase;
-  transform: translate(-50%, -50%);
-}
-
-.visualizer__message h1,
-.visualizer__message h2 {
-  margin: 10px 0;
-  font-weight: 300;
-  line-height: 1.2;
-}
-
-.visualizer__message h1 {
-  font-size: 1.65rem;
-}
-
-.visualizer__message h2 {
-  font-size: 0.82rem;
-  font-weight: 400;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.82);
-}
-
-.visualizer__credit {
-  position: absolute;
-  top: calc(var(--visualizer-nav-offset) + 0.85rem);
-  left: 0.95rem;
-  z-index: 4;
-  color: rgba(228, 228, 231, 0.72);
-  font-size: 0.74rem;
-  text-decoration: none;
-  transition: color 140ms ease;
-}
-
-.visualizer__credit:hover {
-  color: rgba(250, 250, 250, 0.98);
-}
-
-.visualizer__controls {
-  position: absolute;
-  top: calc(var(--visualizer-nav-offset) + 0.75rem);
-  right: 0.75rem;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.visualizer__mode-menu {
-  position: absolute;
-  top: calc(var(--visualizer-nav-offset) + 2.8rem);
-  right: 3.1rem;
-  min-width: 152px;
-  padding: 0.35rem;
-  border: 1px solid rgba(63, 63, 70, 0.9);
-  border-radius: 0.8rem;
-  background: rgba(9, 9, 11, 0.92);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(18px);
-}
-
-.visualizer__mode-option {
-  display: flex;
-  align-items: center;
-  gap: 0.65rem;
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border-radius: 0.55rem;
-  color: rgba(212, 212, 216, 0.86);
-  font-size: 0.78rem;
-  text-align: left;
-  transition: background-color 140ms ease, color 140ms ease;
-}
-
-.visualizer__mode-option:hover,
-.visualizer__mode-option--active {
-  background: rgba(39, 39, 42, 0.9);
-  color: rgba(250, 250, 250, 0.98);
-}
-
-.visualizer__mode-option svg {
-  width: 0.95rem;
-  height: 0.95rem;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-
-.visualizer__icon-button {
-  z-index: 4;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(12px);
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
-}
-
-.visualizer__icon-button:hover {
-  background: rgba(0, 0, 0, 0.52);
-  border-color: rgba(255, 255, 255, 0.32);
-  color: rgba(250, 250, 250, 1);
-}
-
-.visualizer__icon-button svg {
-  width: 1rem;
-  height: 1rem;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-}
-
-.visualizer__scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
+.visualizer:fullscreen {
+  min-height: 100vh;
 }
 </style>
