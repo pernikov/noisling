@@ -210,9 +210,14 @@ function flatIndex(type, i) {
                       <template v-else-if="tracksColumns.album">{{ track.album }}</template>
                     </div>
                   </div>
-                  <span :class="menuTrack === track ? 'hidden' : 'group-hover:hidden'" class="text-xs text-zinc-600 shrink-0 tabular-nums">{{ formatTime(track.duration) }}</span>
+                  <span
+                    :class="menuTrack === track ? 'hidden' : 'group-hover:hidden sm:block hidden'"
+                    class="text-xs text-zinc-600 shrink-0 tabular-nums"
+                  >
+                    {{ formatTime(track.duration) }}
+                  </span>
                   <button
-                    :class="menuTrack === track ? 'flex' : 'hidden group-hover:flex'"
+                    :class="menuTrack === track ? 'flex' : 'flex sm:hidden sm:group-hover:flex'"
                     class="items-center justify-end shrink-0 text-zinc-500 hover:text-zinc-300 p-0.5 rounded"
                     @click.stop="openTrackMenu($event, track)"
                   >
