@@ -12,7 +12,8 @@ import Spinner from '../components/Spinner.vue';
 import BaseModal from '../components/BaseModal.vue';
 import Icon from '../components/Icon.vue';
 import IconButton from '../components/IconButton.vue';
-import { mdiMagnifyPlus, mdiPlay, mdiShuffle } from '@mdi/js';
+import EditAlbumCoverModal from '../components/EditAlbumCoverModal.vue';
+import { mdiMagnifyPlus, mdiPlay, mdiShuffle, mdiImage } from '@mdi/js';
 
 const api = useApi();
 const { wideLayout } = useTheme();
@@ -31,10 +32,51 @@ const notFound = ref(false);
 const albumName = ref('');
 const coverModalOpen = ref(false);
 const coverModalLoaded = ref(false);
+const editCoverOpen = ref(false);
+
+function syncAlbumInfoFromTracks() {
+  if (!tracks.value.length) return;
+
+  const firstTrack = tracks.value[0];
+  albumInfo.value = {
+    name: firstTrack.album,
+    artists: firstTrack.artists,
+    year: firstTrack.year,
+    cover: firstTrack.cover,
+    hasCustomCover: tracks.value.some((track) => !!track.overrides?.cover),
+    trackCount: tracks.value.length,
+    duration: tracks.value.reduce((sum, track) => sum + (track.duration || 0), 0),
+  };
+}
+
+async function syncRouteFromTracks() {
+  if (!tracks.value.length) return;
+
+  const firstTrack = tracks.value[0];
+  const nextArtist = firstTrack.artists?.[0];
+  const nextAlbum = firstTrack.album;
+  const currentArtist = decodeURIComponent(route.params.artist);
+  const currentAlbum = decodeURIComponent(route.params.album);
+
+  if (!nextArtist || !nextAlbum) return;
+  if (nextArtist === currentArtist && nextAlbum === currentAlbum) return;
+
+  await router.replace({
+    name: 'album',
+    params: {
+      artist: nextArtist,
+      album: nextAlbum,
+    },
+  });
+}
 
 function openCoverModal() {
   coverModalLoaded.value = false;
   coverModalOpen.value = true;
+}
+
+function openEditCover() {
+  editCoverOpen.value = true;
 }
 
 async function load() {
@@ -45,8 +87,9 @@ async function load() {
     const album = decodeURIComponent(route.params.album);
     albumName.value = album;
     const data = await api.getAlbum(artist, album);
-    albumInfo.value = data.album;
     tracks.value = data.tracks;
+    albumInfo.value = data.album;
+    syncAlbumInfoFromTracks();
   } catch (err) {
     notFound.value = true;
   } finally {
@@ -55,7 +98,7 @@ async function load() {
 }
 
 onMounted(load);
-watch(() => route.params.album, load);
+watch(() => [route.params.artist, route.params.album], load);
 useLibraryEvents(load);
 
 function formatDuration(seconds) {
@@ -70,6 +113,15 @@ function playAll() {
 function playShuffle() {
   if (!tracks.value.length) return;
   playShuffled(tracks.value);
+}
+
+async function onCoverSaved() {
+  await load();
+}
+
+async function onTrackUpdated() {
+  syncAlbumInfoFromTracks();
+  await syncRouteFromTracks();
 }
 </script>
 
@@ -138,11 +190,12 @@ function playShuffle() {
           <div class="flex items-center gap-2">
             <IconButton :icon="mdiPlay" label="Play all" :disabled="!tracks.length" @click="playAll" />
             <IconButton :icon="mdiShuffle" label="Shuffle" :disabled="!tracks.length" @click="playShuffle" />
+            <IconButton :icon="mdiImage" :label="albumInfo.hasCustomCover ? 'Change artwork' : 'Set artwork'" @click="openEditCover" />
           </div>
         </div>
       </div>
 
-      <TrackList :tracks="tracks" :use-track-number="true" hide-controls />
+      <TrackList :tracks="tracks" :use-track-number="true" hide-controls @track-updated="onTrackUpdated" />
     </template>
     </template>
 
@@ -157,6 +210,15 @@ function playShuffle() {
       @load="coverModalLoaded = true"
     />
   </BaseModal>
+
+  <EditAlbumCoverModal
+    v-if="editCoverOpen && albumInfo"
+    :artist="albumInfo.artists?.[0] || ''"
+    :album="albumInfo.name"
+    :cover="albumInfo.cover"
+    :has-custom-cover="albumInfo.hasCustomCover"
+    @close="editCoverOpen = false"
+    @saved="onCoverSaved"
+  />
   </div>
 </template>
-

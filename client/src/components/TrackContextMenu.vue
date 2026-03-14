@@ -1,8 +1,9 @@
 <script setup>
 import { ref } from 'vue';
-import { mdiPlaylistPlay, mdiPlaylistPlus, mdiPlaylistMinus } from '@mdi/js';
+import { mdiPlaylistPlay, mdiPlaylistPlus, mdiPlaylistMinus, mdiPencil } from '@mdi/js';
 import Icon from './Icon.vue';
 import AddToPlaylistModal from './AddToPlaylistModal.vue';
+import EditTrackMetadataModal from './EditTrackMetadataModal.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useToast } from '../composables/useToast.js';
@@ -14,13 +15,14 @@ const props = defineProps({
   showBackdrop: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['close', 'cancel-close', 'remove-from-playlist']);
+const emit = defineEmits(['close', 'cancel-close', 'remove-from-playlist', 'track-updated']);
 
 const { playNext, addToQueue } = usePlayer();
 const { showPlaylists } = useTheme();
 const { show: showToast } = useToast();
 
 const addToPlaylistTrack = ref(null);
+const editTrack = ref(null);
 
 function onPlayNext() {
   playNext(props.track);
@@ -42,6 +44,17 @@ function openAddToPlaylist() {
 function onPlaylistAdded(playlistName) {
   if (playlistName) showToast(`Added to "${playlistName}"`);
   else showToast('Failed to add to playlist');
+}
+
+function openEditMetadata() {
+  editTrack.value = props.track;
+  emit('close');
+}
+
+function onTrackSaved(updatedTrack) {
+  if (editTrack.value) Object.assign(editTrack.value, updatedTrack);
+  showToast(updatedTrack.hasOverrides ? 'Metadata updated' : 'Metadata reverted');
+  emit('track-updated', updatedTrack);
 }
 </script>
 
@@ -79,6 +92,13 @@ function onPlaylistAdded(playlistName) {
           Add to playlist
         </button>
         <button
+          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          @click="openEditMetadata"
+        >
+          <Icon :path="mdiPencil" class="w-4 h-4 text-zinc-400" />
+          Edit metadata
+        </button>
+        <button
           v-if="playlistId"
           class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 transition-colors"
           @click="emit('remove-from-playlist', track._id); emit('close')"
@@ -94,6 +114,13 @@ function onPlaylistAdded(playlistName) {
       :track="addToPlaylistTrack"
       @close="addToPlaylistTrack = null"
       @added="onPlaylistAdded"
+    />
+
+    <EditTrackMetadataModal
+      v-if="editTrack"
+      :track="editTrack"
+      @close="editTrack = null"
+      @saved="onTrackSaved"
     />
   </Teleport>
 </template>

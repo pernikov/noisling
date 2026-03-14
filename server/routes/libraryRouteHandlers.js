@@ -1,4 +1,5 @@
 import { VALID_SORT_FIELDS, buildSearchRegex, buildSort, buildTrackFilter } from './libraryHelpers.js';
+import { mergeTrackOverrides } from '../services/trackOverrides.js';
 
 export function createLibraryRouteHandlers({ Track }) {
   async function searchLibrary(req, res) {
@@ -69,7 +70,7 @@ export function createLibraryRouteHandlers({ Track }) {
       ]),
     ]);
 
-    res.json({ tracks, artists, albums });
+    res.json({ tracks: tracks.map(mergeTrackOverrides), artists, albums });
   }
 
   async function listAllTracks(req, res) {
@@ -83,7 +84,7 @@ export function createLibraryRouteHandlers({ Track }) {
       .sort(buildSort(sortField, sortOrder))
       .lean();
 
-    res.json(tracks);
+    res.json(tracks.map(mergeTrackOverrides));
   }
 
   async function listTracks(req, res) {
@@ -101,7 +102,7 @@ export function createLibraryRouteHandlers({ Track }) {
       Track.countDocuments(filter),
     ]);
 
-    res.json({ tracks, total, page, limit });
+    res.json({ tracks: tracks.map(mergeTrackOverrides), total, page, limit });
   }
 
   return {

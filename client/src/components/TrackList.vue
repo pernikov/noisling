@@ -31,7 +31,7 @@ const props = defineProps({
   draggable: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(['sort', 'remove-from-playlist', 'reorder']);
+const emit = defineEmits(['sort', 'remove-from-playlist', 'reorder', 'track-updated']);
 
 function handleSort(field) {
   if (props.sortBy === field && props.sortDir === 'desc') {
@@ -50,7 +50,7 @@ function sortIcon(field) {
 const { state, playAlbum, playAll: _playAll, playShuffled: _playShuffled, playFromQueue, queueMatches, toggleLove } = usePlayer();
 
 const menuRowIndex = ref(null);
-const { menuTrack, menuStyle, openMenu: _openMenu, closeMenu: _closeMenu, scheduleClose: scheduleCloseMenu, cancelClose: cancelCloseMenu } = useContextMenu({ menuWidth: 176, menuHeight: 96, align: 'left' });
+const { menuTrack, menuStyle, openMenu: _openMenu, closeMenu: _closeMenu, scheduleClose: scheduleCloseMenu, cancelClose: cancelCloseMenu } = useContextMenu({ menuWidth: 176, menuHeight: 208, align: 'left' });
 
 // Keep menuRowIndex in sync with the composable's menuTrack
 watch(menuTrack, (val) => { if (!val) menuRowIndex.value = null; });
@@ -63,6 +63,12 @@ function openMenu(event, index, track) {
 
 function closeMenu() {
   _closeMenu();
+}
+
+function onMenuTrackUpdated(updatedTrack) {
+  const match = props.tracks.find((track) => track._id === updatedTrack?._id);
+  if (match) Object.assign(match, updatedTrack);
+  emit('track-updated', updatedTrack);
 }
 
 const { accentColor, accentRgb, density, showCoverArt, lovedUseAccent } = useTheme();
@@ -314,7 +320,13 @@ defineExpose({ playAll, playShuffle });
           <td :class="[rowPy, 'px-3 font-medium overflow-hidden max-sm:rounded-l-md']">
             <div class="flex items-center gap-2 min-w-0">
               <CoverArt v-if="showCover && showCoverArt" :cover="track.deleted ? '' : track.cover" :size="density === 'compact' ? 'w-6 h-6 shrink-0' : 'w-8 h-8 shrink-0'" />
-<span class="truncate">{{ track.title }}</span>
+              <span class="truncate">{{ track.title }}</span>
+              <span
+                v-if="track.hasOverrides"
+                class="hidden sm:inline rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300"
+              >
+                Edited
+              </span>
             </div>
           </td>
           <td v-if="showArtist" :class="[rowPy, 'px-3 text-zinc-400 hidden sm:table-cell overflow-hidden']">
@@ -372,6 +384,7 @@ defineExpose({ playAll, playShuffle });
     :playlist-id="playlistId"
     @close="closeMenu"
     @cancel-close="cancelCloseMenu"
+    @track-updated="onMenuTrackUpdated"
     @remove-from-playlist="emit('remove-from-playlist', $event); closeMenu()"
   />
 </template>

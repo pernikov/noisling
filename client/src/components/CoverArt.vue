@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useApi } from '../composables/useApi.js';
 import Spinner from './Spinner.vue';
 
@@ -11,6 +11,11 @@ const props = defineProps({
 
 const api = useApi();
 const loaded = ref(false);
+const src = computed(() => props.cover?.startsWith?.('data:') ? props.cover : api.coverUrl(props.cover));
+
+watch(() => props.cover, () => {
+  loaded.value = false;
+});
 
 function onLoad() {
   loaded.value = true;
@@ -37,7 +42,7 @@ function onLoad() {
     </div>
     <img
       v-if="props.cover"
-      :src="api.coverUrl(props.cover)"
+      :src="src"
       class="w-full h-full object-cover transition-opacity duration-300"
       :class="loaded ? 'opacity-100' : 'opacity-0'"
       alt="Cover"

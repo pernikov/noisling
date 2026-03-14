@@ -1,6 +1,5 @@
-import { readdir, stat, mkdir, writeFile, readFile, unlink } from 'fs/promises';
+import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, basename, dirname } from 'path';
-import { createHash } from 'crypto';
 import { parseFile } from 'music-metadata';
 import Track from '../models/Track.js';
 import Playlist from '../models/Playlist.js';
@@ -14,6 +13,7 @@ import {
   pickFolderCover,
   buildTrackData,
 } from './scannerHelpers.js';
+import { cleanupOrphanedCovers, removeCoverIfUnused, saveCoverFile } from './coverStorage.js';
 
 const log = createLogger('scanner', 'yellow');
 const wlog = createLogger('watcher', 'cyan');
@@ -47,17 +47,6 @@ async function findFolderCover(audioFilePath) {
 
   const coverEntry = pickFolderCover(entries);
   return coverEntry ? join(dir, coverEntry) : null;
-}
-
-async function saveCoverFile(data, ext) {
-  const hash = createHash('md5').update(data).digest('hex');
-  const filename = `${hash}${ext}`;
-  const coverPath = join(config.coversDir, filename);
-
-  await mkdir(config.coversDir, { recursive: true });
-  await writeFile(coverPath, data);
-
-  return filename;
 }
 
 async function extractCover(metadata, audioFilePath) {
@@ -114,38 +103,6 @@ async function processBatch(filePaths) {
     data: r.status === 'fulfilled' ? r.value : null,
     error: r.status === 'rejected' ? r.reason.message : null,
   }));
-}
-
-async function cleanupOrphanedCovers() {
-  const referencedCovers = await Track.distinct('cover');
-  const referencedSet = new Set(referencedCovers.filter(Boolean));
-
-  let files;
-  try {
-    files = await readdir(config.coversDir);
-  } catch {
-    return { removed: 0, errors: 0 };
-  }
-
-  let removed = 0;
-  let errors = 0;
-
-  for (const file of files) {
-    if (!referencedSet.has(file)) {
-      try {
-        await unlink(join(config.coversDir, file));
-        removed++;
-      } catch (err) {
-        log.error(`Error removing orphaned cover ${file}:`, err.message);
-        errors++;
-      }
-    }
-  }
-
-  if (removed > 0) {
-    log.log(`Cleaned up ${removed} orphaned cover(s)`);
-  }
-  return { removed, errors };
 }
 
 // Upsert a single file — preserves playCount and lastPlayedAt
@@ -244,7 +201,7 @@ export async function scanLibrary() {
   }
 
   // Clean up cover files no longer referenced by any track
-  const coverStats = await cleanupOrphanedCovers();
+  const coverStats = await cleanupOrphanedCovers(log);
   stats.coversRemoved = coverStats.removed;
 
   log.success('Scan complete:', stats);
@@ -275,15 +232,13 @@ export async function handleFileRemove(filePath) {
 
   // If the deleted track had a cover, check if any other track still uses it
   if (track?.cover) {
-    const stillUsed = await Track.exists({ cover: track.cover });
-    if (!stillUsed) {
-      try {
-        await unlink(join(config.coversDir, track.cover));
-        wlog.log(`Removed orphaned cover: ${track.cover}`);
-      } catch {
-        // cover file may already be gone
-      }
-    }
+    const removed = await removeCoverIfUnused(track.cover);
+    if (removed) wlog.log(`Removed orphaned cover: ${track.cover}`);
+  }
+
+  if (track?.overrides?.cover) {
+    const removed = await removeCoverIfUnused(track.overrides.cover);
+    if (removed) wlog.log(`Removed orphaned cover: ${track.overrides.cover}`);
   }
 }
 
@@ -315,12 +270,7 @@ export async function handleImageAdd(imagePath) {
     // Clean up old folder covers that are no longer referenced
     for (const oldCover of oldCovers) {
       if (oldCover === coverFilename) continue;
-      const stillUsed = await Track.exists({ cover: oldCover });
-      if (!stillUsed) {
-        try {
-          await unlink(join(config.coversDir, oldCover));
-        } catch { /* already gone */ }
-      }
+      await removeCoverIfUnused(oldCover);
     }
 
     wlog.success(`Updated cover for ${tracks.length} track(s) in ${dir}`);
@@ -362,12 +312,7 @@ export async function handleImageRemove(imagePath) {
   // Clean up old covers no longer referenced
   for (const oldCover of oldCovers) {
     if (oldCover === newCoverFilename) continue;
-    const stillUsed = await Track.exists({ cover: oldCover });
-    if (!stillUsed) {
-      try {
-        await unlink(join(config.coversDir, oldCover));
-      } catch { /* already gone */ }
-    }
+    await removeCoverIfUnused(oldCover);
   }
 
   wlog.log(`${altCover ? 'Replaced' : 'Cleared'} cover for ${tracks.length} track(s) in ${dir}`);

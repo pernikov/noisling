@@ -31,6 +31,8 @@ import BaseModal from '../components/BaseModal.vue';
 import TrackList from '../components/TrackList.vue';
 import CoverArt from '../components/CoverArt.vue';
 import IconButton from '../components/IconButton.vue';
+import EditTrackMetadataModal from '../components/EditTrackMetadataModal.vue';
+import EditAlbumCoverModal from '../components/EditAlbumCoverModal.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -102,9 +104,30 @@ const {
   promptConfirm,
   closeConfirm,
   openLibraryHealth,
+  refreshLibraryHealth,
   scanLibrary,
   deleteLibrary,
 } = useSettingsLibrary();
+
+const editingHealthTrack = ref(null);
+const editingHealthAlbum = ref(null);
+
+function openTrackEditor(track) {
+  editingHealthTrack.value = track;
+}
+
+async function onHealthTrackSaved(updatedTrack) {
+  if (editingHealthTrack.value) Object.assign(editingHealthTrack.value, updatedTrack);
+  await refreshLibraryHealth();
+}
+
+function openAlbumCoverEditor(album) {
+  editingHealthAlbum.value = album;
+}
+
+async function onHealthAlbumSaved() {
+  await refreshLibraryHealth();
+}
 
 const {
   stats,
@@ -919,12 +942,10 @@ const activeLibraryHealthItem = computed(() =>
           </div>
 
           <template v-else-if="activeHealthView === 'covers'">
-            <router-link
+            <div
               v-for="album in missingCoverAlbums"
               :key="album.name + album.artists?.[0]"
-              :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
               class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/60 transition-colors"
-              @click="showLibraryHealthModal = false"
             >
               <div class="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center shrink-0">
                 <Icon :path="mdiImage" class="w-4 h-4 text-zinc-500" />
@@ -934,7 +955,8 @@ const activeLibraryHealthItem = computed(() =>
                 <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
               </div>
               <span class="text-xs text-zinc-500 shrink-0">{{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}</span>
-            </router-link>
+              <IconButton :icon="mdiImage" label="Upload" class="shrink-0" @click="openAlbumCoverEditor(album)" />
+            </div>
           </template>
 
           <div v-else-if="activeHealthView === 'unknown' && unknownMetadataTracks.length === 0"
@@ -946,12 +968,10 @@ const activeLibraryHealthItem = computed(() =>
           </div>
 
           <template v-else-if="activeHealthView === 'unknown'">
-            <router-link
+            <div
               v-for="track in unknownMetadataTracks"
               :key="track._id"
-              :to="{ name: 'album', params: { artist: track.artists?.[0], album: track.album } }"
               class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/60 transition-colors"
-              @click="showLibraryHealthModal = false"
             >
               <CoverArt :cover="track.cover" size="w-8 h-8 shrink-0" />
               <div class="flex-1 min-w-0">
@@ -959,7 +979,8 @@ const activeLibraryHealthItem = computed(() =>
                 <div class="text-xs text-zinc-500 truncate">{{ track.artists?.join(', ') }} • {{ track.album }}</div>
               </div>
               <span class="text-xs text-amber-400 shrink-0">{{ track.issueSummary }}</span>
-            </router-link>
+              <IconButton :icon="mdiFileQuestion" label="Fix" class="shrink-0" @click="openTrackEditor(track)" />
+            </div>
           </template>
 
           <div v-else-if="activeHealthView === 'duplicates' && duplicateTrackGroups.length === 0"
@@ -1027,5 +1048,22 @@ const activeLibraryHealthItem = computed(() =>
         </div>
       </div>
     </BaseModal>
+
+    <EditTrackMetadataModal
+      v-if="editingHealthTrack"
+      :track="editingHealthTrack"
+      @close="editingHealthTrack = null"
+      @saved="onHealthTrackSaved"
+    />
+
+    <EditAlbumCoverModal
+      v-if="editingHealthAlbum"
+      :artist="editingHealthAlbum.artists?.[0] || ''"
+      :album="editingHealthAlbum.name"
+      :cover="editingHealthAlbum.cover || ''"
+      :has-custom-cover="!!editingHealthAlbum.hasCustomCover"
+      @close="editingHealthAlbum = null"
+      @saved="onHealthAlbumSaved"
+    />
   </div>
 </template>

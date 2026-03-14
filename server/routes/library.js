@@ -1,9 +1,100 @@
 import { Router } from 'express';
 import Track from '../models/Track.js';
 import { createLibraryRouteHandlers } from './libraryRouteHandlers.js';
+import { buildTrackOverrides, mergeTrackOverrides } from '../services/trackOverrides.js';
+import { buildSearchRegex } from './libraryHelpers.js';
+import { removeCoverIfUnused, saveCoverDataUrl } from '../services/coverStorage.js';
 
 const router = Router();
 const { searchLibrary, listAllTracks, listTracks } = createLibraryRouteHandlers({ Track });
+
+async function loadResolvedTracks(filter = {}) {
+  const tracks = await Track.find(filter).lean();
+  return tracks.map(mergeTrackOverrides);
+}
+
+function buildArtistSummaries(tracks) {
+  const artistMap = new Map();
+
+  for (const track of tracks) {
+    const artists = Array.isArray(track.artists) ? track.artists : [];
+    const artistsNorm = Array.isArray(track.artistsNorm) ? track.artistsNorm : [];
+
+    artists.forEach((artist, index) => {
+      const artistNorm = artistsNorm[index] ?? artist.toLowerCase();
+      if (!artistMap.has(artistNorm)) {
+        artistMap.set(artistNorm, {
+          name: artist,
+          albumSet: new Set(),
+          trackCount: 0,
+          coverSet: new Set(),
+        });
+      }
+
+      const summary = artistMap.get(artistNorm);
+      summary.albumSet.add(track.album);
+      summary.trackCount += 1;
+      if (track.cover) summary.coverSet.add(track.cover);
+    });
+  }
+
+  return Array.from(artistMap.entries()).map(([artistNorm, summary]) => ({
+    artistNorm,
+    name: summary.name,
+    albumCount: summary.albumSet.size,
+    trackCount: summary.trackCount,
+    covers: Array.from(summary.coverSet),
+  }));
+}
+
+function buildAlbumSummaries(tracks) {
+  const albumMap = new Map();
+
+  for (const track of tracks) {
+    const artistNorm = track.artistsNorm?.[0] ?? '';
+    const key = `${artistNorm}__${track.album}`;
+
+    if (!albumMap.has(key)) {
+      albumMap.set(key, {
+        name: track.album,
+        artists: track.artists,
+        artistsNorm: track.artistsNorm,
+        year: track.year,
+        trackCount: 0,
+        cover: track.cover,
+        hasCustomCover: false,
+        duration: 0,
+        addedAt: track.scannedAt,
+      });
+    }
+
+    const summary = albumMap.get(key);
+    summary.trackCount += 1;
+    summary.duration += track.duration || 0;
+    if (!summary.cover && track.cover) summary.cover = track.cover;
+    if (!summary.year && track.year) summary.year = track.year;
+    if (track.overrides?.cover) summary.hasCustomCover = true;
+    if (!summary.addedAt || new Date(track.scannedAt) > new Date(summary.addedAt)) {
+      summary.addedAt = track.scannedAt;
+    }
+  }
+
+  return Array.from(albumMap.values());
+}
+
+function paginate(items, page, limit) {
+  const skip = (page - 1) * limit;
+  return items.slice(skip, skip + limit);
+}
+
+function sampleItems(items, limit) {
+  const pool = items.slice();
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, limit);
+}
 
 // GET /api/search — global search across tracks, artists, and albums
 router.get('/search', searchLibrary);
@@ -12,105 +103,25 @@ router.get('/search', searchLibrary);
 router.get('/artists', async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(200, parseInt(req.query.limit, 10) || 60);
-  const skip = (page - 1) * limit;
   const search = req.query.search?.trim();
+  const regex = buildSearchRegex(search);
+  let artists = buildArtistSummaries(await loadResolvedTracks())
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  const pipeline = [
-    {
-      $project: {
-        _id: 0,
-        artist: { $arrayElemAt: ['$artists', 0] },
-        artistNorm: { $arrayElemAt: ['$artistsNorm', 0] },
-        pairs: {
-          $zip: { inputs: ['$artists', '$artistsNorm'] },
-        },
-        album: 1,
-        cover: 1,
-      },
-    },
-    { $unwind: '$pairs' },
-    {
-      $group: {
-        _id: { $arrayElemAt: ['$pairs', 1] },
-        name: { $first: { $arrayElemAt: ['$pairs', 0] } },
-        albumCount: { $addToSet: '$album' },
-        trackCount: { $sum: 1 },
-        covers: { $addToSet: '$cover' },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        name: 1,
-        albumCount: { $size: '$albumCount' },
-        trackCount: 1,
-        covers: {
-          $filter: { input: '$covers', cond: { $ne: ['$$this', ''] } },
-        },
-      },
-    },
-  ];
-
-  if (search) {
-    const regex = buildSearchRegex(search);
-    pipeline.push({ $match: { name: regex } });
+  if (regex) {
+    artists = artists.filter((artist) => regex.test(artist.name));
   }
 
-  pipeline.push(
-    { $sort: { name: 1 } },
-    {
-      $facet: {
-        artists: [{ $skip: skip }, { $limit: limit }],
-        count: [{ $count: 'total' }],
-      },
-    },
-  );
-
-  const [result] = await Track.aggregate(pipeline);
-
-  const artists = result.artists;
-  const total = result.count[0]?.total || 0;
+  const total = artists.length;
+  artists = paginate(artists, page, limit).map(({ artistNorm: _artistNorm, ...artist }) => artist);
   res.json({ artists, total, page, limit });
 });
 
 // GET /api/artists/random — random sample of artists
 router.get('/artists/random', async (req, res) => {
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
-
-  const pipeline = [
-    {
-      $project: {
-        _id: 0,
-        pairs: { $zip: { inputs: ['$artists', '$artistsNorm'] } },
-        album: 1,
-        cover: 1,
-      },
-    },
-    { $unwind: '$pairs' },
-    {
-      $group: {
-        _id: { $arrayElemAt: ['$pairs', 1] },
-        name: { $first: { $arrayElemAt: ['$pairs', 0] } },
-        albumCount: { $addToSet: '$album' },
-        trackCount: { $sum: 1 },
-        covers: { $addToSet: '$cover' },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        name: 1,
-        albumCount: { $size: '$albumCount' },
-        trackCount: 1,
-        covers: {
-          $filter: { input: '$covers', cond: { $ne: ['$$this', ''] } },
-        },
-      },
-    },
-    { $sample: { size: limit } },
-  ];
-
-  const artists = await Track.aggregate(pipeline);
+  const artists = sampleItems(buildArtistSummaries(await loadResolvedTracks()), limit)
+    .map(({ artistNorm: _artistNorm, ...artist }) => artist);
   res.json(artists);
 });
 
@@ -120,151 +131,67 @@ router.get('/artists/:name', async (req, res) => {
   const norm  = name.toLowerCase();
   const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
-  const skip  = (page - 1) * limit;
-
-  const result = await Track.aggregate([
-    { $match: { artistsNorm: norm } },
-    {
-      $group: {
-        _id: '$album',
-        year:       { $first: '$year' },
-        trackCount: { $sum: 1 },
-        cover:      { $first: '$cover' },
-        duration:   { $sum: '$duration' },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        name:       '$_id',
-        year:       1,
-        trackCount: 1,
-        cover:      1,
-        duration:   1,
-      },
-    },
-    { $sort: { year: -1, name: 1 } },
-    {
-      $facet: {
-        total:  [{ $count: 'count' }],
-        albums: [{ $skip: skip }, { $limit: limit }],
-      },
-    },
-  ]);
-
-  const { total = [], albums = [] } = result[0] || {};
-  const totalCount = total[0]?.count ?? 0;
+  const tracks = (await loadResolvedTracks()).filter((track) => track.artistsNorm?.includes(norm));
+  const albums = buildAlbumSummaries(tracks)
+    .sort((a, b) => (b.year || 0) - (a.year || 0) || a.name.localeCompare(b.name));
+  const totalCount = albums.length;
 
   if (totalCount === 0) {
     return res.status(404).json({ error: 'Artist not found' });
   }
 
-  res.json({ artist: name, albums, total: totalCount, page, limit });
+  res.json({ artist: name, albums: paginate(albums, page, limit), total: totalCount, page, limit });
 });
 
 // GET /api/artists/:name/tracks — all tracks for an artist
 router.get('/artists/:name/tracks', async (req, res) => {
   const { name } = req.params;
   const norm = name.toLowerCase();
-  const tracks = await Track.find({ artistsNorm: norm })
-    .sort({ album: 1, disc: 1, trackNumber: 1 })
-    .lean();
+  const tracks = (await loadResolvedTracks())
+    .filter((track) => track.artistsNorm?.includes(norm))
+    .sort((a, b) => a.album.localeCompare(b.album) || (a.disc || 0) - (b.disc || 0) || (a.trackNumber || 0) - (b.trackNumber || 0));
   res.json(tracks);
 });
 
 // GET /api/albums/recent — recently added albums, sorted by scannedAt desc
 router.get('/albums/recent', async (req, res) => {
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
-  const albums = await Track.aggregate([
-    {
-      $group: {
-        _id: {
-          name: '$album',
-          artistNorm: { $arrayElemAt: ['$artistsNorm', 0] },
-        },
-        artists: { $first: '$artists' },
-        artistsNorm: { $first: '$artistsNorm' },
-        year: { $first: '$year' },
-        trackCount: { $sum: 1 },
-        cover: { $first: '$cover' },
-        duration: { $sum: '$duration' },
-        addedAt: { $max: '$scannedAt' },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        name: '$_id.name',
-        artists: 1,
-        artistsNorm: 1,
-        year: 1,
-        trackCount: 1,
-        cover: 1,
-        duration: 1,
-        addedAt: 1,
-      },
-    },
-    { $sort: { addedAt: -1 } },
-    { $limit: limit },
-  ]);
+  const albums = buildAlbumSummaries(await loadResolvedTracks())
+    .sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0))
+    .slice(0, limit);
   res.json(albums);
 });
 
 // GET /api/albums — all albums
 router.get('/albums', async (req, res) => {
-  const albums = await Track.aggregate([
-    {
-      $group: {
-        _id: {
-          name: '$album',
-          artistNorm: { $arrayElemAt: ['$artistsNorm', 0] },
-        },
-        artists: { $first: '$artists' },
-        artistsNorm: { $first: '$artistsNorm' },
-        year: { $first: '$year' },
-        trackCount: { $sum: 1 },
-        cover: { $first: '$cover' },
-        duration: { $sum: '$duration' },
-      },
-    },
-    {
-      $project: {
-        _id: 0,
-        name: '$_id.name',
-        artists: 1,
-        artistsNorm: 1,
-        year: 1,
-        trackCount: 1,
-        cover: 1,
-        duration: 1,
-      },
-    },
-    { $sort: { name: 1 } },
-  ]);
+  const albums = buildAlbumSummaries(await loadResolvedTracks())
+    .sort((a, b) => a.name.localeCompare(b.name));
   res.json(albums);
 });
 
 // GET /api/albums/:artist/:album — tracks in an album
 router.get('/albums/:artist/:album', async (req, res) => {
   const { artist, album } = req.params;
-  const tracks = await Track.find({ artistsNorm: artist.toLowerCase(), album })
-    .sort({ disc: 1, trackNumber: 1 })
-    .lean();
+  const norm = artist.toLowerCase();
+  const resolvedTracks = (await loadResolvedTracks())
+    .filter((track) => track.artistsNorm?.includes(norm) && track.album === album)
+    .sort((a, b) => (a.disc || 0) - (b.disc || 0) || (a.trackNumber || 0) - (b.trackNumber || 0));
 
-  if (tracks.length === 0) {
+  if (resolvedTracks.length === 0) {
     return res.status(404).json({ error: 'Album not found' });
   }
 
   const albumInfo = {
-    name: album,
-    artists: tracks[0].artists,
-    year: tracks[0].year,
-    cover: tracks[0].cover,
-    trackCount: tracks.length,
-    duration: tracks.reduce((sum, t) => sum + t.duration, 0),
+    name: resolvedTracks[0].album,
+    artists: resolvedTracks[0].artists,
+    year: resolvedTracks[0].year,
+    cover: resolvedTracks[0].cover,
+    hasCustomCover: resolvedTracks.some((track) => !!track.overrides?.cover),
+    trackCount: resolvedTracks.length,
+    duration: resolvedTracks.reduce((sum, t) => sum + t.duration, 0),
   };
 
-  res.json({ album: albumInfo, tracks });
+  res.json({ album: albumInfo, tracks: resolvedTracks });
 });
 
 // GET /api/genres — distinct genres with track counts
@@ -294,7 +221,7 @@ router.get('/tracks/recent', async (req, res) => {
     .sort({ lastPlayedAt: -1 })
     .limit(limit)
     .lean();
-  res.json(tracks);
+  res.json(tracks.map(mergeTrackOverrides));
 });
 
 // GET /api/stats — library and listening statistics
@@ -393,7 +320,7 @@ router.get('/tracks/loved', async (req, res) => {
   const tracks = await Track.find({ isLoved: true })
     .sort({ artistsNorm: 1, album: 1, disc: 1, trackNumber: 1 })
     .lean();
-  res.json(tracks);
+  res.json(tracks.map(mergeTrackOverrides));
 });
 
 // PATCH /api/tracks/:id/love — toggle loved status
@@ -405,11 +332,133 @@ router.patch('/tracks/:id/love', async (req, res) => {
   res.json({ isLoved: track.isLoved });
 });
 
+// PATCH /api/albums/:artist/:album/cover — save a custom local cover override
+router.patch('/albums/:artist/:album/cover', async (req, res) => {
+  const dataUrl = req.body?.dataUrl;
+  if (!dataUrl) return res.status(400).json({ error: 'Image data is required.' });
+
+  let coverFilename;
+  try {
+    coverFilename = await saveCoverDataUrl(dataUrl);
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  const norm = req.params.artist.toLowerCase();
+  const album = req.params.album;
+  const tracks = (await loadResolvedTracks())
+    .filter((track) => track.artistsNorm?.includes(norm) && track.album === album);
+
+  if (!tracks.length) {
+    await removeCoverIfUnused(coverFilename);
+    return res.status(404).json({ error: 'Album not found' });
+  }
+
+  const oldOverrideCovers = new Set(tracks.map((track) => track.overrides?.cover).filter(Boolean));
+
+  await Track.updateMany(
+    { _id: { $in: tracks.map((track) => track._id) } },
+    { $set: { 'overrides.cover': coverFilename, 'overrides.updatedAt': new Date() } },
+  );
+
+  for (const oldCover of oldOverrideCovers) {
+    if (oldCover === coverFilename) continue;
+    await removeCoverIfUnused(oldCover);
+  }
+
+  res.json({ cover: coverFilename });
+});
+
+// DELETE /api/albums/:artist/:album/cover — clear a custom local cover override
+router.delete('/albums/:artist/:album/cover', async (req, res) => {
+  const norm = req.params.artist.toLowerCase();
+  const album = req.params.album;
+  const tracks = (await loadResolvedTracks())
+    .filter((track) => track.artistsNorm?.includes(norm) && track.album === album);
+
+  if (!tracks.length) {
+    return res.status(404).json({ error: 'Album not found' });
+  }
+
+  const oldOverrideCovers = new Set(tracks.map((track) => track.overrides?.cover).filter(Boolean));
+
+  await Track.updateMany(
+    { _id: { $in: tracks.map((track) => track._id) } },
+    { $unset: { 'overrides.cover': 1 } },
+  );
+
+  for (const oldCover of oldOverrideCovers) {
+    await removeCoverIfUnused(oldCover);
+  }
+
+  res.json({ ok: true });
+});
+
+// PATCH /api/tracks/:id/overrides — save local metadata overrides
+router.patch('/tracks/:id/overrides', async (req, res) => {
+  let overrides;
+  try {
+    overrides = buildTrackOverrides(req.body ?? {});
+  } catch (err) {
+    return res.status(400).json({ error: err.message });
+  }
+
+  if (!Object.keys(overrides).length) {
+    return res.status(400).json({ error: 'No override fields provided.' });
+  }
+
+  const update = Object.fromEntries(
+    Object.entries(overrides).map(([field, value]) => [`overrides.${field}`, value]),
+  );
+  update['overrides.updatedAt'] = new Date();
+
+  const track = await Track.findByIdAndUpdate(
+    req.params.id,
+    { $set: update },
+    { new: true },
+  ).lean();
+
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+  res.json(mergeTrackOverrides(track));
+});
+
+// DELETE /api/tracks/:id/overrides/metadata — clear local metadata overrides but preserve artwork overrides
+router.delete('/tracks/:id/overrides/metadata', async (req, res) => {
+  const update = {
+    $unset: {
+      'overrides.title': 1,
+      'overrides.artists': 1,
+      'overrides.artistsNorm': 1,
+      'overrides.albumArtist': 1,
+      'overrides.album': 1,
+      'overrides.trackNumber': 1,
+      'overrides.year': 1,
+    },
+  };
+
+  const track = await Track.findByIdAndUpdate(req.params.id, update, { new: true }).lean();
+
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+  res.json(mergeTrackOverrides(track));
+});
+
+// DELETE /api/tracks/:id/overrides — clear all local metadata overrides
+router.delete('/tracks/:id/overrides', async (req, res) => {
+  const track = await Track.findByIdAndUpdate(
+    req.params.id,
+    { $unset: { overrides: 1 } },
+    { new: true },
+  ).lean();
+
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+  res.json(mergeTrackOverrides(track));
+});
+
 // GET /api/tracks/:id — single track
 router.get('/tracks/:id', async (req, res) => {
   const track = await Track.findById(req.params.id).lean();
   if (!track) return res.status(404).json({ error: 'Track not found' });
-  res.json(track);
+  res.json(mergeTrackOverrides(track));
 });
 
 // POST /api/tracks/batch — fetch multiple tracks by ID, preserving order
@@ -419,7 +468,7 @@ router.post('/tracks/batch', async (req, res) => {
   const tracks = await Track.find({ _id: { $in: ids } }).lean();
   const order  = Object.fromEntries(ids.map((id, i) => [id, i]));
   tracks.sort((a, b) => order[a._id.toString()] - order[b._id.toString()]);
-  res.json(tracks);
+  res.json(tracks.map(mergeTrackOverrides));
 });
 
 export default router;

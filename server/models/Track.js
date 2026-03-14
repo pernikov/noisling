@@ -22,6 +22,17 @@ const trackSchema = new mongoose.Schema({
   lastPlayedAt: { type: Date, default: null },
   isLoved: { type: Boolean, default: false },
   scannedAt: { type: Date, default: Date.now },
+  overrides: {
+    title: { type: String, default: undefined },
+    artists: { type: [String], default: undefined },
+    artistsNorm: { type: [String], default: undefined },
+    albumArtist: { type: String, default: undefined },
+    album: { type: String, default: undefined },
+    trackNumber: { type: Number, default: undefined },
+    year: { type: Number, default: undefined },
+    cover: { type: String, default: undefined },
+    updatedAt: { type: Date, default: null },
+  },
 });
 
 trackSchema.index({ artistsNorm: 1, album: 1 });

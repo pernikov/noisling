@@ -75,8 +75,8 @@ export function useSettingsLibrary() {
     });
   }
 
-  async function loadLibraryHealth() {
-    if (libraryHealthLoaded.value) return;
+  async function loadLibraryHealth(force = false) {
+    if (libraryHealthLoaded.value && !force) return;
     loadingLibraryHealth.value = true;
 
     try {
@@ -180,6 +180,11 @@ export function useSettingsLibrary() {
     loadLibraryHealth();
   }
 
+  async function refreshLibraryHealth() {
+    libraryHealthLoaded.value = false;
+    await loadLibraryHealth(true);
+  }
+
   async function scanLibrary() {
     scanning.value = true;
     scanPercent.value = 0;
@@ -247,6 +252,7 @@ export function useSettingsLibrary() {
     promptConfirm,
     closeConfirm,
     openLibraryHealth,
+    refreshLibraryHealth,
     scanLibrary,
     deleteLibrary,
   };

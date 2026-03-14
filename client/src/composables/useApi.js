@@ -26,6 +26,14 @@ export function useApi() {
     getAlbums: () => request('/albums'),
     getAlbum: (artist, album) =>
       request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}`),
+    updateAlbumCover: (artist, album, body) => request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}/cover`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    clearAlbumCover: (artist, album) => request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}/cover`, {
+      method: 'DELETE',
+    }),
     getTracks: (page = 1, limit = 50, search = '', sort = '', order = 'asc') => {
       const params = new URLSearchParams({ page, limit });
       if (search) params.set('search', search);
@@ -46,6 +54,13 @@ export function useApi() {
     getRecentTracks: (limit = 20) => request(`/tracks/recent?limit=${limit}`),
     getLovedTracks: () => request('/tracks/loved'),
     toggleLove: (id) => request(`/tracks/${id}/love`, { method: 'PATCH' }),
+    updateTrackOverrides: (id, body) => request(`/tracks/${id}/overrides`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
+    clearTrackMetadataOverrides: (id) => request(`/tracks/${id}/overrides/metadata`, { method: 'DELETE' }),
+    clearTrackOverrides: (id) => request(`/tracks/${id}/overrides`, { method: 'DELETE' }),
     getTrack: (id) => request(`/tracks/${id}`),
     getScanStatus: () => request('/scan'),
     scanLibrary: () => request('/scan', { method: 'POST' }),

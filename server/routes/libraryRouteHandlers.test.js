@@ -47,7 +47,7 @@ test('searchLibrary runs track and aggregate queries with the capped limit', asy
                 select(select) {
                   trackFindSelect = select;
                   return {
-                    lean: async () => [{ _id: 'track-1' }],
+                    lean: async () => [{ _id: 'track-1', title: 'Track 1' }],
                   };
                 },
               };
@@ -73,7 +73,7 @@ test('searchLibrary runs track and aggregate queries with the capped limit', asy
   assert.equal(trackFindFilter.$or[0].title.source, 'Burial');
   assert.equal(aggregateCalls.length, 2);
   assert.deepEqual(res.body, {
-    tracks: [{ _id: 'track-1' }],
+    tracks: [{ _id: 'track-1', title: 'Track 1', hasOverrides: false, overrideFields: [] }],
     artists: [{ name: 'Artist' }],
     albums: [{ name: 'Album' }],
   });
@@ -90,7 +90,7 @@ test('listAllTracks builds the expected filter and sort for search and genre', a
         sort(sort) {
           capturedSort = sort;
           return {
-            lean: async () => [{ _id: '1' }],
+            lean: async () => [{ _id: '1', title: 'First' }],
           };
         },
       };
@@ -106,7 +106,7 @@ test('listAllTracks builds the expected filter and sort for search and genre', a
   assert.equal(capturedFilter.genre, 'drone');
   assert.equal(capturedFilter.$or[0].title.source, 'ambient');
   assert.deepEqual(capturedSort, { playCount: -1 });
-  assert.deepEqual(res.body, [{ _id: '1' }]);
+  assert.deepEqual(res.body, [{ _id: '1', title: 'First', hasOverrides: false, overrideFields: [] }]);
 });
 
 test('listTracks applies pagination defaults and returns page metadata', async () => {
@@ -129,7 +129,7 @@ test('listTracks applies pagination defaults and returns page metadata', async (
                 limit(limit) {
                   capturedLimit = limit;
                   return {
-                    lean: async () => [{ _id: 'track-1' }],
+                    lean: async () => [{ _id: 'track-1', title: 'Track 1' }],
                   };
                 },
               };
@@ -156,9 +156,74 @@ test('listTracks applies pagination defaults and returns page metadata', async (
   assert.equal(capturedLimit, 10);
   assert.deepEqual(countFilter, capturedFilter);
   assert.deepEqual(res.body, {
-    tracks: [{ _id: 'track-1' }],
+    tracks: [{ _id: 'track-1', title: 'Track 1', hasOverrides: false, overrideFields: [] }],
     total: 42,
     page: 3,
     limit: 10,
+  });
+});
+
+test('listTracks resolves override fields before responding', async () => {
+  const Track = {
+    find() {
+      return {
+        sort() {
+          return {
+            skip() {
+              return {
+                limit() {
+                  return {
+                    lean: async () => [{
+                      _id: 'track-2',
+                      title: 'Old Title',
+                      artists: ['Unknown Artist'],
+                      artistsNorm: ['unknown artist'],
+                      album: 'Unknown Album',
+                      trackNumber: 0,
+                      year: 0,
+                      overrides: {
+                        title: 'New Title',
+                        artists: ['Burial'],
+                        artistsNorm: ['burial'],
+                        album: 'Untrue',
+                        trackNumber: 2,
+                      },
+                    }],
+                  };
+                },
+              };
+            },
+          };
+        },
+      };
+    },
+    countDocuments() {
+      return Promise.resolve(1);
+    },
+  };
+
+  const { listTracks } = createLibraryRouteHandlers({ Track });
+  const res = createRes();
+  await listTracks({ query: {} }, res);
+
+  assert.deepEqual(res.body.tracks[0], {
+    _id: 'track-2',
+    title: 'New Title',
+    artists: ['Burial'],
+    artistsNorm: ['burial'],
+    album: 'Untrue',
+    albumArtist: undefined,
+    trackNumber: 2,
+    cover: undefined,
+    year: 0,
+    overrides: {
+      title: 'New Title',
+      artists: ['Burial'],
+      artistsNorm: ['burial'],
+      album: 'Untrue',
+      trackNumber: 2,
+    },
+    hasOverrides: true,
+    overrideFields: ['title', 'artists', 'artistsNorm', 'album', 'trackNumber'],
   });
 });
