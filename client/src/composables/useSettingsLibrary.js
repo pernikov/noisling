@@ -1,6 +1,19 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { useApi } from './useApi.js';
 
+function normalizeText(value) {
+  return String(value ?? '').trim().toLowerCase();
+}
+
+function isUnknownValue(value, fallback) {
+  const normalized = normalizeText(value);
+  return !normalized || normalized === fallback;
+}
+
+function buildAlbumKey(track) {
+  return `${normalizeText(track.artists?.[0])}__${normalizeText(track.album)}`;
+}
+
 export function useSettingsLibrary() {
   const api = useApi();
 
@@ -13,9 +26,13 @@ export function useSettingsLibrary() {
   const deleteResult = ref(null);
   const confirm = ref(null); // { title, message, confirmLabel, destructive, onConfirm }
   const missingCoverAlbums = ref([]);
-  const loadingCovers = ref(false);
-  const coversLoaded = ref(false);
-  const showMissingCoversModal = ref(false);
+  const unknownMetadataTracks = ref([]);
+  const duplicateTrackGroups = ref([]);
+  const inconsistentAlbums = ref([]);
+  const loadingLibraryHealth = ref(false);
+  const libraryHealthLoaded = ref(false);
+  const showLibraryHealthModal = ref(false);
+  const activeHealthView = ref('covers');
 
   let eventSource = null;
 
@@ -58,24 +75,109 @@ export function useSettingsLibrary() {
     });
   }
 
-  async function loadMissingCovers() {
-    if (coversLoaded.value) return;
-    loadingCovers.value = true;
+  async function loadLibraryHealth() {
+    if (libraryHealthLoaded.value) return;
+    loadingLibraryHealth.value = true;
 
     try {
-      const albums = await api.getAlbums();
-      missingCoverAlbums.value = albums.filter(album => !album.cover);
-      coversLoaded.value = true;
+      const tracks = await api.getAllTracks();
+
+      const missingCovers = new Map();
+      const albumGroups = new Map();
+      const duplicateGroups = new Map();
+      const unknownTracks = [];
+
+      for (const track of tracks) {
+        const primaryArtist = track.artists?.[0] ?? 'Unknown Artist';
+        const album = track.album ?? 'Unknown Album';
+        const albumKey = buildAlbumKey(track);
+        const titleUnknown = isUnknownValue(track.title, 'unknown title');
+        const artistUnknown = !track.artists?.length || track.artists.some((artist) => isUnknownValue(artist, 'unknown artist'));
+        const albumUnknown = isUnknownValue(album, 'unknown album');
+
+        if (titleUnknown || artistUnknown || albumUnknown) {
+          unknownTracks.push({
+            ...track,
+            issueSummary: [
+              titleUnknown ? 'Unknown title' : null,
+              artistUnknown ? 'Unknown artist' : null,
+              albumUnknown ? 'Unknown album' : null,
+            ].filter(Boolean).join(' • '),
+          });
+        }
+
+        if (!track.cover && !missingCovers.has(albumKey)) {
+          missingCovers.set(albumKey, {
+            name: album,
+            artists: track.artists,
+            trackCount: 1,
+          });
+        } else if (!track.cover) {
+          missingCovers.get(albumKey).trackCount += 1;
+        }
+
+        if (!albumGroups.has(albumKey)) {
+          albumGroups.set(albumKey, {
+            name: album,
+            artists: track.artists,
+            years: new Set(),
+            albumArtists: new Set(),
+            missingTrackNumbers: 0,
+          });
+        }
+
+        const albumGroup = albumGroups.get(albumKey);
+        if (track.year > 0) albumGroup.years.add(track.year);
+        if (normalizeText(track.albumArtist)) albumGroup.albumArtists.add(track.albumArtist.trim());
+        if (!track.trackNumber || track.trackNumber < 1) albumGroup.missingTrackNumbers += 1;
+
+        const durationBucket = Math.round((track.duration || 0) / 2);
+        const duplicateKey = `${normalizeText(primaryArtist)}__${normalizeText(track.title)}__${durationBucket}`;
+        if (!duplicateGroups.has(duplicateKey)) duplicateGroups.set(duplicateKey, []);
+        duplicateGroups.get(duplicateKey).push(track);
+      }
+
+      missingCoverAlbums.value = Array.from(missingCovers.values())
+        .sort((a, b) => a.name.localeCompare(b.name) || (a.artists?.[0] || '').localeCompare(b.artists?.[0] || ''));
+
+      unknownMetadataTracks.value = unknownTracks
+        .sort((a, b) => (a.title || '').localeCompare(b.title || '') || (a.artists?.[0] || '').localeCompare(b.artists?.[0] || ''));
+
+      duplicateTrackGroups.value = Array.from(duplicateGroups.values())
+        .filter((group) => group.length > 1)
+        .map((group) => ({
+          key: `${group[0].artists?.[0] || ''}-${group[0].title || ''}-${group[0].duration || 0}`,
+          title: group[0].title,
+          artists: group[0].artists,
+          duration: group[0].duration,
+          tracks: group.slice().sort((a, b) => (a.album || '').localeCompare(b.album || '') || (a.disc || 0) - (b.disc || 0) || (a.trackNumber || 0) - (b.trackNumber || 0)),
+        }))
+        .sort((a, b) => b.tracks.length - a.tracks.length || (a.title || '').localeCompare(b.title || ''));
+
+      inconsistentAlbums.value = Array.from(albumGroups.values())
+        .map((album) => ({
+          ...album,
+          issues: [
+            album.years.size > 1 ? 'Mixed years' : null,
+            album.albumArtists.size > 1 ? 'Mixed album artists' : null,
+            album.missingTrackNumbers > 0 ? `Missing track numbers (${album.missingTrackNumbers})` : null,
+          ].filter(Boolean),
+        }))
+        .filter((album) => album.issues.length > 0)
+        .sort((a, b) => b.issues.length - a.issues.length || a.name.localeCompare(b.name));
+
+      libraryHealthLoaded.value = true;
     } catch (err) {
-      console.error('Failed to load albums:', err);
+      console.error('Failed to load library health:', err);
     } finally {
-      loadingCovers.value = false;
+      loadingLibraryHealth.value = false;
     }
   }
 
-  function openMissingCovers() {
-    showMissingCoversModal.value = true;
-    loadMissingCovers();
+  function openLibraryHealth(view) {
+    activeHealthView.value = view;
+    showLibraryHealthModal.value = true;
+    loadLibraryHealth();
   }
 
   async function scanLibrary() {
@@ -135,12 +237,16 @@ export function useSettingsLibrary() {
     deleteResult,
     confirm,
     missingCoverAlbums,
-    loadingCovers,
-    coversLoaded,
-    showMissingCoversModal,
+    unknownMetadataTracks,
+    duplicateTrackGroups,
+    inconsistentAlbums,
+    loadingLibraryHealth,
+    libraryHealthLoaded,
+    showLibraryHealthModal,
+    activeHealthView,
     promptConfirm,
     closeConfirm,
-    openMissingCovers,
+    openLibraryHealth,
     scanLibrary,
     deleteLibrary,
   };

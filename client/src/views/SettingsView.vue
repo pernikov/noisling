@@ -8,6 +8,9 @@ import {
   mdiAlertCircle,
   mdiTrashCan,
   mdiImage,
+  mdiFileQuestion,
+  mdiContentDuplicate,
+  mdiTextBoxSearchOutline,
   mdiPalette,
   mdiHeadphones,
   mdiChartBar,
@@ -89,12 +92,16 @@ const {
   deleteResult,
   confirm,
   missingCoverAlbums,
-  loadingCovers,
-  coversLoaded,
-  showMissingCoversModal,
+  unknownMetadataTracks,
+  duplicateTrackGroups,
+  inconsistentAlbums,
+  loadingLibraryHealth,
+  libraryHealthLoaded,
+  showLibraryHealthModal,
+  activeHealthView,
   promptConfirm,
   closeConfirm,
-  openMissingCovers,
+  openLibraryHealth,
   scanLibrary,
   deleteLibrary,
 } = useSettingsLibrary();
@@ -116,6 +123,59 @@ const homeSectionValues = computed(() => ({
   recent: homeShowRecent.value,
   albums: homeShowAlbums.value,
 }));
+
+const LIBRARY_HEALTH_ITEMS = [
+  {
+    key: 'covers',
+    title: 'Missing covers',
+    icon: mdiImage,
+    empty: 'All albums have artwork',
+    summary: (loaded) => loaded
+      ? `${missingCoverAlbums.value.length} album${missingCoverAlbums.value.length !== 1 ? 's' : ''} without artwork`
+      : 'Albums in your library without artwork.',
+  },
+  {
+    key: 'unknown',
+    title: 'Unknown metadata',
+    icon: mdiFileQuestion,
+    empty: 'No tracks with unknown artist, album, or title',
+    summary: (loaded) => loaded
+      ? `${unknownMetadataTracks.value.length} track${unknownMetadataTracks.value.length !== 1 ? 's' : ''} need attention`
+      : 'Tracks with missing artist, album, or title tags.',
+  },
+  {
+    key: 'duplicates',
+    title: 'Possible duplicates',
+    icon: mdiContentDuplicate,
+    empty: 'No duplicate groups detected',
+    summary: (loaded) => loaded
+      ? `${duplicateTrackGroups.value.length} duplicate group${duplicateTrackGroups.value.length !== 1 ? 's' : ''}`
+      : 'Tracks that look like duplicate entries.',
+  },
+  {
+    key: 'inconsistent',
+    title: 'Inconsistent albums',
+    icon: mdiTextBoxSearchOutline,
+    empty: 'No album metadata mismatches found',
+    summary: (loaded) => loaded
+      ? `${inconsistentAlbums.value.length} album${inconsistentAlbums.value.length !== 1 ? 's' : ''} with metadata issues`
+      : 'Albums with mixed years, album artists, or missing track numbers.',
+  },
+];
+
+const activeLibraryHealthCount = computed(() => {
+  switch (activeHealthView.value) {
+    case 'covers': return missingCoverAlbums.value.length;
+    case 'unknown': return unknownMetadataTracks.value.length;
+    case 'duplicates': return duplicateTrackGroups.value.length;
+    case 'inconsistent': return inconsistentAlbums.value.length;
+    default: return 0;
+  }
+});
+
+const activeLibraryHealthItem = computed(() =>
+  LIBRARY_HEALTH_ITEMS.find(item => item.key === activeHealthView.value) ?? LIBRARY_HEALTH_ITEMS[0]
+);
 </script>
 
 <template>
@@ -533,17 +593,33 @@ const homeSectionValues = computed(() => ({
 
         <div class="border-t border-zinc-800" />
 
-        <!-- Missing Covers -->
-        <div class="flex items-center justify-between">
+        <div class="space-y-4">
           <div>
-            <p class="text-sm font-medium text-zinc-200">Missing covers</p>
-            <p class="text-xs text-zinc-500">
-              <template v-if="coversLoaded && missingCoverAlbums.length === 0">All albums have artwork</template>
-              <template v-else-if="coversLoaded">{{ missingCoverAlbums.length }} album{{ missingCoverAlbums.length !== 1 ? 's' : '' }} without artwork</template>
-              <template v-else>Albums in your library without artwork.</template>
-            </p>
+            <p class="text-sm font-medium text-zinc-200">Library health</p>
+            <p class="text-xs text-zinc-500">Spot missing metadata, duplicates, and album-level inconsistencies.</p>
           </div>
-          <IconButton :icon="mdiImage" label="View" class="shrink-0" @click="openMissingCovers" />
+
+          <div class="grid gap-3">
+            <div
+              v-for="item in LIBRARY_HEALTH_ITEMS"
+              :key="item.key"
+              class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3"
+            >
+              <div class="flex items-start gap-3 min-w-0">
+                <div class="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
+                  <Icon :path="item.icon" class="w-4 h-4 text-zinc-400" />
+                </div>
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-zinc-200">{{ item.title }}</p>
+                  <p class="text-xs text-zinc-500 mt-0.5">
+                    <template v-if="libraryHealthLoaded && item.summary(true).startsWith('0 ')">{{ item.empty }}</template>
+                    <template v-else>{{ item.summary(libraryHealthLoaded) }}</template>
+                  </p>
+                </div>
+              </div>
+              <IconButton :icon="item.icon" label="View" class="shrink-0" @click="openLibraryHealth(item.key)" />
+            </div>
+          </div>
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -811,20 +887,19 @@ const homeSectionValues = computed(() => ({
       @cancel="closeConfirm"
     />
 
-    <!-- Missing Covers Modal -->
-    <BaseModal :show="showMissingCoversModal" @close="showMissingCoversModal = false">
-      <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
+    <BaseModal :show="showLibraryHealthModal" @close="showLibraryHealthModal = false">
+      <div class="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
           <div>
-            <p class="text-sm font-medium text-zinc-200">Missing covers</p>
-            <p v-if="coversLoaded" class="text-xs text-zinc-500 mt-0.5">
-              <template v-if="missingCoverAlbums.length === 0">All albums have artwork</template>
-              <template v-else>{{ missingCoverAlbums.length }} album{{ missingCoverAlbums.length !== 1 ? 's' : '' }} without artwork</template>
+            <p class="text-sm font-medium text-zinc-200">{{ activeLibraryHealthItem.title }}</p>
+            <p v-if="libraryHealthLoaded" class="text-xs text-zinc-500 mt-0.5">
+              <template v-if="activeLibraryHealthCount === 0">{{ activeLibraryHealthItem.empty }}</template>
+              <template v-else>{{ activeLibraryHealthItem.summary(true) }}</template>
             </p>
           </div>
           <button
-            @click="showMissingCoversModal = false"
+            @click="showLibraryHealthModal = false"
             class="p-1.5 rounded-md text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
           >
             <Icon :path="mdiClose" class="w-4 h-4" />
@@ -833,9 +908,9 @@ const homeSectionValues = computed(() => ({
 
         <!-- Body -->
         <div class="overflow-y-auto p-2">
-          <div v-if="loadingCovers" class="px-3 py-6 text-center text-sm text-zinc-500">Loading...</div>
+          <div v-if="loadingLibraryHealth" class="px-3 py-6 text-center text-sm text-zinc-500">Loading...</div>
 
-          <div v-else-if="missingCoverAlbums.length === 0"
+          <div v-else-if="activeHealthView === 'covers' && missingCoverAlbums.length === 0"
             class="flex items-center gap-2 text-sm text-emerald-400 rounded-lg px-4 py-3 m-1"
             style="background-color: rgba(16, 185, 129, 0.1)"
           >
@@ -843,13 +918,13 @@ const homeSectionValues = computed(() => ({
             All albums have artwork
           </div>
 
-          <template v-else>
+          <template v-else-if="activeHealthView === 'covers'">
             <router-link
               v-for="album in missingCoverAlbums"
               :key="album.name + album.artists?.[0]"
               :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
               class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/60 transition-colors"
-              @click="showMissingCoversModal = false"
+              @click="showLibraryHealthModal = false"
             >
               <div class="w-8 h-8 rounded bg-zinc-700 flex items-center justify-center shrink-0">
                 <Icon :path="mdiImage" class="w-4 h-4 text-zinc-500" />
@@ -859,6 +934,94 @@ const homeSectionValues = computed(() => ({
                 <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
               </div>
               <span class="text-xs text-zinc-500 shrink-0">{{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}</span>
+            </router-link>
+          </template>
+
+          <div v-else-if="activeHealthView === 'unknown' && unknownMetadataTracks.length === 0"
+            class="flex items-center gap-2 text-sm text-emerald-400 rounded-lg px-4 py-3 m-1"
+            style="background-color: rgba(16, 185, 129, 0.1)"
+          >
+            <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
+            No tracks with unknown artist, album, or title
+          </div>
+
+          <template v-else-if="activeHealthView === 'unknown'">
+            <router-link
+              v-for="track in unknownMetadataTracks"
+              :key="track._id"
+              :to="{ name: 'album', params: { artist: track.artists?.[0], album: track.album } }"
+              class="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-zinc-800/60 transition-colors"
+              @click="showLibraryHealthModal = false"
+            >
+              <CoverArt :cover="track.cover" size="w-8 h-8 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">{{ track.title }}</div>
+                <div class="text-xs text-zinc-500 truncate">{{ track.artists?.join(', ') }} • {{ track.album }}</div>
+              </div>
+              <span class="text-xs text-amber-400 shrink-0">{{ track.issueSummary }}</span>
+            </router-link>
+          </template>
+
+          <div v-else-if="activeHealthView === 'duplicates' && duplicateTrackGroups.length === 0"
+            class="flex items-center gap-2 text-sm text-emerald-400 rounded-lg px-4 py-3 m-1"
+            style="background-color: rgba(16, 185, 129, 0.1)"
+          >
+            <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
+            No duplicate groups detected
+          </div>
+
+          <template v-else-if="activeHealthView === 'duplicates'">
+            <div
+              v-for="group in duplicateTrackGroups"
+              :key="group.key"
+              class="rounded-lg border border-zinc-800 bg-zinc-800/20 p-3 m-1 space-y-2"
+            >
+              <div class="flex items-center justify-between gap-3">
+                <div class="min-w-0">
+                  <div class="text-sm font-medium truncate">{{ group.title }}</div>
+                  <div class="text-xs text-zinc-500 truncate">{{ group.artists?.join(', ') }}</div>
+                </div>
+                <span class="text-xs text-amber-400 shrink-0">{{ group.tracks.length }} matches</span>
+              </div>
+              <router-link
+                v-for="track in group.tracks"
+                :key="track._id"
+                :to="{ name: 'album', params: { artist: track.artists?.[0], album: track.album } }"
+                class="flex items-center justify-between gap-3 rounded-md px-2 py-2 hover:bg-zinc-800/70 transition-colors"
+                @click="showLibraryHealthModal = false"
+              >
+                <div class="min-w-0">
+                  <div class="text-sm truncate">{{ track.album }}</div>
+                  <div class="text-xs text-zinc-500 truncate">
+                    Disc {{ track.disc || 1 }} • Track {{ track.trackNumber || '?' }} • {{ Math.round(track.duration || 0) }}s
+                  </div>
+                </div>
+              </router-link>
+            </div>
+          </template>
+
+          <div v-else-if="activeHealthView === 'inconsistent' && inconsistentAlbums.length === 0"
+            class="flex items-center gap-2 text-sm text-emerald-400 rounded-lg px-4 py-3 m-1"
+            style="background-color: rgba(16, 185, 129, 0.1)"
+          >
+            <Icon :path="mdiCheck" class="w-4 h-4 shrink-0" />
+            No album metadata mismatches found
+          </div>
+
+          <template v-else-if="activeHealthView === 'inconsistent'">
+            <router-link
+              v-for="album in inconsistentAlbums"
+              :key="album.name + album.artists?.[0]"
+              :to="{ name: 'album', params: { artist: album.artists?.[0], album: album.name } }"
+              class="flex items-start gap-3 px-3 py-3 rounded-md hover:bg-zinc-800/60 transition-colors"
+              @click="showLibraryHealthModal = false"
+            >
+              <CoverArt :cover="null" size="w-8 h-8 shrink-0" />
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium truncate">{{ album.name }}</div>
+                <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
+                <div class="text-xs text-amber-400 mt-1">{{ album.issues.join(' • ') }}</div>
+              </div>
             </router-link>
           </template>
         </div>
