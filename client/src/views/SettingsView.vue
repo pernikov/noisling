@@ -645,9 +645,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
                 </div>
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-zinc-200">{{ item.title }}</p>
-                  <div v-if="libraryHealthInitialLoad" class="mt-1.5 space-y-1 animate-pulse">
-                    <div class="h-2.5 w-32 rounded bg-zinc-800" />
-                    <div class="h-2.5 w-24 rounded bg-zinc-800/70" />
+                  <div v-if="libraryHealthInitialLoad" class="mt-1.5 animate-pulse">
+                    <div class="h-2.5 w-32 rounded bg-zinc-800/70" />
                   </div>
                   <p v-else class="text-xs text-zinc-500 mt-0.5">
                     <template v-if="libraryHealthLoaded && item.summary(true).startsWith('0 ')">{{ item.empty }}</template>
