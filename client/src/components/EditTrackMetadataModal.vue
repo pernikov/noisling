@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue';
 import BaseModal from './BaseModal.vue';
 import Button from './Button.vue';
 import ConfirmModal from './ConfirmModal.vue';
+import ArtistTokenInput from './ArtistTokenInput.vue';
 import FormInput from './FormInput.vue';
 import { useApi } from '../composables/useApi.js';
 
@@ -19,7 +20,7 @@ const reverting = ref(false);
 const error = ref('');
 
 const title = ref('');
-const artists = ref('');
+const artists = ref([]);
 const album = ref('');
 const albumArtist = ref('');
 const trackNumber = ref('');
@@ -33,7 +34,7 @@ const hasMetadataOverrides = computed(() =>
 
 function fillForm(track) {
   title.value = track?.title ?? '';
-  artists.value = track?.artists?.join(', ') ?? '';
+  artists.value = Array.isArray(track?.artists) ? [...track.artists] : [];
   album.value = track?.album ?? '';
   albumArtist.value = track?.albumArtist ?? '';
   trackNumber.value = track?.trackNumber ? String(track.trackNumber) : '';
@@ -123,7 +124,8 @@ async function revert() {
         </div>
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Artists</label>
-          <FormInput v-model="artists" type="text" class="w-full px-3 py-2" :disabled="loading || saving || reverting" />
+          <ArtistTokenInput v-model="artists" :disabled="loading || saving || reverting" placeholder="Add another artist" />
+          <p class="mt-1 text-xs text-zinc-600">Press Enter to add each artist.</p>
         </div>
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Album</label>

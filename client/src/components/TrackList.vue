@@ -321,12 +321,6 @@ defineExpose({ playAll, playShuffle });
             <div class="flex items-center gap-2 min-w-0">
               <CoverArt v-if="showCover && showCoverArt" :cover="track.deleted ? '' : track.cover" :size="density === 'compact' ? 'w-6 h-6 shrink-0' : 'w-8 h-8 shrink-0'" />
               <span class="truncate">{{ track.title }}</span>
-              <span
-                v-if="track.hasOverrides"
-                class="hidden sm:inline rounded-full border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-300"
-              >
-                Edited
-              </span>
             </div>
           </td>
           <td v-if="showArtist" :class="[rowPy, 'px-3 text-zinc-400 hidden sm:table-cell overflow-hidden']">

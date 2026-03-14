@@ -1,6 +1,6 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, computed, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useToast } from '../composables/useToast.js';
@@ -10,12 +10,18 @@ import Icon from '../components/Icon.vue';
 
 const api = useApi();
 const { error: toastError } = useToast();
+const route = useRoute();
 const router = useRouter();
 const artists = ref([]);
 const loading = ref(true);
 const page = ref(1);
 const total = ref(0);
 const limit = 60;
+
+function parsePageQuery(value) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
+}
 
 function updateQuery() {
   const query = {};
@@ -37,7 +43,14 @@ async function loadArtists() {
   }
 }
 
-onMounted(loadArtists);
+watch(
+  () => route.query.page,
+  (value) => {
+    page.value = parsePageQuery(value);
+    loadArtists();
+  },
+  { immediate: true }
+);
 useLibraryEvents(loadArtists);
 
 const totalPages = computed(() => Math.ceil(total.value / limit));
@@ -46,7 +59,6 @@ function nextPage() {
   if (page.value < totalPages.value) {
     page.value++;
     updateQuery();
-    loadArtists();
   }
 }
 
@@ -54,7 +66,6 @@ function prevPage() {
   if (page.value > 1) {
     page.value--;
     updateQuery();
-    loadArtists();
   }
 }
 

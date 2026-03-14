@@ -13,7 +13,7 @@ import BaseModal from '../components/BaseModal.vue';
 import Icon from '../components/Icon.vue';
 import IconButton from '../components/IconButton.vue';
 import EditAlbumCoverModal from '../components/EditAlbumCoverModal.vue';
-import { mdiMagnifyPlus, mdiPlay, mdiShuffle, mdiImage } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiPencil } from '@mdi/js';
 
 const api = useApi();
 const { wideLayout } = useTheme();
@@ -77,6 +77,11 @@ function openCoverModal() {
 
 function openEditCover() {
   editCoverOpen.value = true;
+}
+
+function onCoverEditClick(event) {
+  event.stopPropagation();
+  openEditCover();
 }
 
 async function load() {
@@ -162,15 +167,31 @@ async function onTrackUpdated() {
         <button
           v-if="albumInfo.cover"
           :class="coverSize"
-          class="cursor-zoom-in shrink-0 rounded overflow-hidden relative group/cover"
+          class="cursor-zoom-in shrink-0 rounded overflow-hidden relative group/cover transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
           @click="openCoverModal"
         >
           <CoverArt :cover="albumInfo.cover" :size="'w-full h-full'" />
-          <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity">
-            <Icon :path="mdiMagnifyPlus" class="w-8 h-8 text-white" />
+          <div class="absolute inset-0 bg-black/0 group-hover/cover:bg-black/25 transition-colors duration-200" />
+          <button
+            class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/65 text-white flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-all duration-200 hover:bg-black/85 hover:scale-105 active:scale-95"
+            title="Edit artwork"
+            @click="onCoverEditClick"
+          >
+            <Icon :path="mdiPencil" class="w-4 h-4" />
+          </button>
+        </button>
+        <button
+          v-else
+          :class="coverSize"
+          class="shrink-0 rounded overflow-hidden relative group/cover transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
+          @click="openEditCover"
+        >
+          <CoverArt :cover="''" :size="'w-full h-full'" />
+          <div class="absolute inset-0 bg-black/20 transition-colors duration-200 group-hover/cover:bg-black/30" />
+          <div class="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/65 text-white flex items-center justify-center transition-transform duration-200 group-hover/cover:scale-105 group-active/cover:scale-95">
+            <Icon :path="mdiPencil" class="w-4 h-4" />
           </div>
         </button>
-        <CoverArt v-else :cover="''" :size="coverSize" />
         <div class="min-w-0 flex-1">
           <div class="text-xs uppercase text-zinc-500 mb-1">Album</div>
           <h1 class="text-2xl sm:text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
@@ -190,7 +211,6 @@ async function onTrackUpdated() {
           <div class="flex items-center gap-2">
             <IconButton :icon="mdiPlay" label="Play all" :disabled="!tracks.length" @click="playAll" />
             <IconButton :icon="mdiShuffle" label="Shuffle" :disabled="!tracks.length" @click="playShuffle" />
-            <IconButton :icon="mdiImage" :label="albumInfo.hasCustomCover ? 'Change artwork' : 'Set artwork'" @click="openEditCover" />
           </div>
         </div>
       </div>

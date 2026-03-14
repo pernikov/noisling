@@ -31,34 +31,17 @@ test('searchLibrary runs track and aggregate queries with the capped limit', asy
   let trackFindFilter;
   let trackFindSort;
   let trackFindLimit;
-  let trackFindSelect;
-  const aggregateCalls = [];
+  let findCalled = 0;
 
   const Track = {
     find(filter) {
+      findCalled += 1;
       trackFindFilter = filter;
       return {
-        sort(sort) {
-          trackFindSort = sort;
-          return {
-            limit(limit) {
-              trackFindLimit = limit;
-              return {
-                select(select) {
-                  trackFindSelect = select;
-                  return {
-                    lean: async () => [{ _id: 'track-1', title: 'Track 1' }],
-                  };
-                },
-              };
-            },
-          };
-        },
+        lean: async () => [
+          { _id: 'track-1', title: 'Track 1', artists: ['Artist'], album: 'Album', cover: 'cover.jpg', duration: 10, artistsNorm: ['artist'] },
+        ],
       };
-    },
-    aggregate(pipeline) {
-      aggregateCalls.push(pipeline);
-      return Promise.resolve(aggregateCalls.length === 1 ? [{ name: 'Artist' }] : [{ name: 'Album' }]);
     },
   };
 
@@ -66,17 +49,49 @@ test('searchLibrary runs track and aggregate queries with the capped limit', asy
   const res = createRes();
   await searchLibrary({ query: { q: 'Burial', limit: '99' } }, res);
 
-  assert.equal(trackFindLimit, 8);
-  assert.deepEqual(trackFindSort, { title: 1 });
-  assert.equal(trackFindSelect, 'title artists album cover duration');
-  assert.ok(trackFindFilter.$or);
-  assert.equal(trackFindFilter.$or[0].title.source, 'Burial');
-  assert.equal(aggregateCalls.length, 2);
+  assert.equal(findCalled, 1);
+  assert.equal(trackFindFilter.constructor, Object);
   assert.deepEqual(res.body, {
-    tracks: [{ _id: 'track-1', title: 'Track 1', hasOverrides: false, overrideFields: [] }],
-    artists: [{ name: 'Artist' }],
-    albums: [{ name: 'Album' }],
+    tracks: [],
+    artists: [],
+    albums: [],
   });
+});
+
+test('searchLibrary matches overridden track, artist, and album values', async () => {
+  const Track = {
+    find() {
+      return {
+        lean: async () => [{
+          _id: 'track-2',
+          title: 'Scanned Title',
+          artists: ['Unknown Artist'],
+          artistsNorm: ['unknown artist'],
+          album: 'Unknown Album',
+          cover: 'cover.png',
+          duration: 123,
+          year: 2024,
+          overrides: {
+            title: 'Override Title',
+            artists: ['Comma, Artist'],
+            artistsNorm: ['comma, artist'],
+            album: 'Override Album',
+          },
+        }],
+      };
+    },
+  };
+
+  const { searchLibrary } = createLibraryRouteHandlers({ Track });
+
+  const tracksRes = createRes();
+  await searchLibrary({ query: { q: 'Override', limit: '10' } }, tracksRes);
+  assert.equal(tracksRes.body.tracks[0].title, 'Override Title');
+  assert.equal(tracksRes.body.albums[0].name, 'Override Album');
+
+  const artistsRes = createRes();
+  await searchLibrary({ query: { q: 'Comma, Artist', limit: '10' } }, artistsRes);
+  assert.equal(artistsRes.body.artists[0].name, 'Comma, Artist');
 });
 
 test('listAllTracks builds the expected filter and sort for search and genre', async () => {

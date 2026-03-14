@@ -1,6 +1,66 @@
 import { VALID_SORT_FIELDS, buildSearchRegex, buildSort, buildTrackFilter } from './libraryHelpers.js';
 import { mergeTrackOverrides } from '../services/trackOverrides.js';
 
+function buildArtistSummaries(tracks) {
+  const artistMap = new Map();
+
+  for (const track of tracks) {
+    const artists = Array.isArray(track.artists) ? track.artists : [];
+    const artistsNorm = Array.isArray(track.artistsNorm) ? track.artistsNorm : [];
+
+    artists.forEach((artist, index) => {
+      const artistNorm = artistsNorm[index] ?? artist.toLowerCase();
+      if (!artistMap.has(artistNorm)) {
+        artistMap.set(artistNorm, {
+          name: artist,
+          albumSet: new Set(),
+          trackCount: 0,
+          coverSet: new Set(),
+        });
+      }
+
+      const summary = artistMap.get(artistNorm);
+      summary.albumSet.add(track.album);
+      summary.trackCount += 1;
+      if (track.cover) summary.coverSet.add(track.cover);
+    });
+  }
+
+  return Array.from(artistMap.values()).map((summary) => ({
+    name: summary.name,
+    albumCount: summary.albumSet.size,
+    trackCount: summary.trackCount,
+    covers: Array.from(summary.coverSet),
+  }));
+}
+
+function buildAlbumSummaries(tracks) {
+  const albumMap = new Map();
+
+  for (const track of tracks) {
+    const artistNorm = track.artistsNorm?.[0] ?? '';
+    const key = `${artistNorm}__${track.album}`;
+
+    if (!albumMap.has(key)) {
+      albumMap.set(key, {
+        name: track.album,
+        artists: track.artists,
+        artistsNorm: track.artistsNorm,
+        year: track.year,
+        trackCount: 0,
+        cover: track.cover,
+      });
+    }
+
+    const summary = albumMap.get(key);
+    summary.trackCount += 1;
+    if (!summary.cover && track.cover) summary.cover = track.cover;
+    if (!summary.year && track.year) summary.year = track.year;
+  }
+
+  return Array.from(albumMap.values());
+}
+
 export function createLibraryRouteHandlers({ Track }) {
   async function searchLibrary(req, res) {
     const q = req.query.q?.trim();
@@ -9,68 +69,24 @@ export function createLibraryRouteHandlers({ Track }) {
     const limit = Math.min(8, parseInt(req.query.limit, 10) || 5);
     const regex = buildSearchRegex(q);
 
-    const [tracks, artists, albums] = await Promise.all([
-      Track.find({ $or: [{ title: regex }, { artists: regex }, { album: regex }] })
-        .sort({ title: 1 })
-        .limit(limit)
-        .select('title artists album cover duration')
-        .lean(),
+    const resolvedTracks = (await Track.find({}).lean()).map(mergeTrackOverrides);
 
-      Track.aggregate([
-        { $project: { pairs: { $zip: { inputs: ['$artists', '$artistsNorm'] } }, album: 1, cover: 1 } },
-        { $unwind: '$pairs' },
-        {
-          $group: {
-            _id: { $arrayElemAt: ['$pairs', 1] },
-            name: { $first: { $arrayElemAt: ['$pairs', 0] } },
-            albumCount: { $addToSet: '$album' },
-            trackCount: { $sum: 1 },
-            covers: { $addToSet: '$cover' },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            name: 1,
-            albumCount: { $size: '$albumCount' },
-            trackCount: 1,
-            covers: { $filter: { input: '$covers', cond: { $ne: ['$$this', ''] } } },
-          },
-        },
-        { $match: { name: regex } },
-        { $sort: { name: 1 } },
-        { $limit: limit },
-      ]),
+    const tracks = resolvedTracks
+      .filter((track) => regex.test(track.title) || track.artists?.some((artist) => regex.test(artist)) || regex.test(track.album))
+      .sort((a, b) => a.title.localeCompare(b.title))
+      .slice(0, limit);
 
-      Track.aggregate([
-        { $match: { album: regex } },
-        {
-          $group: {
-            _id: { album: '$album', artistNorm: { $arrayElemAt: ['$artistsNorm', 0] } },
-            artists: { $first: '$artists' },
-            artistsNorm: { $first: '$artistsNorm' },
-            year: { $first: '$year' },
-            trackCount: { $sum: 1 },
-            cover: { $first: '$cover' },
-          },
-        },
-        {
-          $project: {
-            _id: 0,
-            name: '$_id.album',
-            artists: 1,
-            artistsNorm: 1,
-            year: 1,
-            trackCount: 1,
-            cover: 1,
-          },
-        },
-        { $sort: { name: 1 } },
-        { $limit: limit },
-      ]),
-    ]);
+    const artists = buildArtistSummaries(resolvedTracks)
+      .filter((artist) => regex.test(artist.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, limit);
 
-    res.json({ tracks: tracks.map(mergeTrackOverrides), artists, albums });
+    const albums = buildAlbumSummaries(resolvedTracks)
+      .filter((album) => regex.test(album.name))
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, limit);
+
+    res.json({ tracks, artists, albums });
   }
 
   async function listAllTracks(req, res) {

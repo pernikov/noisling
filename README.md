@@ -6,7 +6,17 @@ There is no authentication — this is meant to run on a trusted local network f
 
 ## Metadata
 
-Noisling reads tags embedded in your audio files (ID3, Vorbis, MP4, etc.) to populate artist, album, title, cover art, and other metadata. Untagged files still appear in the library — the filename is used as the title, and artist/album fall back to "Unknown Artist" / "Unknown Album".
+Noisling reads tags embedded in your audio files (ID3, Vorbis, MP4, etc.) to populate artist, album, title, cover art, and other metadata.
+
+It works best with libraries that are already mostly well tagged. Noisling does not try to infer missing artist or album structure from folder names. If needed, you can make small local metadata or artwork overrides inside Noisling, but those tools are meant for quick fixes rather than full library curation.
+
+Untagged files still appear in the library, but only with limited fallback metadata:
+
+- the filename is used as the title
+- artist falls back to "Unknown Artist"
+- album falls back to "Unknown Album"
+
+If a large part of your library is missing tags, browsing by artist and album will be much less useful because many tracks will be grouped under those fallback values.
 
 **Supported formats:** `.mp3` `.flac` `.ogg` `.m4a` `.aac` `.wav` `.aiff` `.wma` `.opus`
 
