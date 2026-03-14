@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import {
   mdiFolderOpen,
@@ -19,9 +19,10 @@ import {
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
 import TabBar from '../components/TabBar.vue';
-import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import { usePlayer } from '../composables/usePlayer.js';
+import { useSettingsLibrary } from '../composables/useSettingsLibrary.js';
+import { useSettingsStats } from '../composables/useSettingsStats.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import BaseModal from '../components/BaseModal.vue';
 import TrackList from '../components/TrackList.vue';
@@ -30,7 +31,6 @@ import IconButton from '../components/IconButton.vue';
 
 const route = useRoute();
 const router = useRouter();
-const api = useApi();
 const appVersion = __APP_VERSION__;
 const {
   accentColor, accentRgb, themeColor, VALID_COLORS,
@@ -51,178 +51,71 @@ const TABS = [
   { value: 'library', label: 'Library', icon: mdiFolderOpen },
   { value: 'stats', label: 'Stats', icon: mdiChartBar },
 ];
+const DENSITY_TABS = [
+  { value: 'comfortable', label: 'Comfortable', icon: mdiViewAgenda },
+  { value: 'compact', label: 'Compact', icon: mdiViewHeadline },
+];
+const FONT_SIZE_TABS = [
+  { value: 'small', label: 'Small' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'large', label: 'Large' },
+];
+const HOME_SECTION_OPTIONS = [
+  { key: 'quickPlay', label: 'Quick Play', desc: 'Shuffle All, Top Tracks, and Loved Tracks cards.' },
+  { key: 'recent', label: 'Recently Played', desc: 'Your last 10 played tracks.' },
+  { key: 'albums', label: 'Recently Added', desc: 'Albums added to your library.' },
+];
+const TRACK_COLUMN_OPTIONS = [
+  { key: 'artist', label: 'Artist', desc: 'Primary artist column. Shown in Tracks, Recents, the home page, the queue, and search results.' },
+  { key: 'album', label: 'Album', desc: 'Album column. Shown in Tracks, Recents, the home page, and search results.' },
+  { key: 'plays', label: 'Plays', desc: 'Play count column. Shown in Tracks, Recents, and the home page.' },
+  { key: 'lastPlayed', label: 'Last Played', desc: 'Last listened column. Shown in Tracks, Recents, and the home page.' },
+];
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
 });
 
-// Settings state
-const scanning = ref(false);
-const scanPhase = ref(null);
-const scanPercent = ref(null);
-const scanProgress = ref(null);
-const scanResult = ref(null);
-const deleting = ref(false);
-const deleteResult = ref(null);
-const confirm = ref(null); // { title, message, confirmLabel, destructive, onConfirm }
-
-function promptConfirm(opts) { confirm.value = opts; }
-function closeConfirm() { confirm.value = null; }
-const missingCoverAlbums = ref([]);
-const loadingCovers = ref(false);
-const coversLoaded = ref(false);
-const showMissingCoversModal = ref(false);
-
-let eventSource = null;
-
-function listenForProgress() {
-  eventSource = new EventSource('/api/events');
-  eventSource.addEventListener('scan-progress', (e) => {
-    const data = JSON.parse(e.data);
-    scanPhase.value = data.phase;
-
-    if (data.phase === 'walking') {
-      scanProgress.value = { message: data.message };
-    } else if (data.phase === 'processing') {
-      if (data.percent != null) {
-        scanPercent.value = data.percent;
-        scanProgress.value = { processed: data.processed, total: data.total };
-      } else {
-        scanProgress.value = { total: data.total, toProcess: data.toProcess, skipped: data.skipped };
-      }
-    } else if (data.phase === 'complete') {
-      scanPercent.value = null;
-      scanProgress.value = null;
-      scanPhase.value = null;
-    }
-  });
-  eventSource.addEventListener('library-updated', (e) => {
-    if (scanning.value) {
-      const data = JSON.parse(e.data);
-      if (!data.cleared) scanResult.value = data;
-      scanning.value = false;
-    }
-  });
-}
-
-async function loadMissingCovers() {
-  if (coversLoaded.value) return;
-  loadingCovers.value = true;
-  try {
-    const albums = await api.getAlbums();
-    missingCoverAlbums.value = albums.filter(a => !a.cover);
-    coversLoaded.value = true;
-  } catch (err) {
-    console.error('Failed to load albums:', err);
-  } finally {
-    loadingCovers.value = false;
-  }
-}
-
-function openMissingCovers() {
-  showMissingCoversModal.value = true;
-  loadMissingCovers();
-}
-
-async function scanLibrary() {
-  scanning.value = true;
-  scanPercent.value = 0;
-  scanPhase.value = null;
-  scanProgress.value = null;
-  scanResult.value = null;
-  try {
-    scanResult.value = await api.scanLibrary();
-  } catch (err) {
-    scanResult.value = { error: err.message };
-  } finally {
-    scanning.value = false;
-    scanPercent.value = null;
-    scanPhase.value = null;
-    scanProgress.value = null;
-  }
-}
-
-async function deleteLibrary() {
-  deleting.value = true;
-  deleteResult.value = null;
-  try {
-    const res = await api.deleteLibrary();
-    deleteResult.value = { deletedTracks: res.deletedTracks };
-  } catch (err) {
-    deleteResult.value = { error: err.message };
-  } finally {
-    deleting.value = false;
-  }
-}
-
-// Stats state
-const stats = ref(null);
-const statsLoading = ref(false);
-const statsLoaded = ref(false);
-
-const statsOpen = ref({ overview: true, topTracks: false, topArtists: false, topAlbums: false });
-function toggleStats(key) { statsOpen.value[key] = !statsOpen.value[key]; }
-
-async function loadStats() {
-  if (statsLoaded.value) return;
-  statsLoading.value = true;
-  try {
-    stats.value = await api.getStats();
-    statsLoaded.value = true;
-  } catch (err) {
-    console.error('Failed to load stats:', err);
-  } finally {
-    statsLoading.value = false;
-  }
-}
-
-watch(activeTab, (tab) => {
-  if (tab === 'stats') loadStats();
-}, { immediate: true });
-
 const { state: playerState } = usePlayer();
-watch(() => playerState.loveToggled, (change) => {
-  if (!change || !stats.value) return;
-  stats.value.totalLoved = (stats.value.totalLoved || 0) + (change.isLoved ? 1 : -1);
-});
-watch(() => playerState.playReportCount, async (count) => {
-  if (count > 0 && activeTab.value === 'stats' && stats.value) {
-    const fresh = await api.getStats();
-    stats.value.totalPlays = fresh.totalPlays;
-    stats.value.topTracks = fresh.topTracks;
-    stats.value.topArtists = fresh.topArtists;
-    stats.value.topAlbums = fresh.topAlbums;
-  }
-});
+const playerStateRef = computed(() => playerState);
 
-function formatDuration(seconds) {
-  if (!seconds) return '0 min';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h === 0) return `${m} min`;
-  return `${h}h ${m}m`;
-}
+const {
+  scanning,
+  scanPhase,
+  scanPercent,
+  scanProgress,
+  scanResult,
+  deleting,
+  deleteResult,
+  confirm,
+  missingCoverAlbums,
+  loadingCovers,
+  coversLoaded,
+  showMissingCoversModal,
+  promptConfirm,
+  closeConfirm,
+  openMissingCovers,
+  scanLibrary,
+  deleteLibrary,
+} = useSettingsLibrary();
 
-function formatSize(bytes) {
-  if (!bytes) return '0 B';
-  const gb = bytes / (1024 * 1024 * 1024);
-  if (gb >= 1) return `${gb.toFixed(1)} GB`;
-  const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(0)} MB`;
-}
-
-onMounted(async () => {
-  listenForProgress();
-  try {
-    const { scanning: inProgress } = await api.getScanStatus();
-    if (inProgress) scanning.value = true;
-  } catch {}
+const {
+  stats,
+  statsLoading,
+  statsOpen,
+  toggleStats,
+  formatDuration,
+  formatSize,
+} = useSettingsStats({
+  activeTab,
+  playerState: playerStateRef,
 });
 
-onUnmounted(() => {
-  eventSource?.close();
-  eventSource = null;
-});
+const homeSectionValues = computed(() => ({
+  quickPlay: homeShowQuickPlay.value,
+  recent: homeShowRecent.value,
+  albums: homeShowAlbums.value,
+}));
 </script>
 
 <template>
@@ -329,10 +222,7 @@ onUnmounted(() => {
           <TabBar
             :model-value="density"
             @update:model-value="setDensity"
-            :tabs="[
-              { value: 'comfortable', label: 'Comfortable', icon: mdiViewAgenda },
-              { value: 'compact', label: 'Compact', icon: mdiViewHeadline },
-            ]"
+            :tabs="DENSITY_TABS"
             size="sm"
           />
         </div>
@@ -346,11 +236,7 @@ onUnmounted(() => {
           <TabBar
             :model-value="fontSize"
             @update:model-value="setFontSize"
-            :tabs="[
-              { value: 'small', label: 'Small' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'large', label: 'Large' },
-            ]"
+            :tabs="FONT_SIZE_TABS"
             size="sm"
           />
         </div>
@@ -480,11 +366,7 @@ onUnmounted(() => {
           <p class="text-sm font-medium text-zinc-200 mb-3">Home page sections</p>
           <div class="space-y-3">
             <div
-              v-for="section in [
-                { key: 'quickPlay', label: 'Quick Play',      desc: 'Shuffle All, Top Tracks, and Loved Tracks cards.', value: homeShowQuickPlay },
-                { key: 'recent',   label: 'Recently Played',  desc: 'Your last 10 played tracks.',                    value: homeShowRecent },
-                { key: 'albums',   label: 'Recently Added',   desc: 'Albums added to your library.',                  value: homeShowAlbums },
-              ]"
+              v-for="section in HOME_SECTION_OPTIONS"
               :key="section.key"
               class="flex items-center justify-between"
             >
@@ -493,16 +375,16 @@ onUnmounted(() => {
                 <p class="text-xs text-zinc-500 mt-0.5">{{ section.desc }}</p>
               </div>
               <button
-                @click="setHomeSection(section.key, !section.value)"
-                :disabled="section.value && homeVisibleCount <= 1"
+                @click="setHomeSection(section.key, !homeSectionValues[section.key])"
+                :disabled="homeSectionValues[section.key] && homeVisibleCount <= 1"
                 class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                :class="section.value ? `bg-${accentColor}-500` : 'bg-zinc-700 cursor-pointer'"
+                :class="homeSectionValues[section.key] ? `bg-${accentColor}-500` : 'bg-zinc-700 cursor-pointer'"
                 role="switch"
-                :aria-checked="section.value"
+                :aria-checked="homeSectionValues[section.key]"
               >
                 <span
                   class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-                  :class="section.value ? 'translate-x-5' : 'translate-x-0'"
+                  :class="homeSectionValues[section.key] ? 'translate-x-5' : 'translate-x-0'"
                 />
               </button>
             </div>
@@ -543,12 +425,7 @@ onUnmounted(() => {
 
         <div class="space-y-3">
           <div
-            v-for="col in [
-              { key: 'artist',     label: 'Artist',      desc: 'Primary artist column. Shown in Tracks, Recents, the home page, the queue, and search results.' },
-              { key: 'album',      label: 'Album',       desc: 'Album column. Shown in Tracks, Recents, the home page, and search results.' },
-              { key: 'plays',      label: 'Plays',       desc: 'Play count column. Shown in Tracks, Recents, and the home page.' },
-              { key: 'lastPlayed', label: 'Last Played', desc: 'Last listened column. Shown in Tracks, Recents, and the home page.' },
-            ]"
+            v-for="col in TRACK_COLUMN_OPTIONS"
             :key="col.key"
             class="flex items-center justify-between"
           >

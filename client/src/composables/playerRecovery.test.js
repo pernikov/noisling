@@ -1,0 +1,135 @@
+import { reactive } from 'vue';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createPlayerRecovery } from './playerRecovery.js';
+
+function makeTrack(id, extra = {}) {
+  return { _id: id, title: `Track ${id}`, duration: 120, ...extra };
+}
+
+function createAudioStub() {
+  return {
+    currentTime: 0,
+    duration: 0,
+    readyState: 4,
+    playbackRate: 1,
+    networkState: 1,
+    error: null,
+    seekable: {
+      length: 1,
+      end: () => 999,
+    },
+    load: vi.fn(),
+    play: vi.fn(() => Promise.resolve()),
+    addEventListener: vi.fn(),
+    removeAttribute: vi.fn(),
+  };
+}
+
+function createRecoveryHarness(overrides = {}) {
+  const state = reactive({
+    currentTrack: makeTrack('1'),
+    currentTime: 12,
+    duration: 120,
+    repeat: 'off',
+    transcodeActive: false,
+    isPlaying: true,
+  });
+
+  const audio = overrides.audio ?? createAudioStub();
+  const api = {
+    warmTranscode: vi.fn(() => Promise.resolve({ status: 'ready' })),
+    ...overrides.api,
+  };
+  const setTrackSource = vi.fn();
+  const waitForTranscodeReady = vi.fn(() => Promise.resolve(true));
+  const play = vi.fn();
+  const next = vi.fn();
+  const needsTranscode = overrides.needsTranscode ?? (() => false);
+
+  const recovery = createPlayerRecovery({
+    state,
+    audio,
+    api,
+    needsTranscode,
+    setTrackSource,
+    waitForTranscodeReady,
+    play,
+    next,
+  });
+
+  return { state, audio, api, setTrackSource, waitForTranscodeReady, play, next, recovery };
+}
+
+beforeEach(() => {
+  vi.useFakeTimers();
+  globalThis.MediaError = {
+    MEDIA_ERR_ABORTED: 1,
+    MEDIA_ERR_NETWORK: 2,
+    MEDIA_ERR_DECODE: 3,
+    MEDIA_ERR_SRC_NOT_SUPPORTED: 4,
+  };
+});
+
+describe('createPlayerRecovery', () => {
+  it('suppresses spurious ended events while the play-start guard is active', () => {
+    const { audio, next, play, recovery } = createRecoveryHarness();
+    recovery.installPlayStartGuard(makeTrack('1'));
+    audio.readyState = 0;
+    audio.currentTime = 0;
+
+    recovery.handleEnded();
+
+    expect(next).not.toHaveBeenCalled();
+    expect(play).not.toHaveBeenCalled();
+  });
+
+  it('advances to the next track on a natural end when repeat is off', async () => {
+    const { state, audio, next, recovery } = createRecoveryHarness();
+    state.currentTrack = makeTrack('1', { duration: 120 });
+    state.currentTime = 120;
+    state.duration = 120;
+    audio.currentTime = 120;
+    audio.duration = 120;
+
+    recovery.handleEnded();
+    await Promise.resolve();
+
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops playback after three consecutive unrecoverable errors', () => {
+    const { state, audio, next, recovery } = createRecoveryHarness();
+    audio.error = { code: 99, message: 'boom' };
+
+    recovery.handleError();
+    recovery.handleError();
+    recovery.handleError();
+
+    expect(next).toHaveBeenCalledTimes(2);
+    expect(state.isPlaying).toBe(false);
+  });
+
+  it('reloads the current source during force-resume when playback is stuck', async () => {
+    const { state, audio, setTrackSource, waitForTranscodeReady, recovery } = createRecoveryHarness();
+    state.transcodeActive = true;
+    audio.error = { code: 2, message: 'network' };
+
+    recovery.resumePlayback({
+      forceReload: true,
+      maybeResumeVisualizerContext: vi.fn(),
+    });
+
+    await Promise.resolve();
+
+    expect(waitForTranscodeReady).toHaveBeenCalledWith('1', 12000);
+    expect(audio.removeAttribute).toHaveBeenCalledWith('src');
+    expect(setTrackSource).toHaveBeenCalledWith(
+      expect.objectContaining({ _id: '1' }),
+      expect.objectContaining({
+        forceTranscode: true,
+        markWaiting: false,
+        cacheBust: true,
+      }),
+    );
+  });
+});

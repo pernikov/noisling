@@ -1,0 +1,122 @@
+import { computed, reactive } from 'vue';
+import { describe, expect, it, vi } from 'vitest';
+import { createPlayerQueue } from './playerQueue.js';
+
+function makeTrack(id, title = `Track ${id}`) {
+  return { _id: id, title };
+}
+
+function createQueueHarness(overrides = {}) {
+  const state = reactive({
+    currentTrack: null,
+    queue: [],
+    queueIndex: -1,
+    largeQueueIds: [],
+    queueLoading: false,
+    queueTotal: 0,
+    queueBufferOffset: 0,
+    isLargeQueue: false,
+    isPlaying: false,
+    currentTime: 0,
+    duration: 0,
+    shuffle: false,
+    repeat: 'off',
+    originalQueue: [],
+    showQueue: false,
+    transcodeWaiting: false,
+    transcodeActive: false,
+  });
+
+  const audio = { currentTime: 0 };
+  const api = {
+    saveSettings: vi.fn(() => Promise.resolve()),
+    getTracksByIds: vi.fn(() => Promise.resolve([])),
+    shuffleQueue: vi.fn(() => Promise.resolve({ total: 0, ids: [], tracks: [] })),
+    warmTranscode: vi.fn(() => Promise.resolve({ status: 'ready' })),
+    ...overrides.api,
+  };
+  const savePrefs = vi.fn();
+  const play = vi.fn((track) => {
+    state.currentTrack = track;
+  });
+  const needsTranscode = overrides.needsTranscode ?? (() => false);
+
+  const queue = createPlayerQueue({
+    state,
+    audio,
+    api,
+    savePrefs,
+    play,
+    needsTranscode,
+  });
+
+  return { state, audio, api, savePrefs, play, queue };
+}
+
+describe('createPlayerQueue', () => {
+  it('plays an album from the requested start index when shuffle is off', () => {
+    const { state, play, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+
+    queue.playAlbum(tracks, 1);
+
+    expect(state.queue.map((track) => track._id)).toEqual(['1', '2', '3']);
+    expect(state.queueIndex).toBe(1);
+    expect(state.originalQueue.map((track) => track._id)).toEqual(['1', '2', '3']);
+    expect(play).toHaveBeenCalledWith(tracks[1]);
+  });
+
+  it('keeps the current track first when shuffle is toggled on', async () => {
+    const { state, api, savePrefs, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[1];
+    state.queueIndex = 1;
+
+    queue.toggleShuffle();
+
+    expect(state.shuffle).toBe(true);
+    expect(state.queue[0]._id).toBe('2');
+    expect(new Set(state.queue.map((track) => track._id))).toEqual(new Set(['1', '2', '3']));
+    expect(state.queueIndex).toBe(0);
+    expect(savePrefs).toHaveBeenCalledWith({ shuffle: true });
+    expect(api.saveSettings).toHaveBeenCalledWith({ shuffle: true });
+  });
+
+  it('clears playback state when advancing past the last track with repeat off', () => {
+    const { state, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[1];
+    state.queueIndex = 1;
+    state.isPlaying = true;
+    state.showQueue = true;
+
+    queue.next();
+
+    expect(state.currentTrack).toBe(null);
+    expect(state.queue).toEqual([]);
+    expect(state.queueIndex).toBe(-1);
+    expect(state.isPlaying).toBe(false);
+    expect(state.showQueue).toBe(false);
+  });
+
+  it('exposes hasNext and hasPrev based on queue position', () => {
+    const { state, audio, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    state.queue = [...tracks];
+    state.queueIndex = 1;
+
+    expect(queue.hasNext.value).toBe(true);
+    expect(queue.hasPrev.value).toBe(true);
+
+    state.queueIndex = 0;
+    audio.currentTime = 0;
+    expect(queue.hasPrev.value).toBe(false);
+
+    state.queueIndex = 2;
+    expect(queue.hasNext.value).toBe(false);
+  });
+});

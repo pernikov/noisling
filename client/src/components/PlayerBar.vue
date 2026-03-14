@@ -29,7 +29,6 @@ const {
   toggle,
   pause,
   resume,
-  audio,
   next,
   prev,
   seek,
@@ -61,7 +60,7 @@ const hoverPercent = ref(null);
 const showVolTooltip = ref(false);
 
 function onProgressMouseDown(e) {
-  const wasPlaying = !audio.paused && !audio.ended;
+  const wasPlaying = state.isPlaying;
   startMouseScrub(e, {
     seekDuringDrag: false,
     onStart: () => { if (wasPlaying) pause(); },

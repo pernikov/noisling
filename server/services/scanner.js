@@ -7,28 +7,18 @@ import Playlist from '../models/Playlist.js';
 import config from '../config.js';
 import { broadcast } from './events.js';
 import { createLogger } from '../logger.js';
+import {
+  IMAGE_EXTENSIONS,
+  isAudioFile,
+  isImageFile,
+  pickFolderCover,
+  buildTrackData,
+} from './scannerHelpers.js';
 
 const log = createLogger('scanner', 'yellow');
 const wlog = createLogger('watcher', 'cyan');
 
-const AUDIO_EXTENSIONS = new Set([
-  '.mp3', '.flac', '.ogg', '.m4a', '.aac',
-  '.wav', '.aiff', '.wma', '.opus',
-]);
-
 const BATCH_SIZE = 5;
-
-function isAudioFile(filePath) {
-  const name = basename(filePath);
-  if (name.startsWith('._')) return false;
-  return AUDIO_EXTENSIONS.has(extname(filePath).toLowerCase());
-}
-
-function isImageFile(filePath) {
-  const name = basename(filePath);
-  if (name.startsWith('.')) return false; // skip macOS resource forks (._cover.jpg etc.)
-  return IMAGE_EXTENSION_SET.has(extname(filePath).toLowerCase());
-}
 
 async function walkDir(dir) {
   const files = [];
@@ -46,13 +36,6 @@ async function walkDir(dir) {
   return files;
 }
 
-const COVER_FILENAMES = [
-  'cover', 'folder', 'front', 'album', 'art', 'artwork', 'thumb', 'thumbnail',
-];
-
-const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.avif'];
-const IMAGE_EXTENSION_SET = new Set(IMAGE_EXTENSIONS);
-
 async function findFolderCover(audioFilePath) {
   const dir = dirname(audioFilePath);
   let entries;
@@ -62,25 +45,8 @@ async function findFolderCover(audioFilePath) {
     return null;
   }
 
-  // Build a lookup of lowercase name -> actual name
-  const lookup = new Map(entries.map((e) => [e.toLowerCase(), e]));
-
-  // Try known cover filenames first (cover.jpg, folder.png, etc.)
-  for (const name of COVER_FILENAMES) {
-    for (const ext of IMAGE_EXTENSIONS) {
-      const match = lookup.get(`${name}${ext}`);
-      if (match) return join(dir, match);
-    }
-  }
-
-  // Fall back to any image file in the directory
-  for (const entry of entries) {
-    if (IMAGE_EXTENSIONS.includes(extname(entry).toLowerCase())) {
-      return join(dir, entry);
-    }
-  }
-
-  return null;
+  const coverEntry = pickFolderCover(entries);
+  return coverEntry ? join(dir, coverEntry) : null;
 }
 
 async function saveCoverFile(data, ext) {
@@ -131,36 +97,13 @@ async function processFile(filePath) {
   const fileStat = await stat(filePath);
   const { cover, hasEmbeddedCover } = await extractCover(metadata, filePath);
 
-  const { common, format } = metadata;
-
-  // Prefer the 'Artists' tag (semicolon-separated) over the single 'Artist' tag
-  const rawArtists = common.artists?.length
-    ? common.artists
-    : common.artist
-      ? [common.artist]
-      : ['Unknown Artist'];
-  const artists = rawArtists.flatMap((a) => a.split(';').map((s) => s.trim())).filter(Boolean);
-
-  return {
-    path: filePath,
-    title: common.title || basename(filePath, extname(filePath)),
-    artists: artists.length ? artists : ['Unknown Artist'],
-    artistsNorm: (artists.length ? artists : ['Unknown Artist']).map((a) => a.toLowerCase()),
-    albumArtist: common.albumartist || artists[0] || '',
-    album: common.album || 'Unknown Album',
-    trackNumber: common.track?.no || 0,
-    disc: common.disk?.no || 1,
-    duration: format.duration || 0,
-    format: extname(filePath).slice(1).toLowerCase(),
-    bitrate: format.bitrate ? Math.round(format.bitrate / 1000) : 0,
-    genre: common.genre?.[0] || '',
-    year: common.year || 0,
+  return buildTrackData({
+    filePath,
+    metadata,
+    fileStat,
     cover,
     hasEmbeddedCover,
-    fileSize: fileStat.size,
-    fileMtime: fileStat.mtimeMs,
-    scannedAt: new Date(),
-  };
+  });
 }
 
 async function processBatch(filePaths) {

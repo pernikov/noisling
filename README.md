@@ -1,6 +1,6 @@
 # Noisling
 
-A minimal, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by album or track. Tracks are the main focus — there are no dedicated artist pages, just your music organized by albums and tracks.
+A small, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by album or track. Tracks are the main focus — there are no dedicated artist pages, just your music organized by albums and tracks.
 
 There is no authentication — this is meant to run on a trusted local network for a single user. Settings are fetched once on startup and saved immediately on each change; there is no polling or per-route sync because concurrent multi-user access is out of scope.
 
@@ -64,6 +64,26 @@ pnpm dev
 ```
 
 Client dev server runs on `http://localhost:5173`, API on port 1994.
+
+## Running tests
+
+Run the full test suite from the repo root:
+
+```bash
+pnpm test
+```
+
+Run client tests only:
+
+```bash
+pnpm --filter client test
+```
+
+Run server tests only:
+
+```bash
+pnpm --filter server test
+```
 
 ## Play statistics
 

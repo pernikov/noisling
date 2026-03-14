@@ -6,7 +6,8 @@
   "scripts": {
     "start": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
     "start:server": "pnpm --filter server dev",
-    "start:client": "pnpm --filter client dev"
+    "start:client": "pnpm --filter client dev",
+    "test": "pnpm --filter server test && pnpm --filter client test"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

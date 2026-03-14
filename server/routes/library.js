@@ -1,97 +1,12 @@
 import { Router } from 'express';
 import Track from '../models/Track.js';
+import { createLibraryRouteHandlers } from './libraryRouteHandlers.js';
 
 const router = Router();
-
-const VALID_SORT_FIELDS = ['title', 'artist', 'album', 'plays', 'lastPlayed', 'added', 'duration'];
-
-function buildSort(sortField, sortOrder) {
-  const o = sortOrder === 'desc' ? -1 : 1;
-  switch (sortField) {
-    case 'title':      return { title: o };
-    case 'artist':     return { artistsNorm: o, album: 1, disc: 1, trackNumber: 1 };
-    case 'album':      return { album: o, disc: 1, trackNumber: 1 };
-    case 'plays':      return { playCount: o };
-    case 'lastPlayed': return { lastPlayedAt: o };
-    case 'added':      return { scannedAt: o };
-    case 'duration':   return { duration: o };
-    default:           return { artistsNorm: 1, album: 1, disc: 1, trackNumber: 1 };
-  }
-}
+const { searchLibrary, listAllTracks, listTracks } = createLibraryRouteHandlers({ Track });
 
 // GET /api/search — global search across tracks, artists, and albums
-router.get('/search', async (req, res) => {
-  const q = req.query.q?.trim();
-  if (!q) return res.json({ tracks: [], artists: [], albums: [] });
-
-  const limit = Math.min(8, parseInt(req.query.limit, 10) || 5);
-  const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-
-  const [tracks, artists, albums] = await Promise.all([
-    Track.find({ $or: [{ title: regex }, { artists: regex }, { album: regex }] })
-      .sort({ title: 1 })
-      .limit(limit)
-      .select('title artists album cover duration')
-      .lean(),
-
-    Track.aggregate([
-      { $project: { pairs: { $zip: { inputs: ['$artists', '$artistsNorm'] } }, album: 1, cover: 1 } },
-      { $unwind: '$pairs' },
-      {
-        $group: {
-          _id: { $arrayElemAt: ['$pairs', 1] },
-          name: { $first: { $arrayElemAt: ['$pairs', 0] } },
-          albumCount: { $addToSet: '$album' },
-          trackCount: { $sum: 1 },
-          covers: { $addToSet: '$cover' },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          name: 1,
-          albumCount: { $size: '$albumCount' },
-          trackCount: 1,
-          covers: { $filter: { input: '$covers', cond: { $ne: ['$$this', ''] } } },
-        },
-      },
-      { $match: { name: regex } },
-      { $sort: { name: 1 } },
-      { $limit: limit },
-    ]),
-
-    Track.aggregate([
-      { $match: { album: regex } },
-      {
-        $group: {
-          // Group by (album, primary artistNorm) so same-named albums from
-          // different artists (e.g. multiple "Unknown Album") stay separate.
-          _id: { album: '$album', artistNorm: { $arrayElemAt: ['$artistsNorm', 0] } },
-          artists: { $first: '$artists' },
-          artistsNorm: { $first: '$artistsNorm' },
-          year: { $first: '$year' },
-          trackCount: { $sum: 1 },
-          cover: { $first: '$cover' },
-        },
-      },
-      {
-        $project: {
-          _id: 0,
-          name: '$_id.album',
-          artists: 1,
-          artistsNorm: 1,
-          year: 1,
-          trackCount: 1,
-          cover: 1,
-        },
-      },
-      { $sort: { name: 1 } },
-      { $limit: limit },
-    ]),
-  ]);
-
-  res.json({ tracks, artists, albums });
-});
+router.get('/search', searchLibrary);
 
 // GET /api/artists — list artists with counts (paginated, searchable)
 router.get('/artists', async (req, res) => {
@@ -137,7 +52,7 @@ router.get('/artists', async (req, res) => {
   ];
 
   if (search) {
-    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    const regex = buildSearchRegex(search);
     pipeline.push({ $match: { name: regex } });
   }
 
@@ -367,46 +282,10 @@ router.get('/genres', async (req, res) => {
 });
 
 // GET /api/tracks/all — all tracks unpaginated (for queue building, with optional search/genre)
-router.get('/tracks/all', async (req, res) => {
-  const search = req.query.search?.trim();
-  const genre = req.query.genre?.trim();
-  const sortField = VALID_SORT_FIELDS.includes(req.query.sort) ? req.query.sort : null;
-  const sortOrder = req.query.order === 'desc' ? 'desc' : 'asc';
-
-  const filter = {};
-  if (search) {
-    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [{ title: regex }, { artists: regex }, { album: regex }];
-  }
-  if (genre) filter.genre = genre;
-  const tracks = await Track.find(filter)
-    .sort(buildSort(sortField, sortOrder))
-    .lean();
-  res.json(tracks);
-});
+router.get('/tracks/all', listAllTracks);
 
 // GET /api/tracks — all tracks (with optional pagination, search and sort)
-router.get('/tracks', async (req, res) => {
-  const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const limit = Math.min(200, parseInt(req.query.limit, 10) || 50);
-  const skip = (page - 1) * limit;
-  const search = req.query.search?.trim();
-  const sortField = VALID_SORT_FIELDS.includes(req.query.sort) ? req.query.sort : null;
-  const sortOrder = req.query.order === 'desc' ? 'desc' : 'asc';
-
-  const filter = {};
-  if (search) {
-    const regex = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    filter.$or = [{ title: regex }, { artists: regex }, { album: regex }];
-  }
-
-  const [tracks, total] = await Promise.all([
-    Track.find(filter).sort(buildSort(sortField, sortOrder)).skip(skip).limit(limit).lean(),
-    Track.countDocuments(filter),
-  ]);
-
-  res.json({ tracks, total, page, limit });
-});
+router.get('/tracks', listTracks);
 
 // GET /api/tracks/recent — recently played tracks, deduped, sorted by lastPlayedAt
 router.get('/tracks/recent', async (req, res) => {

@@ -8,6 +8,14 @@ import {
   VALID_BUTTERCHURN_PRESETS,
   VALID_BUTTERCHURN_PRESET_MODES,
 } from '../constants/butterchurnPresets.js';
+import {
+  readStoredBool,
+  readStoredJson,
+  readStoredValue,
+  writeStoredBool,
+  writeStoredJson,
+  writeStoredValue,
+} from './themeStorage.js';
 
 const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
@@ -76,18 +84,18 @@ function normalizeVizMode(value) {
 
 // Module-level singletons — read from localStorage immediately so there's no
 // flash of the wrong value before the API call returns.
-const stored = localStorage.getItem(STORAGE_KEY);
+const stored = readStoredValue(STORAGE_KEY);
 const accentColor = ref(VALID_COLORS.includes(stored) ? stored : DEFAULT_COLOR);
-const storedTheme = localStorage.getItem(THEME_KEY);
+const storedTheme = readStoredValue(THEME_KEY);
 const themeColor = ref(VALID_THEME_COLORS.includes(storedTheme) ? storedTheme : DEFAULT_THEME_COLOR);
 
-const storedDensity = localStorage.getItem(DENSITY_KEY);
+const storedDensity = readStoredValue(DENSITY_KEY);
 const density = ref(storedDensity === 'compact' ? 'compact' : 'comfortable');
 
-const storedCover = localStorage.getItem(COVER_KEY);
+const storedCover = readStoredValue(COVER_KEY);
 const showCoverArt = ref(storedCover === 'false' ? false : true);
 
-const storedFont = localStorage.getItem(FONT_KEY);
+const storedFont = readStoredValue(FONT_KEY);
 const fontSize = ref(VALID_FONT_SIZES.includes(storedFont) ? storedFont : 'medium');
 
 function applyFontSize(size) {
@@ -110,42 +118,31 @@ function applyReduceMotion(value) {
 
 // Tracks columns visibility
 const DEFAULT_COLS = { artist: true, album: true, plays: true, lastPlayed: true };
-const tracksColumns = ref((() => {
-  try { return { ...DEFAULT_COLS, ...JSON.parse(localStorage.getItem(TRACKS_COLS_KEY)) }; }
-  catch { return { ...DEFAULT_COLS }; }
-})());
+const tracksColumns = ref(readStoredJson(TRACKS_COLS_KEY, DEFAULT_COLS));
 
 // Tracks sort preference
 const DEFAULT_SORT = { field: 'artist', dir: 'asc' };
-const tracksSort = ref((() => {
-  try { return { ...DEFAULT_SORT, ...JSON.parse(localStorage.getItem(TRACKS_SORT_KEY)) }; }
-  catch { return { ...DEFAULT_SORT }; }
-})());
+const tracksSort = ref(readStoredJson(TRACKS_SORT_KEY, DEFAULT_SORT));
 
 // Layout visibility — individual booleans, default all on
-function storedBool(key, defaultVal = true) {
-  const v = localStorage.getItem(key);
-  return v === null ? defaultVal : v !== 'false';
-}
-
-const sharpCorners      = ref(storedBool(SHARP_KEY, false));
+const sharpCorners      = ref(readStoredBool(SHARP_KEY, false));
 applySharpCorners(sharpCorners.value);
-const reduceMotion      = ref(storedBool(MOTION_KEY, false));
+const reduceMotion      = ref(readStoredBool(MOTION_KEY, false));
 applyReduceMotion(reduceMotion.value);
-const lovedUseAccent    = ref(storedBool(LOVED_ACCENT_KEY, false));
-const showArtistsNav    = ref(storedBool(ARTISTS_NAV_KEY));
-const showPlaylists     = ref(storedBool(PLAYLISTS_KEY, true));
-const wideLayout        = ref(storedBool(WIDE_LAYOUT_KEY, false));
-const homeShowQuickPlay = ref(storedBool(HOME_QUICK_KEY));
-const homeShowRecent    = ref(storedBool(HOME_RECENT_KEY));
-const homeShowAlbums    = ref(storedBool(HOME_ALBUMS_KEY));
+const lovedUseAccent    = ref(readStoredBool(LOVED_ACCENT_KEY, false));
+const showArtistsNav    = ref(readStoredBool(ARTISTS_NAV_KEY));
+const showPlaylists     = ref(readStoredBool(PLAYLISTS_KEY, true));
+const wideLayout        = ref(readStoredBool(WIDE_LAYOUT_KEY, false));
+const homeShowQuickPlay = ref(readStoredBool(HOME_QUICK_KEY));
+const homeShowRecent    = ref(readStoredBool(HOME_RECENT_KEY));
+const homeShowAlbums    = ref(readStoredBool(HOME_ALBUMS_KEY));
 
 // Visualizer prefs
-const storedViz = normalizeVizMode(localStorage.getItem(VIZ_MODE_KEY));
+const storedViz = normalizeVizMode(readStoredValue(VIZ_MODE_KEY));
 const vizMode            = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'pills');
-const storedRandomize = localStorage.getItem(RANDOMIZE_KEY);
+const storedRandomize = readStoredValue(RANDOMIZE_KEY);
 const randomizeOnNewTrack = ref(storedRandomize === null ? false : storedRandomize !== 'false');
-const storedButterchurnPresetMode = localStorage.getItem(BUTTERCHURN_PRESET_MODE_KEY);
+const storedButterchurnPresetMode = readStoredValue(BUTTERCHURN_PRESET_MODE_KEY);
 const butterchurnPresetMode = ref(
   VALID_BUTTERCHURN_PRESET_MODES.includes(storedButterchurnPresetMode)
     ? storedButterchurnPresetMode
@@ -153,7 +150,7 @@ const butterchurnPresetMode = ref(
       ? (randomizeOnNewTrack.value ? 'random' : 'single')
       : DEFAULT_BUTTERCHURN_PRESET_MODE)
 );
-const storedButterchurnPreset = localStorage.getItem(BUTTERCHURN_PRESET_KEY);
+const storedButterchurnPreset = readStoredValue(BUTTERCHURN_PRESET_KEY);
 const butterchurnPreset = ref(
   VALID_BUTTERCHURN_PRESETS.includes(storedButterchurnPreset)
     ? storedButterchurnPreset
@@ -218,90 +215,90 @@ export function useTheme() {
       const data = await api.getSettings();
       if (VALID_COLORS.includes(data.accentColor)) {
         accentColor.value = data.accentColor;
-        localStorage.setItem(STORAGE_KEY, data.accentColor);
+        writeStoredValue(STORAGE_KEY, data.accentColor);
       }
       if (VALID_THEME_COLORS.includes(data.themeColor)) {
         themeColor.value = data.themeColor;
-        localStorage.setItem(THEME_KEY, data.themeColor);
+        writeStoredValue(THEME_KEY, data.themeColor);
         applyThemeColor(data.themeColor);
       }
       if (data.density === 'compact' || data.density === 'comfortable') {
         density.value = data.density;
-        localStorage.setItem(DENSITY_KEY, data.density);
+        writeStoredValue(DENSITY_KEY, data.density);
       }
       if (typeof data.showCoverArt === 'boolean') {
         showCoverArt.value = data.showCoverArt;
-        localStorage.setItem(COVER_KEY, String(data.showCoverArt));
+        writeStoredBool(COVER_KEY, data.showCoverArt);
       }
       if (VALID_FONT_SIZES.includes(data.fontSize)) {
         fontSize.value = data.fontSize;
-        localStorage.setItem(FONT_KEY, data.fontSize);
+        writeStoredValue(FONT_KEY, data.fontSize);
         applyFontSize(data.fontSize);
       }
       if (data.tracksColumns && typeof data.tracksColumns === 'object') {
         tracksColumns.value = { ...DEFAULT_COLS, ...data.tracksColumns };
-        localStorage.setItem(TRACKS_COLS_KEY, JSON.stringify(tracksColumns.value));
+        writeStoredJson(TRACKS_COLS_KEY, tracksColumns.value);
       }
       if (data.tracksSort && typeof data.tracksSort.field === 'string') {
         tracksSort.value = { field: data.tracksSort.field, dir: data.tracksSort.dir };
-        localStorage.setItem(TRACKS_SORT_KEY, JSON.stringify(tracksSort.value));
+        writeStoredJson(TRACKS_SORT_KEY, tracksSort.value);
       }
       if (typeof data.lovedAccent === 'boolean') {
         lovedUseAccent.value = data.lovedAccent;
-        localStorage.setItem(LOVED_ACCENT_KEY, String(data.lovedAccent));
+        writeStoredBool(LOVED_ACCENT_KEY, data.lovedAccent);
       }
       if (typeof data.showArtistsNav === 'boolean') {
         showArtistsNav.value = data.showArtistsNav;
-        localStorage.setItem(ARTISTS_NAV_KEY, String(data.showArtistsNav));
+        writeStoredBool(ARTISTS_NAV_KEY, data.showArtistsNav);
       }
       if (typeof data.wideLayout === 'boolean') {
         wideLayout.value = data.wideLayout;
-        localStorage.setItem(WIDE_LAYOUT_KEY, String(data.wideLayout));
+        writeStoredBool(WIDE_LAYOUT_KEY, data.wideLayout);
       }
       if (typeof data.homeShowQuickPlay === 'boolean') {
         homeShowQuickPlay.value = data.homeShowQuickPlay;
-        localStorage.setItem(HOME_QUICK_KEY, String(data.homeShowQuickPlay));
+        writeStoredBool(HOME_QUICK_KEY, data.homeShowQuickPlay);
       }
       if (typeof data.homeShowRecent === 'boolean') {
         homeShowRecent.value = data.homeShowRecent;
-        localStorage.setItem(HOME_RECENT_KEY, String(data.homeShowRecent));
+        writeStoredBool(HOME_RECENT_KEY, data.homeShowRecent);
       }
       if (typeof data.homeShowAlbums === 'boolean') {
         homeShowAlbums.value = data.homeShowAlbums;
-        localStorage.setItem(HOME_ALBUMS_KEY, String(data.homeShowAlbums));
+        writeStoredBool(HOME_ALBUMS_KEY, data.homeShowAlbums);
       }
       const normalizedVizMode = normalizeVizMode(data.vizMode);
       if (VALID_VIZ_MODES.includes(normalizedVizMode)) {
         vizMode.value = normalizedVizMode;
-        localStorage.setItem(VIZ_MODE_KEY, normalizedVizMode);
+        writeStoredValue(VIZ_MODE_KEY, normalizedVizMode);
       }
       if (typeof data.randomizeOnNewTrack === 'boolean') {
         randomizeOnNewTrack.value = data.randomizeOnNewTrack;
-        localStorage.setItem(RANDOMIZE_KEY, String(data.randomizeOnNewTrack));
+        writeStoredBool(RANDOMIZE_KEY, data.randomizeOnNewTrack);
       }
       if (VALID_BUTTERCHURN_PRESET_MODES.includes(data.butterchurnPresetMode)) {
         butterchurnPresetMode.value = data.butterchurnPresetMode;
-        localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, data.butterchurnPresetMode);
+        writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, data.butterchurnPresetMode);
       } else if (typeof data.randomizeOnNewTrack === 'boolean') {
         butterchurnPresetMode.value = data.randomizeOnNewTrack ? 'random' : 'single';
-        localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, butterchurnPresetMode.value);
+        writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, butterchurnPresetMode.value);
       }
       if (VALID_BUTTERCHURN_PRESETS.includes(data.butterchurnPreset)) {
         butterchurnPreset.value = data.butterchurnPreset;
-        localStorage.setItem(BUTTERCHURN_PRESET_KEY, data.butterchurnPreset);
+        writeStoredValue(BUTTERCHURN_PRESET_KEY, data.butterchurnPreset);
       }
       if (typeof data.showPlaylists === 'boolean') {
         showPlaylists.value = data.showPlaylists;
-        localStorage.setItem(PLAYLISTS_KEY, String(data.showPlaylists));
+        writeStoredBool(PLAYLISTS_KEY, data.showPlaylists);
       }
       if (typeof data.sharpCorners === 'boolean') {
         sharpCorners.value = data.sharpCorners;
-        localStorage.setItem(SHARP_KEY, String(data.sharpCorners));
+        writeStoredBool(SHARP_KEY, data.sharpCorners);
         applySharpCorners(data.sharpCorners);
       }
       if (typeof data.reduceMotion === 'boolean') {
         reduceMotion.value = data.reduceMotion;
-        localStorage.setItem(MOTION_KEY, String(data.reduceMotion));
+        writeStoredBool(MOTION_KEY, data.reduceMotion);
         applyReduceMotion(data.reduceMotion);
       }
     } catch {
@@ -320,197 +317,209 @@ export function useTheme() {
     }
   }
 
+  async function applyStoredSetting({
+    current,
+    previous,
+    next,
+    persist,
+    body,
+    message,
+    apply,
+  }) {
+    current.value = next;
+    persist(next);
+    apply?.(next);
+
+    await saveOrRollback(
+      body,
+      () => {
+        current.value = previous;
+        persist(previous);
+        apply?.(previous);
+      },
+      message
+    );
+  }
+
+  async function applyStoredObjectSetting({
+    current,
+    previous,
+    next,
+    persist,
+    body,
+    message,
+  }) {
+    current.value = next;
+    persist(next);
+
+    await saveOrRollback(
+      body,
+      () => {
+        current.value = previous;
+        persist(previous);
+      },
+      message
+    );
+  }
+
   async function setAccentColor(color) {
     if (!VALID_COLORS.includes(color)) return;
-    const prev = accentColor.value;
-    accentColor.value = color;
-    localStorage.setItem(STORAGE_KEY, color);
-    await saveOrRollback(
-      { accentColor: color },
-      () => {
-        accentColor.value = prev;
-        localStorage.setItem(STORAGE_KEY, prev);
-      },
-      'Failed to save accent color.'
-    );
+    await applyStoredSetting({
+      current: accentColor,
+      previous: accentColor.value,
+      next: color,
+      persist: (value) => writeStoredValue(STORAGE_KEY, value),
+      body: { accentColor: color },
+      message: 'Failed to save accent color.',
+    });
   }
 
   async function setThemeColor(color) {
     if (!VALID_THEME_COLORS.includes(color)) return;
-    const prev = themeColor.value;
-    themeColor.value = color;
-    localStorage.setItem(THEME_KEY, color);
-    applyThemeColor(color);
-    await saveOrRollback(
-      { themeColor: color },
-      () => {
-        themeColor.value = prev;
-        localStorage.setItem(THEME_KEY, prev);
-        applyThemeColor(prev);
-      },
-      'Failed to save background theme.'
-    );
+    await applyStoredSetting({
+      current: themeColor,
+      previous: themeColor.value,
+      next: color,
+      persist: (value) => writeStoredValue(THEME_KEY, value),
+      body: { themeColor: color },
+      message: 'Failed to save background theme.',
+      apply: applyThemeColor,
+    });
   }
 
   async function setDensity(value) {
     if (value !== 'comfortable' && value !== 'compact') return;
-    const prev = density.value;
-    density.value = value;
-    localStorage.setItem(DENSITY_KEY, value);
-    await saveOrRollback(
-      { density: value },
-      () => {
-        density.value = prev;
-        localStorage.setItem(DENSITY_KEY, prev);
-      },
-      'Failed to save list density.'
-    );
+    await applyStoredSetting({
+      current: density,
+      previous: density.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(DENSITY_KEY, nextValue),
+      body: { density: value },
+      message: 'Failed to save list density.',
+    });
   }
 
   async function setShowCoverArt(value) {
-    const prev = showCoverArt.value;
-    showCoverArt.value = Boolean(value);
-    localStorage.setItem(COVER_KEY, String(showCoverArt.value));
-    await saveOrRollback(
-      { showCoverArt: showCoverArt.value },
-      () => {
-        showCoverArt.value = prev;
-        localStorage.setItem(COVER_KEY, String(prev));
-      },
-      'Failed to save cover art setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: showCoverArt,
+      previous: showCoverArt.value,
+      next,
+      persist: (nextValue) => writeStoredBool(COVER_KEY, nextValue),
+      body: { showCoverArt: next },
+      message: 'Failed to save cover art setting.',
+    });
   }
 
   async function setFontSize(value) {
     if (!VALID_FONT_SIZES.includes(value)) return;
-    const prev = fontSize.value;
-    fontSize.value = value;
-    localStorage.setItem(FONT_KEY, value);
-    applyFontSize(value);
-    await saveOrRollback(
-      { fontSize: value },
-      () => {
-        fontSize.value = prev;
-        localStorage.setItem(FONT_KEY, prev);
-        applyFontSize(prev);
-      },
-      'Failed to save font size.'
-    );
+    await applyStoredSetting({
+      current: fontSize,
+      previous: fontSize.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(FONT_KEY, nextValue),
+      body: { fontSize: value },
+      message: 'Failed to save font size.',
+      apply: applyFontSize,
+    });
   }
 
   async function setTracksColumn(key, value) {
-    const prev = { ...tracksColumns.value };
-    tracksColumns.value = { ...tracksColumns.value, [key]: Boolean(value) };
-    localStorage.setItem(TRACKS_COLS_KEY, JSON.stringify(tracksColumns.value));
-    await saveOrRollback(
-      { tracksColumns: tracksColumns.value },
-      () => {
-        tracksColumns.value = prev;
-        localStorage.setItem(TRACKS_COLS_KEY, JSON.stringify(prev));
-      },
-      'Failed to save visible track columns.'
-    );
+    const next = { ...tracksColumns.value, [key]: Boolean(value) };
+    await applyStoredObjectSetting({
+      current: tracksColumns,
+      previous: { ...tracksColumns.value },
+      next,
+      persist: (nextValue) => writeStoredJson(TRACKS_COLS_KEY, nextValue),
+      body: { tracksColumns: next },
+      message: 'Failed to save visible track columns.',
+    });
   }
 
   async function setTracksSort(field, dir) {
-    const prev = { ...tracksSort.value };
-    tracksSort.value = { field, dir };
-    localStorage.setItem(TRACKS_SORT_KEY, JSON.stringify({ field, dir }));
-    await saveOrRollback(
-      { tracksSort: { field, dir } },
-      () => {
-        tracksSort.value = prev;
-        localStorage.setItem(TRACKS_SORT_KEY, JSON.stringify(prev));
-      },
-      'Failed to save tracks sort.'
-    );
+    const next = { field, dir };
+    await applyStoredObjectSetting({
+      current: tracksSort,
+      previous: { ...tracksSort.value },
+      next,
+      persist: (nextValue) => writeStoredJson(TRACKS_SORT_KEY, nextValue),
+      body: { tracksSort: next },
+      message: 'Failed to save tracks sort.',
+    });
   }
 
   async function setLovedUseAccent(value) {
-    const prev = lovedUseAccent.value;
-    lovedUseAccent.value = Boolean(value);
-    localStorage.setItem(LOVED_ACCENT_KEY, String(lovedUseAccent.value));
-    await saveOrRollback(
-      { lovedAccent: lovedUseAccent.value },
-      () => {
-        lovedUseAccent.value = prev;
-        localStorage.setItem(LOVED_ACCENT_KEY, String(prev));
-      },
-      'Failed to save loved-track color setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: lovedUseAccent,
+      previous: lovedUseAccent.value,
+      next,
+      persist: (nextValue) => writeStoredBool(LOVED_ACCENT_KEY, nextValue),
+      body: { lovedAccent: next },
+      message: 'Failed to save loved-track color setting.',
+    });
   }
 
   async function setShowArtistsNav(value) {
-    const prev = showArtistsNav.value;
-    showArtistsNav.value = Boolean(value);
-    localStorage.setItem(ARTISTS_NAV_KEY, String(showArtistsNav.value));
-    await saveOrRollback(
-      { showArtistsNav: showArtistsNav.value },
-      () => {
-        showArtistsNav.value = prev;
-        localStorage.setItem(ARTISTS_NAV_KEY, String(prev));
-      },
-      'Failed to save artists navigation visibility.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: showArtistsNav,
+      previous: showArtistsNav.value,
+      next,
+      persist: (nextValue) => writeStoredBool(ARTISTS_NAV_KEY, nextValue),
+      body: { showArtistsNav: next },
+      message: 'Failed to save artists navigation visibility.',
+    });
   }
 
   async function setWideLayout(value) {
-    const prev = wideLayout.value;
-    wideLayout.value = Boolean(value);
-    localStorage.setItem(WIDE_LAYOUT_KEY, String(wideLayout.value));
-    await saveOrRollback(
-      { wideLayout: wideLayout.value },
-      () => {
-        wideLayout.value = prev;
-        localStorage.setItem(WIDE_LAYOUT_KEY, String(prev));
-      },
-      'Failed to save wide layout setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: wideLayout,
+      previous: wideLayout.value,
+      next,
+      persist: (nextValue) => writeStoredBool(WIDE_LAYOUT_KEY, nextValue),
+      body: { wideLayout: next },
+      message: 'Failed to save wide layout setting.',
+    });
   }
 
   async function _setHomeSection(ref, storageKey, serverKey, value) {
     if (!value && homeVisibleCount.value <= 1) return;
-    const prev = ref.value;
-    ref.value = Boolean(value);
-    localStorage.setItem(storageKey, String(ref.value));
-    await saveOrRollback(
-      { [serverKey]: ref.value },
-      () => {
-        ref.value = prev;
-        localStorage.setItem(storageKey, String(prev));
-      },
-      'Failed to save home section visibility.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: ref,
+      previous: ref.value,
+      next,
+      persist: (nextValue) => writeStoredBool(storageKey, nextValue),
+      body: { [serverKey]: next },
+      message: 'Failed to save home section visibility.',
+    });
   }
 
   async function setVizMode(value) {
     value = normalizeVizMode(value);
     if (!VALID_VIZ_MODES.includes(value)) return;
-    const prev = vizMode.value;
-    vizMode.value = value;
-    localStorage.setItem(VIZ_MODE_KEY, value);
-    await saveOrRollback(
-      { vizMode: value },
-      () => {
-        vizMode.value = prev;
-        localStorage.setItem(VIZ_MODE_KEY, prev);
-      },
-      'Failed to save visualizer mode.'
-    );
+    await applyStoredSetting({
+      current: vizMode,
+      previous: vizMode.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(VIZ_MODE_KEY, nextValue),
+      body: { vizMode: value },
+      message: 'Failed to save visualizer mode.',
+    });
   }
 
   async function setRandomizeOnNewTrack(value) {
-    const prev = randomizeOnNewTrack.value;
-    randomizeOnNewTrack.value = Boolean(value);
-    localStorage.setItem(RANDOMIZE_KEY, String(randomizeOnNewTrack.value));
-    await saveOrRollback(
-      { randomizeOnNewTrack: randomizeOnNewTrack.value },
-      () => {
-        randomizeOnNewTrack.value = prev;
-        localStorage.setItem(RANDOMIZE_KEY, String(prev));
-      },
-      'Failed to save randomize-on-new-track setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: randomizeOnNewTrack,
+      previous: randomizeOnNewTrack.value,
+      next,
+      persist: (nextValue) => writeStoredBool(RANDOMIZE_KEY, nextValue),
+      body: { randomizeOnNewTrack: next },
+      message: 'Failed to save randomize-on-new-track setting.',
+    });
   }
 
   async function setButterchurnPresetMode(value) {
@@ -519,8 +528,8 @@ export function useTheme() {
     const prevRandomize = randomizeOnNewTrack.value;
     butterchurnPresetMode.value = value;
     randomizeOnNewTrack.value = value === 'random';
-    localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, value);
-    localStorage.setItem(RANDOMIZE_KEY, String(randomizeOnNewTrack.value));
+    writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, value);
+    writeStoredBool(RANDOMIZE_KEY, randomizeOnNewTrack.value);
     await saveOrRollback(
       {
         butterchurnPresetMode: value,
@@ -529,8 +538,8 @@ export function useTheme() {
       () => {
         butterchurnPresetMode.value = prevMode;
         randomizeOnNewTrack.value = prevRandomize;
-        localStorage.setItem(BUTTERCHURN_PRESET_MODE_KEY, prevMode);
-        localStorage.setItem(RANDOMIZE_KEY, String(prevRandomize));
+        writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, prevMode);
+        writeStoredBool(RANDOMIZE_KEY, prevRandomize);
       },
       'Failed to save Butterchurn preset mode.'
     );
@@ -538,63 +547,52 @@ export function useTheme() {
 
   async function setButterchurnPreset(value) {
     if (!VALID_BUTTERCHURN_PRESETS.includes(value)) return;
-    const prev = butterchurnPreset.value;
-    butterchurnPreset.value = value;
-    localStorage.setItem(BUTTERCHURN_PRESET_KEY, value);
-    await saveOrRollback(
-      { butterchurnPreset: value },
-      () => {
-        butterchurnPreset.value = prev;
-        localStorage.setItem(BUTTERCHURN_PRESET_KEY, prev);
-      },
-      'Failed to save Butterchurn preset.'
-    );
+    await applyStoredSetting({
+      current: butterchurnPreset,
+      previous: butterchurnPreset.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(BUTTERCHURN_PRESET_KEY, nextValue),
+      body: { butterchurnPreset: value },
+      message: 'Failed to save Butterchurn preset.',
+    });
   }
 
   async function setShowPlaylists(value) {
-    const prev = showPlaylists.value;
-    showPlaylists.value = Boolean(value);
-    localStorage.setItem(PLAYLISTS_KEY, String(showPlaylists.value));
-    await saveOrRollback(
-      { showPlaylists: showPlaylists.value },
-      () => {
-        showPlaylists.value = prev;
-        localStorage.setItem(PLAYLISTS_KEY, String(prev));
-      },
-      'Failed to save playlists visibility setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: showPlaylists,
+      previous: showPlaylists.value,
+      next,
+      persist: (nextValue) => writeStoredBool(PLAYLISTS_KEY, nextValue),
+      body: { showPlaylists: next },
+      message: 'Failed to save playlists visibility setting.',
+    });
   }
 
   async function setReduceMotion(value) {
-    const prev = reduceMotion.value;
-    reduceMotion.value = Boolean(value);
-    localStorage.setItem(MOTION_KEY, String(reduceMotion.value));
-    applyReduceMotion(reduceMotion.value);
-    await saveOrRollback(
-      { reduceMotion: reduceMotion.value },
-      () => {
-        reduceMotion.value = prev;
-        localStorage.setItem(MOTION_KEY, String(prev));
-        applyReduceMotion(prev);
-      },
-      'Failed to save motion setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: reduceMotion,
+      previous: reduceMotion.value,
+      next,
+      persist: (nextValue) => writeStoredBool(MOTION_KEY, nextValue),
+      body: { reduceMotion: next },
+      message: 'Failed to save motion setting.',
+      apply: applyReduceMotion,
+    });
   }
 
   async function setSharpCorners(value) {
-    const prev = sharpCorners.value;
-    sharpCorners.value = Boolean(value);
-    localStorage.setItem(SHARP_KEY, String(sharpCorners.value));
-    applySharpCorners(sharpCorners.value);
-    await saveOrRollback(
-      { sharpCorners: sharpCorners.value },
-      () => {
-        sharpCorners.value = prev;
-        localStorage.setItem(SHARP_KEY, String(prev));
-        applySharpCorners(prev);
-      },
-      'Failed to save corner style setting.'
-    );
+    const next = Boolean(value);
+    await applyStoredSetting({
+      current: sharpCorners,
+      previous: sharpCorners.value,
+      next,
+      persist: (nextValue) => writeStoredBool(SHARP_KEY, nextValue),
+      body: { sharpCorners: next },
+      message: 'Failed to save corner style setting.',
+      apply: applySharpCorners,
+    });
   }
 
   return {
