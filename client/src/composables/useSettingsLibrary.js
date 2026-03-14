@@ -251,6 +251,7 @@ export function useSettingsLibrary() {
     activeHealthView,
     promptConfirm,
     closeConfirm,
+    loadLibraryHealth,
     openLibraryHealth,
     refreshLibraryHealth,
     scanLibrary,

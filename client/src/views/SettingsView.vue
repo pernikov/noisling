@@ -79,6 +79,10 @@ const TRACK_COLUMN_OPTIONS = [
 
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
+
+  if (tab === 'library') {
+    loadLibraryHealth();
+  }
 });
 
 const { state: playerState } = usePlayer();
@@ -103,11 +107,16 @@ const {
   activeHealthView,
   promptConfirm,
   closeConfirm,
+  loadLibraryHealth,
   openLibraryHealth,
   refreshLibraryHealth,
   scanLibrary,
   deleteLibrary,
 } = useSettingsLibrary();
+
+if (activeTab.value === 'library') {
+  loadLibraryHealth();
+}
 
 const editingHealthTrack = ref(null);
 const editingHealthAlbum = ref(null);
