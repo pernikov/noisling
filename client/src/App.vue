@@ -26,6 +26,10 @@ const route = useRoute();
 const router = useRouter();
 const { state: playerState, toggleShortcuts } = usePlayer();
 
+function closeVisualizer() {
+  playerState.showVisualizer = false;
+}
+
 // Redirect away from /artists* if the nav link is hidden
 watch(showArtistsNav, (visible) => {
   if (!visible && route.path.startsWith("/artists")) {
@@ -82,12 +86,6 @@ watch(
         : { 'min-h-svh': true, 'pb-24': playerState.currentTrack }
     "
   >
-    <!-- Spacer to offset fixed nav (includes safe-area-inset-top for PWA notch) -->
-    <div
-      v-if="!playerState.showVisualizer"
-      class="h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0"
-    />
-
     <!-- Top nav -->
     <nav
       class="fixed top-0 left-0 right-0 backdrop-blur-xl border-b border-zinc-800 z-40 pt-[env(safe-area-inset-top)]"
@@ -101,6 +99,7 @@ watch(
           <router-link
             to="/"
             class="flex items-center gap-2 text-lg font-bold tracking-tight"
+            @click="closeVisualizer"
           >
             <img
               src="@/assets/img/logo512.png"
@@ -114,6 +113,7 @@ watch(
               to="/tracks"
               class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
+              @click="closeVisualizer"
             >
               Tracks
             </router-link>
@@ -122,6 +122,7 @@ watch(
               to="/artists"
               class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
+              @click="closeVisualizer"
             >
               Artists
             </router-link>
@@ -130,6 +131,7 @@ watch(
               to="/playlists"
               class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
+              @click="closeVisualizer"
             >
               Playlists
             </router-link>
@@ -161,6 +163,7 @@ watch(
             to="/settings"
             class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
             active-class="nav-active"
+            @click="closeVisualizer"
           >
             <Icon :path="mdiCog" class="w-5 h-5" />
           </router-link>
@@ -173,7 +176,7 @@ watch(
       <main
         v-if="!playerState.showVisualizer"
         key="main"
-        class="w-full mx-auto px-4 py-6"
+        class="w-full mx-auto px-4 py-6 pt-[calc(3.5rem+env(safe-area-inset-top)+1.5rem)]"
         :class="wideLayout ? '' : 'max-w-6xl'"
       >
         <RouterView v-slot="{ Component }">
