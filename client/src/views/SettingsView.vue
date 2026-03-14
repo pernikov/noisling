@@ -208,6 +208,8 @@ const activeLibraryHealthCount = computed(() => {
 const activeLibraryHealthItem = computed(() =>
   LIBRARY_HEALTH_ITEMS.find(item => item.key === activeHealthView.value) ?? LIBRARY_HEALTH_ITEMS[0]
 );
+
+const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !libraryHealthLoaded.value);
 </script>
 
 <template>
@@ -643,13 +645,24 @@ const activeLibraryHealthItem = computed(() =>
                 </div>
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-zinc-200">{{ item.title }}</p>
-                  <p class="text-xs text-zinc-500 mt-0.5">
+                  <div v-if="libraryHealthInitialLoad" class="mt-1.5 space-y-1 animate-pulse">
+                    <div class="h-2.5 w-32 rounded bg-zinc-800" />
+                    <div class="h-2.5 w-24 rounded bg-zinc-800/70" />
+                  </div>
+                  <p v-else class="text-xs text-zinc-500 mt-0.5">
                     <template v-if="libraryHealthLoaded && item.summary(true).startsWith('0 ')">{{ item.empty }}</template>
                     <template v-else>{{ item.summary(libraryHealthLoaded) }}</template>
                   </p>
                 </div>
               </div>
-              <IconButton :icon="item.icon" label="View" class="shrink-0" @click="openLibraryHealth(item.key)" />
+              <IconButton
+                :icon="item.icon"
+                :label="loadingLibraryHealth && !showLibraryHealthModal ? 'Loading...' : 'View'"
+                :loading="loadingLibraryHealth && !showLibraryHealthModal"
+                :disabled="libraryHealthInitialLoad"
+                class="shrink-0"
+                @click="openLibraryHealth(item.key)"
+              />
             </div>
           </div>
         </div>
@@ -925,7 +938,11 @@ const activeLibraryHealthItem = computed(() =>
         <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
           <div>
             <p class="text-sm font-medium text-zinc-200">{{ activeLibraryHealthItem.title }}</p>
-            <p v-if="libraryHealthLoaded" class="text-xs text-zinc-500 mt-0.5">
+            <div v-if="loadingLibraryHealth" class="flex items-center gap-2 text-xs text-zinc-500 mt-1">
+              <Spinner class="w-3.5 h-3.5 text-zinc-500" />
+              Loading library health...
+            </div>
+            <p v-else-if="libraryHealthLoaded" class="text-xs text-zinc-500 mt-0.5">
               <template v-if="activeLibraryHealthCount === 0">{{ activeLibraryHealthItem.empty }}</template>
               <template v-else>{{ activeLibraryHealthItem.summary(true) }}</template>
             </p>
@@ -940,7 +957,20 @@ const activeLibraryHealthItem = computed(() =>
 
         <!-- Body -->
         <div class="overflow-y-auto p-2">
-          <div v-if="loadingLibraryHealth" class="px-3 py-6 text-center text-sm text-zinc-500">Loading...</div>
+          <div v-if="loadingLibraryHealth" class="space-y-2 p-1 animate-pulse">
+            <div
+              v-for="i in 4"
+              :key="i"
+              class="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-800/20 px-3 py-3"
+            >
+              <div class="w-8 h-8 rounded bg-zinc-800 shrink-0" />
+              <div class="flex-1 min-w-0 space-y-2">
+                <div class="h-3 rounded bg-zinc-800" :style="{ width: `${50 + (i * 9) % 25}%` }" />
+                <div class="h-2.5 rounded bg-zinc-800/70" :style="{ width: `${35 + (i * 11) % 30}%` }" />
+              </div>
+              <div class="w-14 h-8 rounded-lg bg-zinc-800 shrink-0" />
+            </div>
+          </div>
 
           <div v-else-if="activeHealthView === 'covers' && missingCoverAlbums.length === 0"
             class="flex items-center gap-2 text-sm text-emerald-400 rounded-lg px-4 py-3 m-1"
