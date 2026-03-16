@@ -146,9 +146,7 @@ const storedButterchurnPresetMode = readStoredValue(BUTTERCHURN_PRESET_MODE_KEY)
 const butterchurnPresetMode = ref(
   VALID_BUTTERCHURN_PRESET_MODES.includes(storedButterchurnPresetMode)
     ? storedButterchurnPresetMode
-    : (storedRandomize !== null
-      ? (randomizeOnNewTrack.value ? 'random' : 'single')
-      : DEFAULT_BUTTERCHURN_PRESET_MODE)
+    : DEFAULT_BUTTERCHURN_PRESET_MODE
 );
 const storedButterchurnPreset = readStoredValue(BUTTERCHURN_PRESET_KEY);
 const butterchurnPreset = ref(
@@ -279,8 +277,8 @@ export function useTheme() {
       if (VALID_BUTTERCHURN_PRESET_MODES.includes(data.butterchurnPresetMode)) {
         butterchurnPresetMode.value = data.butterchurnPresetMode;
         writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, data.butterchurnPresetMode);
-      } else if (typeof data.randomizeOnNewTrack === 'boolean') {
-        butterchurnPresetMode.value = data.randomizeOnNewTrack ? 'random' : 'single';
+      } else {
+        butterchurnPresetMode.value = DEFAULT_BUTTERCHURN_PRESET_MODE;
         writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, butterchurnPresetMode.value);
       }
       if (VALID_BUTTERCHURN_PRESETS.includes(data.butterchurnPreset)) {
@@ -524,25 +522,14 @@ export function useTheme() {
 
   async function setButterchurnPresetMode(value) {
     if (!VALID_BUTTERCHURN_PRESET_MODES.includes(value)) return;
-    const prevMode = butterchurnPresetMode.value;
-    const prevRandomize = randomizeOnNewTrack.value;
-    butterchurnPresetMode.value = value;
-    randomizeOnNewTrack.value = value === 'random';
-    writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, value);
-    writeStoredBool(RANDOMIZE_KEY, randomizeOnNewTrack.value);
-    await saveOrRollback(
-      {
-        butterchurnPresetMode: value,
-        randomizeOnNewTrack: randomizeOnNewTrack.value,
-      },
-      () => {
-        butterchurnPresetMode.value = prevMode;
-        randomizeOnNewTrack.value = prevRandomize;
-        writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, prevMode);
-        writeStoredBool(RANDOMIZE_KEY, prevRandomize);
-      },
-      'Failed to save Butterchurn preset mode.'
-    );
+    await applyStoredSetting({
+      current: butterchurnPresetMode,
+      previous: butterchurnPresetMode.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(BUTTERCHURN_PRESET_MODE_KEY, nextValue),
+      body: { butterchurnPresetMode: value },
+      message: 'Failed to save Butterchurn preset mode.',
+    });
   }
 
   async function setButterchurnPreset(value) {

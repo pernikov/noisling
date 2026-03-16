@@ -37,7 +37,7 @@ export function buildSettingsResponse(settings) {
     homeShowAlbums: settings.homeShowAlbums ?? true,
     vizMode: settings.vizMode ?? 'spiral',
     randomizeOnNewTrack: settings.randomizeOnNewTrack ?? false,
-    butterchurnPresetMode: settings.butterchurnPresetMode ?? ((settings.randomizeOnNewTrack ?? false) ? 'random' : 'single'),
+    butterchurnPresetMode: settings.butterchurnPresetMode === 'random' ? 'random' : 'single',
     butterchurnPreset: typeof settings.butterchurnPreset === 'string' && settings.butterchurnPreset.trim()
       ? settings.butterchurnPreset
       : DEFAULT_BUTTERCHURN_PRESET,
@@ -142,7 +142,6 @@ export function buildSettingsUpdate(body = {}) {
       return { error: 'Invalid butterchurnPresetMode' };
     }
     update.butterchurnPresetMode = butterchurnPresetMode;
-    update.randomizeOnNewTrack = butterchurnPresetMode === 'random';
   }
   if (butterchurnPreset !== undefined) {
     if (typeof butterchurnPreset !== 'string' || !butterchurnPreset.trim()) {

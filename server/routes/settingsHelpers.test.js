@@ -62,7 +62,6 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
       tracksSort: { field: 'title', dir: 'desc' },
       vizMode: 'pills',
       butterchurnPresetMode: 'random',
-      randomizeOnNewTrack: true,
       showPlaylists: true,
       reduceMotion: false,
     },

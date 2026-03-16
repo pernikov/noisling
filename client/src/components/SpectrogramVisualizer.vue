@@ -43,7 +43,6 @@ const VIZ_OPTIONS = [
     },
   },
 ];
-
 const PILL_SCALE = { min: 5, max: 80 };
 const PILL_SPEED = { min: 0.2, max: 1.0 };
 const PILL_ALPHA = { min: 0.8, max: 0.9 };
@@ -52,6 +51,7 @@ const PILL_SIZE = { min: 0.5, max: 1.25 };
 const PILL_COUNT = 150;
 const NUM_BANDS = 128;
 const BUTTERCHURN_BLEND_SECONDS = 2.4;
+const CANVAS_MODE_TRANSITION_MS = 650;
 const HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_chrome';
 const LEGACY_HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_fullscreen_chrome';
 const butterchurnPresetMap = butterchurnPresets.getPresets();
@@ -72,7 +72,8 @@ const BUBBLES = [
 ];
 
 const containerRef = ref(null);
-const canvas2dRef = ref(null);
+const spiralCanvasRef = ref(null);
+const pillsCanvasRef = ref(null);
 const butterchurnCanvasRef = ref(null);
 const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
@@ -98,9 +99,14 @@ const {
   setButterchurnPreset: persistButterchurnPreset,
   setButterchurnPresetMode,
   setVizMode,
+  setRandomizeOnNewTrack,
 } = useTheme();
+const activeCanvasMode = ref(vizMode.value);
+const fadingCanvasMode = ref(null);
 
 let ctx = null;
+let spiralCtx = null;
+let pillsCtx = null;
 let animationFrameId = 0;
 let resizeObserver = null;
 let viewportWidth = 0;
@@ -127,11 +133,14 @@ let butterchurnWasPlaying = false;
 const butterchurnPresetIndex = ref(-1);
 let butterchurnTrackStep = 0;
 const butterchurnDesiredIndex = ref(0);
+let modeTransitionTimer = 0;
 
 const currentMode = computed(() =>
   VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
 );
 const isButterchurnMode = computed(() => currentMode.value.value === 'butterchurn');
+const shouldShuffleVisualizerModes = computed(() => randomizeOnNewTrack.value);
+const shouldRandomizeButterchurnPresets = computed(() => butterchurnPresetMode.value === 'random');
 const showButterchurnPresetPicker = computed(() => (
   butterchurnPresetMode.value === 'single'
 ));
@@ -168,6 +177,18 @@ function getButterchurnPresetAt(index) {
   const safeIndex = ((index % butterchurnPresetNames.length) + butterchurnPresetNames.length) % butterchurnPresetNames.length;
   butterchurnPresetIndex.value = safeIndex;
   return butterchurnPresetNames[safeIndex];
+}
+
+function getRandomVizModeValue(excludeValue = null) {
+  if (!VIZ_OPTIONS.length) return null;
+  if (VIZ_OPTIONS.length === 1) return VIZ_OPTIONS[0].value;
+
+  let nextValue = excludeValue;
+  while (nextValue === excludeValue) {
+    nextValue = VIZ_OPTIONS[Math.floor(Math.random() * VIZ_OPTIONS.length)]?.value ?? null;
+  }
+
+  return nextValue;
 }
 
 function isButterchurnAvailable() {
@@ -218,6 +239,31 @@ function ensureButterchurnVisualizer() {
   return butterchurnVisualizer;
 }
 
+function clearModeTransitionTimer() {
+  if (!modeTransitionTimer) return;
+  window.clearTimeout(modeTransitionTimer);
+  modeTransitionTimer = 0;
+}
+
+function isCanvasVisible(mode) {
+  return activeCanvasMode.value === mode || fadingCanvasMode.value === mode;
+}
+
+function transitionCanvasMode(nextMode, previousMode = activeCanvasMode.value) {
+  if (nextMode === previousMode) {
+    activeCanvasMode.value = nextMode;
+    return;
+  }
+
+  activeCanvasMode.value = nextMode;
+  fadingCanvasMode.value = previousMode;
+  clearModeTransitionTimer();
+  modeTransitionTimer = window.setTimeout(() => {
+    fadingCanvasMode.value = null;
+    modeTransitionTimer = 0;
+  }, CANVAS_MODE_TRANSITION_MS);
+}
+
 function loadButterchurnPreset({ index = 0, blendTime = BUTTERCHURN_BLEND_SECONDS } = {}) {
   const visualizer = ensureButterchurnVisualizer();
   if (!visualizer) return;
@@ -265,7 +311,7 @@ function getRandomButterchurnPresetIndex(excludeIndex = -1) {
 
 function advanceButterchurnPresetForTrack() {
   if (!state.currentTrack || !butterchurnPresetNames.length) return;
-  if (butterchurnPresetMode.value === 'single') {
+  if (!shouldRandomizeButterchurnPresets.value) {
     setButterchurnPreset(getButterchurnPresetIndexByName(butterchurnPreset.value));
     return;
   }
@@ -275,7 +321,7 @@ function advanceButterchurnPresetForTrack() {
 function syncButterchurnPreset() {
   if (!state.currentTrack || !isButterchurnMode.value) return;
 
-  if (butterchurnPresetMode.value === 'single') {
+  if (!shouldRandomizeButterchurnPresets.value) {
     const selectedIndex = getButterchurnPresetIndexByName(butterchurnPreset.value || DEFAULT_BUTTERCHURN_PRESET);
     if (!butterchurnPresetLoaded.value || butterchurnPresetIndex.value !== selectedIndex) {
       loadButterchurnPreset({ index: selectedIndex, blendTime: butterchurnPresetLoaded.value ? BUTTERCHURN_BLEND_SECONDS : 0 });
@@ -284,7 +330,9 @@ function syncButterchurnPreset() {
   }
 
   if (!butterchurnPresetLoaded.value) {
-    loadButterchurnPreset({ index: butterchurnDesiredIndex.value, blendTime: 0 });
+    const initialIndex = getRandomButterchurnPresetIndex();
+    butterchurnDesiredIndex.value = initialIndex;
+    loadButterchurnPreset({ index: initialIndex, blendTime: 0 });
     return;
   }
 
@@ -313,16 +361,6 @@ function disposeButterchurnVisualizer() {
   butterchurnPresetName.value = null;
   butterchurnWasPlaying = false;
   butterchurnVisualizer = null;
-}
-
-function rotateButterchurnPreset() {
-  if (
-    !state.currentTrack
-    || !randomizeOnNewTrack.value
-    || butterchurnPresetMode.value !== 'random'
-    || !butterchurnPresetNames.length
-  ) return;
-  setButterchurnPreset(getRandomButterchurnPresetIndex(butterchurnPresetIndex.value));
 }
 
 function clearButterchurnCanvas() {
@@ -475,16 +513,18 @@ function resizeCanvas() {
 
   if (!viewportWidth || !viewportHeight) return;
 
-  const canvas2d = canvas2dRef.value;
-  if (canvas2d) {
-    canvas2d.width = Math.round(viewportWidth * dpr);
-    canvas2d.height = Math.round(viewportHeight * dpr);
+  const setCanvasContext = (canvas) => {
+    if (!canvas) return null;
+    canvas.width = Math.round(viewportWidth * dpr);
+    canvas.height = Math.round(viewportHeight * dpr);
+    const context = canvas.getContext('2d');
+    context?.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return context;
+  };
 
-    ctx = canvas2d.getContext('2d');
-    ctx?.setTransform(dpr, 0, 0, dpr, 0, 0);
-  } else {
-    ctx = null;
-  }
+  spiralCtx = setCanvasContext(spiralCanvasRef.value);
+  pillsCtx = setCanvasContext(pillsCanvasRef.value);
+  ctx = currentMode.value.value === 'pills' ? pillsCtx : spiralCtx;
 
   const butterchurnCanvas = butterchurnCanvasRef.value;
   if (butterchurnCanvas) {
@@ -497,15 +537,16 @@ function resizeCanvas() {
   }
 
   resizePills(previousWidth, previousHeight);
-  paintBackground();
+  paintBackground(spiralCtx);
+  paintBackground(pillsCtx);
 }
 
-function paintBackground() {
-  if (!ctx) return;
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.clearRect(0, 0, viewportWidth, viewportHeight);
-  ctx.fillStyle = '#13242f';
-  ctx.fillRect(0, 0, viewportWidth, viewportHeight);
+function paintBackground(targetCtx = ctx) {
+  if (!targetCtx) return;
+  targetCtx.globalCompositeOperation = 'source-over';
+  targetCtx.clearRect(0, 0, viewportWidth, viewportHeight);
+  targetCtx.fillStyle = '#13242f';
+  targetCtx.fillRect(0, 0, viewportWidth, viewportHeight);
 }
 
 function coolPills() {
@@ -773,18 +814,20 @@ function render() {
   animationFrameId = window.requestAnimationFrame(render);
   if (!viewportWidth || !viewportHeight) return;
 
-  if (isButterchurnMode.value) {
+  if (activeCanvasMode.value === 'butterchurn') {
     drawButterchurnFrame();
     return;
   }
 
-  if (!ctx) return;
-
-  if (currentMode.value.value === 'pills') {
+  if (activeCanvasMode.value === 'pills') {
+    ctx = pillsCtx;
+    if (!ctx) return;
     drawPillsFrame();
     return;
   }
 
+  ctx = spiralCtx;
+  if (!ctx) return;
   drawSpiralFrame();
 }
 
@@ -816,6 +859,14 @@ function toggleFullscreen() {
   containerRef.value.requestFullscreen?.();
 }
 
+function handleVisualizerDoubleClick(event) {
+  const interactiveTarget = event.target instanceof Element
+    ? event.target.closest('button, a, select, option, label')
+    : null;
+  if (interactiveTarget) return;
+  toggleFullscreen();
+}
+
 function handleFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
   overlayVisible.value = true;
@@ -824,10 +875,12 @@ function handleFullscreenChange() {
 }
 
 function selectMode(mode) {
+  transitionCanvasMode(mode);
   setVizMode(mode);
   showModeDropdown.value = false;
   resetMotionState();
-  paintBackground();
+  if (mode === 'pills') paintBackground(pillsCtx);
+  else if (mode === 'spiral') paintBackground(spiralCtx);
 }
 
 function clearOverlayHideTimer() {
@@ -858,8 +911,13 @@ function setHideChrome(value) {
   revealOverlay();
 }
 
+function handleButterchurnPresetChange(event) {
+  const nextPreset = event.target.value;
+  persistButterchurnPreset(nextPreset);
+}
+
 function toggleButterchurnPresetShuffle() {
-  const nextMode = butterchurnPresetMode.value === 'random' ? 'single' : 'random';
+  const nextMode = shouldRandomizeButterchurnPresets.value ? 'single' : 'random';
   if (nextMode === 'single') {
     const currentPreset = butterchurnPresetName.value
       ?? butterchurnPresetNames[butterchurnPresetIndex.value]
@@ -870,17 +928,18 @@ function toggleButterchurnPresetShuffle() {
   setButterchurnPresetMode(nextMode);
 }
 
-function handleButterchurnPresetChange(event) {
-  const nextPreset = event.target.value;
-  persistButterchurnPreset(nextPreset);
+function toggleVisualizerModeShuffle() {
+  setRandomizeOnNewTrack(!randomizeOnNewTrack.value);
 }
 
 watch(() => props.analyser, syncAnalyser);
 watch(vizMode, () => {
+  transitionCanvasMode(vizMode.value);
   resetMotionState();
   ensureButterchurnVisualizer();
   resizeCanvas();
-  paintBackground();
+  if (vizMode.value === 'pills') paintBackground(pillsCtx);
+  else if (vizMode.value === 'spiral') paintBackground(spiralCtx);
   syncButterchurnPreset();
 });
 watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
@@ -889,7 +948,18 @@ watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
     return;
   }
 
-  advanceButterchurnPresetForTrack();
+  let nextModeValue = currentMode.value.value;
+  if (shouldShuffleVisualizerModes.value) {
+    const nextMode = getRandomVizModeValue(currentMode.value.value);
+    if (nextMode) {
+      nextModeValue = nextMode;
+      setVizMode(nextMode);
+    }
+  }
+
+  if (nextModeValue === 'butterchurn') {
+    advanceButterchurnPresetForTrack();
+  }
   syncButterchurnPreset();
 });
 watch(() => state.isPlaying, () => {
@@ -927,6 +997,7 @@ onUnmounted(() => {
   stop();
   disposeButterchurnVisualizer();
   clearOverlayHideTimer();
+  clearModeTransitionTimer();
   resizeObserver?.disconnect();
   resizeObserver = null;
   document.removeEventListener('fullscreenchange', handleFullscreenChange);
@@ -942,16 +1013,22 @@ onUnmounted(() => {
     @pointermove="revealOverlay"
     @pointerdown="revealOverlay"
     @focusin="revealOverlay"
+    @dblclick="handleVisualizerDoubleClick"
   >
     <canvas
-      ref="canvas2dRef"
-      class="relative z-0 block size-full"
-      :class="currentMode.value === 'butterchurn' && 'hidden'"
+      ref="spiralCanvasRef"
+      class="visualizer-canvas relative z-0 block size-full"
+      :class="isCanvasVisible('spiral') ? 'opacity-100' : 'opacity-0'"
+    />
+    <canvas
+      ref="pillsCanvasRef"
+      class="visualizer-canvas absolute inset-0 z-0 block size-full"
+      :class="isCanvasVisible('pills') ? 'opacity-100' : 'opacity-0'"
     />
     <canvas
       ref="butterchurnCanvasRef"
-      class="relative z-0 block size-full"
-      :class="currentMode.value !== 'butterchurn' && 'hidden'"
+      class="visualizer-canvas absolute inset-0 z-0 block size-full"
+      :class="isCanvasVisible('butterchurn') ? 'opacity-100' : 'opacity-0'"
     />
     <div
       v-if="currentMode.value === 'pills'"
@@ -1011,108 +1088,145 @@ onUnmounted(() => {
         </svg>
       </button>
 
-      <div
-        v-if="showModeDropdown"
-        class="absolute right-0 top-[calc(100%+0.65rem)] flex min-w-[min(260px,calc(100vw-1.3rem))] flex-col gap-1 rounded-[0.95rem] border border-white/10 bg-zinc-950/90 p-1 shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-[18px] sm:min-w-[260px]"
-      >
-        <div class="px-3 py-[0.45rem] pb-[0.2rem] text-[0.66rem] font-semibold uppercase tracking-[0.08em] text-zinc-400/90">
-          Mode
-        </div>
-        <template v-for="option in VIZ_OPTIONS" :key="option.value">
-          <div
-            role="button"
-            tabindex="0"
-            class="relative flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
-            :class="currentMode.value === option.value && 'bg-zinc-800/95 text-zinc-50'"
-            @click="selectMode(option.value)"
-            @keydown.enter.prevent="selectMode(option.value)"
-            @keydown.space.prevent="selectMode(option.value)"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-              class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2"
-              v-html="option.icon"
-            />
-            <span
-              class="min-w-0 flex-1"
-              :class="option.value === 'butterchurn' && 'pr-8'"
-            >
-              {{ option.label }}
-            </span>
-            <button
-              v-if="option.value === 'butterchurn'"
-              type="button"
-              class="absolute right-3 top-1/2 inline-flex size-[1.75rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/15 p-0 text-zinc-300/85 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:border-white/20 hover:bg-black/30 hover:text-white"
-              :title="butterchurnPresetMode === 'random' ? 'Shuffle presets on' : 'Shuffle presets off'"
-              :style="butterchurnPresetMode === 'random'
-                ? {
-                    borderColor: `rgba(${accentRgb}, 0.55)`,
-                    backgroundColor: `rgba(${accentRgb}, 0.18)`,
-                    color: `rgb(${accentRgb})`,
-                    boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.18)`,
-                  }
-                : null"
-              @click.stop="toggleButterchurnPresetShuffle"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.92rem] shrink-0 fill-none stroke-current stroke-2">
-                <path d="M16 3h5v5" />
-                <path d="M4 20 20 4" />
-                <path d="M21 16v5h-5" />
-                <path d="M15 15 21 21" />
-                <path d="M4 4l5 5" />
-              </svg>
-            </button>
+      <Transition name="menu">
+        <div
+          v-if="showModeDropdown"
+          class="absolute right-0 top-[calc(100%+0.65rem)] flex min-w-[min(260px,calc(100vw-1.3rem))] flex-col gap-1 rounded-[0.95rem] border border-white/10 bg-zinc-950/90 p-1 shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-[18px] sm:min-w-[260px]"
+        >
+          <div class="px-3 py-[0.45rem] pb-[0.2rem] text-[0.66rem] font-semibold uppercase tracking-[0.08em] text-zinc-400/90">
+            Mode
           </div>
-
-          <div
-            v-if="option.value === 'butterchurn' && showButterchurnPresetPicker"
-            class="flex flex-col gap-2 px-3 pb-[0.35rem] pt-[0.1rem]"
-          >
-            <label for="butterchurn-preset-picker" class="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-zinc-400/90">
-              Butterchurn Preset
-            </label>
-            <div class="relative">
-              <select
-                id="butterchurn-preset-picker"
-                :value="butterchurnPreset"
-                class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-white/20 focus:border-white/25"
-                @click.stop
-                @change="handleButterchurnPresetChange"
-              >
-                <option
-                  v-for="presetOption in butterchurnPresetOptions"
-                  :key="presetOption.value"
-                  :value="presetOption.value"
-                >
-                  {{ presetOption.label }}
-                </option>
-              </select>
+          <template v-for="option in VIZ_OPTIONS" :key="option.value">
+            <div
+              role="button"
+              tabindex="0"
+              class="relative flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+              :class="currentMode.value === option.value && 'bg-zinc-800/95 text-zinc-50'"
+              @click="selectMode(option.value)"
+              @keydown.enter.prevent="selectMode(option.value)"
+              @keydown.space.prevent="selectMode(option.value)"
+            >
               <svg
                 viewBox="0 0 24 24"
                 aria-hidden="true"
-                class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 fill-none stroke-zinc-400 stroke-2"
+                class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2"
+                v-html="option.icon"
+              />
+              <span
+                class="min-w-0 flex-1"
+                :class="option.value === 'butterchurn' && 'pr-8'"
               >
-                <path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
-              </svg>
+                {{ option.label }}
+              </span>
+              <button
+                v-if="option.value === 'butterchurn'"
+                type="button"
+                class="absolute right-3 top-1/2 inline-flex size-[1.75rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/15 p-0 text-zinc-300/85 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:border-white/20 hover:bg-black/30 hover:text-white"
+                :title="shouldRandomizeButterchurnPresets ? 'Shuffle presets on' : 'Shuffle presets off'"
+                :style="shouldRandomizeButterchurnPresets
+                  ? {
+                      borderColor: `rgba(${accentRgb}, 0.55)`,
+                      backgroundColor: `rgba(${accentRgb}, 0.18)`,
+                      color: `rgb(${accentRgb})`,
+                      boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.18)`,
+                    }
+                  : null"
+                @click.stop="toggleButterchurnPresetShuffle"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.92rem] shrink-0 fill-none stroke-current stroke-2">
+                  <path d="M16 3h5v5" />
+                  <path d="M4 20 20 4" />
+                  <path d="M21 16v5h-5" />
+                  <path d="M15 15 21 21" />
+                  <path d="M4 4l5 5" />
+                </svg>
+              </button>
             </div>
+
+            <div
+              v-if="option.value === 'butterchurn' && showButterchurnPresetPicker"
+              class="flex flex-col gap-2 px-3 pb-[0.35rem] pt-[0.1rem]"
+            >
+              <label for="butterchurn-preset-picker" class="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-zinc-400/90">
+                Butterchurn Preset
+              </label>
+              <div class="relative">
+                <select
+                  id="butterchurn-preset-picker"
+                  :value="butterchurnPreset"
+                  class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-white/20 focus:border-white/25"
+                  @click.stop
+                  @change="handleButterchurnPresetChange"
+                >
+                  <option
+                    v-for="presetOption in butterchurnPresetOptions"
+                    :key="presetOption.value"
+                    :value="presetOption.value"
+                  >
+                    {{ presetOption.label }}
+                  </option>
+                </select>
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 fill-none stroke-zinc-400 stroke-2"
+                >
+                  <path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
+            </div>
+          </template>
+
+          <div class="mt-[0.2rem] flex items-center gap-2 px-3 pb-[0.15rem] pt-[0.35rem]">
+            <div class="h-px flex-1 bg-white/10" />
+            <span class="text-[0.62rem] font-semibold uppercase tracking-[0.1em] text-zinc-500/90">
+              General
+            </span>
+            <div class="h-px flex-1 bg-white/10" />
           </div>
-        </template>
 
-        <button
-          type="button"
-          class="mt-[0.2rem] flex w-full items-center gap-[0.65rem] border-t border-white/10 rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
-          :class="hideChrome && 'rounded-[0.7rem] bg-zinc-800/95 text-zinc-50'"
-          @click="setHideChrome(!hideChrome)"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
-            <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
-            <circle cx="12" cy="12" r="3" />
-          </svg>
-          <span>Auto-hide controls</span>
-        </button>
+          <button
+            type="button"
+            class="flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color,border-color,box-shadow] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+            :class="shouldShuffleVisualizerModes && 'bg-zinc-800/95 text-zinc-50'"
+            :style="shouldShuffleVisualizerModes
+              ? {
+                  borderColor: `rgba(${accentRgb}, 0.35)`,
+                  boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.2)`,
+                }
+              : null"
+            @click="toggleVisualizerModeShuffle"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
+              <path d="M16 3h5v5" />
+              <path d="M4 20 20 4" />
+              <path d="M21 16v5h-5" />
+              <path d="M15 15 21 21" />
+              <path d="M4 4l5 5" />
+            </svg>
+            <span>Shuffle visualizer mode</span>
+          </button>
 
-      </div>
+          <button
+            type="button"
+            class="mt-[0.2rem] flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color,border-color,box-shadow] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+            :class="hideChrome && 'rounded-[0.7rem] bg-zinc-800/95 text-zinc-50'"
+            :style="hideChrome
+              ? {
+                  borderColor: `rgba(${accentRgb}, 0.35)`,
+                  boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.2)`,
+                }
+              : null"
+            @click="setHideChrome(!hideChrome)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
+              <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6S2 12 2 12Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <span>Auto-hide controls</span>
+          </button>
+        </div>
+      </Transition>
 
       <button
         type="button"
@@ -1129,11 +1243,35 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <div v-if="showModeDropdown" class="absolute inset-0 z-[3]" @click="showModeDropdown = false" />
+    <Transition name="fade">
+      <div v-if="showModeDropdown" class="absolute inset-0 z-[3]" @click="showModeDropdown = false" />
+    </Transition>
   </section>
 </template>
 
 <style scoped>
+.visualizer-canvas {
+  transition: opacity 0.65s ease;
+}
+
+.menu-enter-active, .menu-leave-active {
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  transform-origin: top right;
+}
+
+.menu-enter-from, .menu-leave-to {
+  opacity: 0;
+  transform: translateY(-0.2rem) scale(0.96);
+}
+
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
+}
+
 .visualizer {
   min-height: calc(100vh - 5.5rem);
 }
