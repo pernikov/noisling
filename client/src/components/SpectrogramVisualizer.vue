@@ -82,7 +82,7 @@ const hideChrome = ref(
 const overlayVisible = ref(true);
 
 const { state, getVisualizerAnalyser, getVisualizerGraph, resumeVisualizerContext } = usePlayer();
-const { accentColor: artworkAccentColor } = useAccentColor();
+const { accentColor: artworkAccentColor, accentPalette: artworkAccentPalette } = useAccentColor();
 const {
   accentRgb,
   vizMode,
@@ -163,12 +163,13 @@ const showButterchurnPresetPicker = computed(() => (
 ));
 const orbBackdropStyle = computed(() => {
   const pulse = clamp01(orbBackdropPulse);
-  const coreAlpha = 0.06 + pulse * 0.22;
-  const haloAlpha = 0.03 + pulse * 0.12;
+  const [primary, secondary = primary] = getArtworkPalette();
+  const coreAlpha = 0.05 + pulse * 0.2;
+  const haloAlpha = 0.05 + pulse * 0.16;
   return {
     opacity: isCanvasVisible('orb') ? 1 : 0,
-    transform: `scale(${1 + pulse * 0.065})`,
-    background: `radial-gradient(circle at 50% 50%, rgba(${accentRgb.value}, ${coreAlpha}) 0%, rgba(${accentRgb.value}, ${haloAlpha}) 26%, rgba(${accentRgb.value}, 0) 60%)`,
+    transform: `scale(${1 + pulse * 0.075})`,
+    background: `radial-gradient(circle at 44% 42%, rgba(${primary.join(', ')}, ${coreAlpha}) 0%, rgba(${secondary.join(', ')}, ${haloAlpha}) 28%, rgba(${secondary.join(', ')}, 0) 62%)`,
   };
 });
 
@@ -810,6 +811,13 @@ function getAccentRgb() {
   return parts.length === 3 ? parts : [52, 211, 153];
 }
 
+function getArtworkPalette() {
+  const parsed = (artworkAccentPalette.value ?? [])
+    .map(color => color.split(',').map(part => Number(part.trim())))
+    .filter(parts => parts.length === 3 && parts.every(value => Number.isFinite(value)));
+  return parsed.length ? parsed : [getAccentRgb()];
+}
+
 function getVisualizerPalette() {
   const [r, g, b] = getAccentRgb();
   return [
@@ -1087,13 +1095,25 @@ function drawOrbFrame() {
   if (!orb) return;
 
   analyzeAudioFrame();
-  const [red, green, blue] = getAccentRgb();
-  const accentColor = new orbThree.Color(`rgb(${red}, ${green}, ${blue})`);
+  const [primaryRgb, secondaryRgb = primaryRgb] = getArtworkPalette();
+  const primaryColor = new orbThree.Color(`rgb(${primaryRgb.join(', ')})`);
+  const secondaryColor = new orbThree.Color(`rgb(${secondaryRgb.join(', ')})`);
 
-  // Boost lightness so wireframe always contrasts the dark background
-  const hsl = {};
-  accentColor.getHSL(hsl);
-  const wireColor = new orbThree.Color().setHSL(hsl.h, Math.max(0.6, hsl.s), Math.max(0.80, hsl.l));
+  // Keep the original bright wire look, but let it borrow a secondary cover tone.
+  const primaryHsl = {};
+  const secondaryHsl = {};
+  primaryColor.getHSL(primaryHsl);
+  secondaryColor.getHSL(secondaryHsl);
+  const brightPrimary = new orbThree.Color().setHSL(
+    primaryHsl.h,
+    Math.max(0.6, primaryHsl.s),
+    Math.max(0.80, primaryHsl.l),
+  );
+  const brightSecondary = new orbThree.Color().setHSL(
+    secondaryHsl.h,
+    Math.max(0.5, secondaryHsl.s),
+    Math.max(0.72, secondaryHsl.l),
+  );
   let averageFrequency = 0;
   if (state.isPlaying && analyserRef.value && frequencyData) {
     for (let index = 0; index < frequencyData.length; index += 1) {
@@ -1102,6 +1122,8 @@ function drawOrbFrame() {
     averageFrequency /= Math.max(1, frequencyData.length);
   }
   orbBackdropPulse += ((smoothBass * 1.05 + beatBoost * 0.6) - orbBackdropPulse) * 0.2;
+  const mixAmount = 0.28 + Math.min(0.2, averageFrequency / 255 * 0.2);
+  const wireColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
 
   const uniforms = orb.mesh.material.uniforms;
   uniforms.uTime.value = orb.clock.getElapsedTime();
