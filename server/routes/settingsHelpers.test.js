@@ -17,7 +17,7 @@ test('buildSettingsResponse fills defaults for missing optional settings', () =>
   assert.equal(response.themeColor, 'none');
   assert.equal(response.density, 'comfortable');
   assert.deepEqual(response.tracksSort, { field: 'artist', dir: 'asc' });
-  assert.equal(response.vizMode, 'spiral');
+  assert.equal(response.vizMode, 'pills');
   assert.equal(response.showPlaylists, true);
 });
 
@@ -37,9 +37,9 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
   assert.equal(response.butterchurnPreset, 'Custom Preset');
 });
 
-test('normalizeVizMode maps nebula to pills', () => {
+test('normalizeVizMode maps legacy visualizer values', () => {
   assert.equal(normalizeVizMode('nebula'), 'pills');
-  assert.equal(normalizeVizMode('spiral'), 'spiral');
+  assert.equal(normalizeVizMode('spiral'), 'orb');
   assert.equal(normalizeVizMode('orb'), 'orb');
 });
 

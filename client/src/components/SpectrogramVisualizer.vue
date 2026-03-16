@@ -28,10 +28,13 @@ const VIZ_OPTIONS = [
     },
   },
   {
-    value: 'spiral',
-    label: 'Spiral',
-    icon: '<circle cx="12" cy="12" r="3"/><path d="M12 2a10 10 0 0 1 4 19.3M12 2a10 10 0 0 0-4 19.3"/>',
-    credit: null,
+    value: 'orb',
+    label: 'Orb',
+    icon: '<circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>',
+    credit: {
+      label: 'Inspired by Wael Yasmina',
+      url: 'https://github.com/WaelYasmina/audiovisualizer',
+    },
   },
   {
     value: 'butterchurn',
@@ -40,15 +43,6 @@ const VIZ_OPTIONS = [
     credit: {
       label: 'Butterchurn by Jordan Berg',
       url: 'https://github.com/jberg/butterchurn',
-    },
-  },
-  {
-    value: 'orb',
-    label: 'Orb',
-    icon: '<circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>',
-    credit: {
-      label: 'Inspired by Wael Yasmina',
-      url: 'https://github.com/WaelYasmina/audiovisualizer',
     },
   },
 ];
@@ -70,18 +64,7 @@ const butterchurnPresetNames = BUTTERCHURN_PRESET_OPTIONS
 const butterchurnPresetOptions = BUTTERCHURN_PRESET_OPTIONS
   .filter(option => butterchurnPresetMap[option.value]);
 
-const BUBBLES = [
-  { phase: 0, speed: 0.4, orbitX: 0.28, orbitY: 0.22, band: 'bass', baseSize: 0.45 },
-  { phase: 1.2, speed: 0.3, orbitX: 0.32, orbitY: 0.28, band: 'bass', baseSize: 0.4 },
-  { phase: 2.5, speed: 0.45, orbitX: 0.22, orbitY: 0.32, band: 'mid', baseSize: 0.35 },
-  { phase: 3.8, speed: 0.35, orbitX: 0.38, orbitY: 0.18, band: 'mid', baseSize: 0.3 },
-  { phase: 5.0, speed: 0.5, orbitX: 0.18, orbitY: 0.38, band: 'high', baseSize: 0.25 },
-  { phase: 0.7, speed: 0.25, orbitX: 0.3, orbitY: 0.3, band: 'bass', baseSize: 0.5 },
-  { phase: 4.2, speed: 0.42, orbitX: 0.25, orbitY: 0.2, band: 'high', baseSize: 0.22 },
-];
-
 const containerRef = ref(null);
-const spiralCanvasRef = ref(null);
 const pillsCanvasRef = ref(null);
 const butterchurnCanvasRef = ref(null);
 const orbCanvasRef = ref(null);
@@ -115,7 +98,6 @@ const activeCanvasMode = ref(vizMode.value);
 const fadingCanvasMode = ref(null);
 
 let ctx = null;
-let spiralCtx = null;
 let pillsCtx = null;
 let animationFrameId = 0;
 let resizeObserver = null;
@@ -131,8 +113,6 @@ let smoothHigh = 0;
 let smoothRms = 0;
 let prevBass = 0;
 let beatBoost = 0;
-let spiralAngle = 2.44;
-let spiralDirection = true;
 let overlayHideTimer = 0;
 let lastOverlayRevealAt = 0;
 let butterchurnVisualizer = null;
@@ -830,7 +810,7 @@ function getAccentRgb() {
   return parts.length === 3 ? parts : [52, 211, 153];
 }
 
-function getSpiralPalette() {
+function getVisualizerPalette() {
   const [r, g, b] = getAccentRgb();
   return [
     [r, g, b],
@@ -887,9 +867,8 @@ function resizeCanvas() {
     return context;
   };
 
-  spiralCtx = setCanvasContext(spiralCanvasRef.value);
   pillsCtx = setCanvasContext(pillsCanvasRef.value);
-  ctx = currentMode.value.value === 'pills' ? pillsCtx : spiralCtx;
+  ctx = pillsCtx;
 
   const butterchurnCanvas = butterchurnCanvasRef.value;
   if (butterchurnCanvas) {
@@ -916,7 +895,6 @@ function resizeCanvas() {
   }
 
   resizePills(previousWidth, previousHeight);
-  paintBackground(spiralCtx);
   paintBackground(pillsCtx);
 }
 
@@ -1003,136 +981,13 @@ function analyzeAudioFrame() {
   };
 }
 
-function drawSpiralBubbles(palette, gateFactor, width, height, centerX, centerY, minDim) {
-  ctx.globalCompositeOperation = 'screen';
-
-  for (let index = 0; index < BUBBLES.length; index += 1) {
-    const bubble = BUBBLES[index];
-    const [r, g, b] = palette[index % palette.length];
-    const bandValue = bubble.band === 'bass'
-      ? smoothBass
-      : bubble.band === 'mid'
-        ? smoothMid
-        : smoothHigh;
-
-    const orbitTime = visualTime * bubble.speed + bubble.phase;
-    const bubbleX = centerX + Math.sin(orbitTime) * width * bubble.orbitX + Math.cos(orbitTime * 0.7) * width * 0.1;
-    const bubbleY = centerY + Math.cos(orbitTime) * height * bubble.orbitY + Math.sin(orbitTime * 0.6) * height * 0.08;
-    const radius = minDim * bubble.baseSize * (0.1 + bandValue * 1.6);
-
-    if (radius < 2) continue;
-
-    const gradient = ctx.createRadialGradient(bubbleX, bubbleY, 0, bubbleX, bubbleY, radius);
-    const alpha = (0.1 + bandValue * 0.22) * gateFactor;
-    gradient.addColorStop(0, `rgba(${r},${g},${b},${alpha})`);
-    gradient.addColorStop(0.4, `rgba(${r},${g},${b},${alpha * 0.45})`);
-    gradient.addColorStop(1, `rgba(${r},${g},${b},0)`);
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(bubbleX - radius, bubbleY - radius, radius * 2, radius * 2);
-  }
-
-  ctx.globalCompositeOperation = 'source-over';
-}
-
-function drawSpiralFrame() {
-  const frame = analyzeAudioFrame();
-  if (!frame) return;
-
-  const { energy } = frame;
-  const width = viewportWidth;
-  const height = viewportHeight;
-  const centerX = width / 2;
-  const centerY = height / 2;
-  const minDim = Math.min(width, height);
-
-  const idle = !state.isPlaying || energy < 0.006;
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = idle
-    ? 'rgba(9, 9, 11, 0.28)'
-    : `rgba(9, 9, 11, ${0.12 + (1 - energy) * 0.18})`;
-  ctx.fillRect(0, 0, width, height);
-
-  if (idle && energy < 0.0012) return;
-
-  const gateFactor = Math.min(1, energy / 0.018);
-  visualTime += 0.008;
-
-  if (spiralDirection) {
-    spiralAngle += 0.0000015;
-    if (spiralAngle >= 2.48) spiralDirection = false;
-  } else {
-    spiralAngle -= 0.000002;
-    if (spiralAngle <= 2.42) spiralDirection = true;
-  }
-
-  const palette = getSpiralPalette();
-  const [pr, pg, pb] = palette[0];
-  const coreGlow = ctx.createRadialGradient(
-    centerX,
-    centerY,
-    minDim * 0.04,
-    centerX,
-    centerY,
-    minDim * (0.34 + smoothBass * 0.16),
-  );
-  coreGlow.addColorStop(0, `rgba(${pr},${pg},${pb},${0.12 + energy * 0.18})`);
-  coreGlow.addColorStop(0.45, `rgba(${pr},${pg},${pb},${0.05 + energy * 0.06})`);
-  coreGlow.addColorStop(1, 'rgba(9,9,11,0)');
-  ctx.fillStyle = coreGlow;
-  ctx.fillRect(0, 0, width, height);
-
-  drawSpiralBubbles(palette, gateFactor, width, height, centerX, centerY, minDim);
-
-  const pointCount = 256;
-  const baseRadius = minDim * (0.15 + smoothBass * 0.07 + beatBoost * 0.06);
-  const waveAmplitude = minDim * (0.1 + beatBoost * 0.05) * (0.3 + energy * 0.7);
-  const ringPoints = [];
-
-  for (let index = 0; index <= pointCount; index += 1) {
-    const sampleIndex = Math.floor((index % pointCount) / pointCount * timeDomainData.length);
-    const sample = timeDomainData[sampleIndex] || 0;
-    const angle = (index / pointCount) * Math.PI * 2 - Math.PI / 2 + spiralAngle;
-    const radius = baseRadius + sample * waveAmplitude + Math.sin(angle * 3 + visualTime * 1.2) * minDim * 0.012 * gateFactor;
-    ringPoints.push({
-      x: centerX + Math.cos(angle) * radius,
-      y: centerY + Math.sin(angle) * radius,
-    });
-  }
-
-  const ringAlpha = (0.15 + energy * 0.5 + beatBoost * 0.3) * gateFactor;
-
-  ctx.globalCompositeOperation = 'lighter';
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  const strokeRing = (strokeStyle, lineWidth) => {
-    ctx.beginPath();
-    for (let index = 0; index <= pointCount; index += 1) {
-      if (index === 0) ctx.moveTo(ringPoints[index].x, ringPoints[index].y);
-      else ctx.lineTo(ringPoints[index].x, ringPoints[index].y);
-    }
-    ctx.closePath();
-    ctx.strokeStyle = strokeStyle;
-    ctx.lineWidth = lineWidth;
-    ctx.stroke();
-  };
-
-  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha * 0.05})`, 16);
-  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha * 0.18})`, 5);
-  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha})`, 1.5);
-  strokeRing(`rgba(${pr},${pg},${pb},${ringAlpha * 0.08})`, 9);
-
-  ctx.globalCompositeOperation = 'source-over';
-}
-
 function drawPillsFrame() {
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = state.isPlaying ? 'rgba(19, 36, 47, 0.42)' : 'rgba(19, 36, 47, 0.66)';
   ctx.fillRect(0, 0, viewportWidth, viewportHeight);
 
   let averageEnergy = 0;
-  const palette = getSpiralPalette();
+  const palette = getVisualizerPalette();
 
   if (state.isPlaying && analyserRef.value && frequencyData) {
     analyserRef.value.getByteFrequencyData(frequencyData);
@@ -1278,12 +1133,7 @@ function render() {
     ctx = pillsCtx;
     if (!ctx) return;
     drawPillsFrame();
-    return;
   }
-
-  ctx = spiralCtx;
-  if (!ctx) return;
-  drawSpiralFrame();
 }
 
 function start() {
@@ -1335,7 +1185,6 @@ function selectMode(mode) {
   showModeDropdown.value = false;
   resetMotionState();
   if (mode === 'pills') paintBackground(pillsCtx);
-  else if (mode === 'spiral') paintBackground(spiralCtx);
   else if (mode === 'orb') preloadOrbVisualizer();
 }
 
@@ -1396,7 +1245,6 @@ watch(vizMode, () => {
   if (vizMode.value === 'orb') preloadOrbVisualizer();
   resizeCanvas();
   if (vizMode.value === 'pills') paintBackground(pillsCtx);
-  else if (vizMode.value === 'spiral') paintBackground(spiralCtx);
   syncButterchurnPreset();
 });
 watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
@@ -1474,13 +1322,8 @@ onUnmounted(() => {
     @dblclick="handleVisualizerDoubleClick"
   >
     <canvas
-      ref="spiralCanvasRef"
-      class="visualizer-canvas relative z-0 block size-full"
-      :class="isCanvasVisible('spiral') ? 'opacity-100' : 'opacity-0'"
-    />
-    <canvas
       ref="pillsCanvasRef"
-      class="visualizer-canvas absolute inset-0 z-0 block size-full"
+      class="visualizer-canvas relative z-0 block size-full"
       :class="isCanvasVisible('pills') ? 'opacity-100' : 'opacity-0'"
     />
     <canvas

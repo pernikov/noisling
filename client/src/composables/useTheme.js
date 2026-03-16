@@ -76,9 +76,10 @@ const VIZ_MODE_KEY  = 'noisling_vizmode';
 const RANDOMIZE_KEY = 'noisling_randomize';
 const BUTTERCHURN_PRESET_MODE_KEY = 'noisling_butterchurn_preset_mode';
 const BUTTERCHURN_PRESET_KEY = 'noisling_butterchurn_preset';
-const VALID_VIZ_MODES = ['spiral', 'pills', 'butterchurn', 'orb'];
+const VALID_VIZ_MODES = ['pills', 'orb', 'butterchurn'];
 function normalizeVizMode(value) {
   if (value === 'nebula') return 'pills';
+  if (value === 'spiral') return 'orb';
   return value;
 }
 

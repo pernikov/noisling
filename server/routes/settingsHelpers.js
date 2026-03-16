@@ -3,7 +3,7 @@ export const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 export const VALID_REPEAT = ['off', 'all', 'one'];
 export const VALID_DENSITY = ['comfortable', 'compact'];
 export const VALID_FONT = ['small', 'medium', 'large'];
-export const VALID_VIZ_MODES = ['spiral', 'pills', 'butterchurn', 'orb'];
+export const VALID_VIZ_MODES = ['pills', 'orb', 'butterchurn'];
 export const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
 export const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to the sherwin maxawow';
 export const VALID_SORT_DIRS = ['asc', 'desc'];
@@ -35,7 +35,7 @@ export function buildSettingsResponse(settings) {
     homeShowQuickPlay: settings.homeShowQuickPlay ?? true,
     homeShowRecent: settings.homeShowRecent ?? true,
     homeShowAlbums: settings.homeShowAlbums ?? true,
-    vizMode: settings.vizMode ?? 'spiral',
+    vizMode: normalizeVizMode(settings.vizMode ?? 'pills'),
     randomizeOnNewTrack: settings.randomizeOnNewTrack ?? false,
     butterchurnPresetMode: settings.butterchurnPresetMode === 'random' ? 'random' : 'single',
     butterchurnPreset: typeof settings.butterchurnPreset === 'string' && settings.butterchurnPreset.trim()
@@ -49,6 +49,7 @@ export function buildSettingsResponse(settings) {
 
 export function normalizeVizMode(value) {
   if (value === 'nebula') return 'pills';
+  if (value === 'spiral') return 'orb';
   return value;
 }
 
