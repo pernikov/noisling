@@ -42,6 +42,15 @@ const VIZ_OPTIONS = [
       url: 'https://github.com/jberg/butterchurn',
     },
   },
+  {
+    value: 'orb',
+    label: 'Orb',
+    icon: '<circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>',
+    credit: {
+      label: 'Inspired by Wael Yasmina',
+      url: 'https://github.com/WaelYasmina/audiovisualizer',
+    },
+  },
 ];
 const PILL_SCALE = { min: 5, max: 80 };
 const PILL_SPEED = { min: 0.2, max: 1.0 };
@@ -75,6 +84,7 @@ const containerRef = ref(null);
 const spiralCanvasRef = ref(null);
 const pillsCanvasRef = ref(null);
 const butterchurnCanvasRef = ref(null);
+const orbCanvasRef = ref(null);
 const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
 const showModeDropdown = ref(false);
@@ -118,6 +128,7 @@ let visualTime = 0;
 let smoothBass = 0;
 let smoothMid = 0;
 let smoothHigh = 0;
+let smoothRms = 0;
 let prevBass = 0;
 let beatBoost = 0;
 let spiralAngle = 2.44;
@@ -127,6 +138,31 @@ let lastOverlayRevealAt = 0;
 let butterchurnVisualizer = null;
 let butterchurnConnected = false;
 let butterchurnSupported = null;
+let orbRenderer = null;
+let orbComposer = null;
+let orbScene = null;
+let orbCamera = null;
+let orbMesh = null;
+let orbAuraMesh = null;
+let orbBackGlowMesh = null;
+let orbPointLight = null;
+let orbClock = null;
+let orbSupported = null;
+let orbPointerX = 0;
+let orbPointerY = 0;
+let smoothOrbFrequency = 0;
+let orbBeatPulse = 0;
+let smoothOrbBody = 0;
+let smoothOrbDetail = 0;
+let orbBackdropPulse = 0;
+let prevFrequencyFrame = null;
+let orbThree = null;
+let orbEffectComposerCtor = null;
+let orbRenderPassCtor = null;
+let orbUnrealBloomPassCtor = null;
+let orbOutputPassCtor = null;
+let orbBloomPass = null;
+let orbModulePromise = null;
 const butterchurnPresetLoaded = ref(false);
 const butterchurnPresetName = ref(null);
 let butterchurnWasPlaying = false;
@@ -139,11 +175,22 @@ const currentMode = computed(() =>
   VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
 );
 const isButterchurnMode = computed(() => currentMode.value.value === 'butterchurn');
+const isOrbMode = computed(() => currentMode.value.value === 'orb');
 const shouldShuffleVisualizerModes = computed(() => randomizeOnNewTrack.value);
 const shouldRandomizeButterchurnPresets = computed(() => butterchurnPresetMode.value === 'random');
 const showButterchurnPresetPicker = computed(() => (
   butterchurnPresetMode.value === 'single'
 ));
+const orbBackdropStyle = computed(() => {
+  const pulse = clamp01(orbBackdropPulse);
+  const coreAlpha = 0.06 + pulse * 0.22;
+  const haloAlpha = 0.03 + pulse * 0.12;
+  return {
+    opacity: isCanvasVisible('orb') ? 1 : 0,
+    transform: `scale(${1 + pulse * 0.065})`,
+    background: `radial-gradient(circle at 50% 50%, rgba(${accentRgb.value}, ${coreAlpha}) 0%, rgba(${accentRgb.value}, ${haloAlpha}) 26%, rgba(${accentRgb.value}, 0) 60%)`,
+  };
+});
 
 const shouldShowOverlay = computed(() => {
   if (showModeDropdown.value) return true;
@@ -155,6 +202,13 @@ const message = computed(() => {
     return {
       title: 'Butterchurn unavailable',
       body: 'This browser does not expose the shared Web Audio graph with WebGL 2 support.',
+    };
+  }
+
+  if (isOrbMode.value && !isOrbAvailable()) {
+    return {
+      title: 'Orb unavailable',
+      body: 'This browser does not expose the WebGL renderer needed for the Orb visualizer.',
     };
   }
 
@@ -170,6 +224,42 @@ const message = computed(() => {
 
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
+}
+
+function clamp01(value) {
+  return Math.max(0, Math.min(1, value));
+}
+
+function smoothstep(edge0, edge1, x) {
+  const t = clamp01((x - edge0) / Math.max(0.0001, edge1 - edge0));
+  return t * t * (3 - 2 * t);
+}
+
+function compress01(value, strength = 1) {
+  const safe = Math.max(0, value);
+  return 1 - Math.exp(-safe * strength);
+}
+
+function approachAsymmetric(current, target, attack, release) {
+  const factor = target > current ? attack : release;
+  return current + (target - current) * factor;
+}
+
+function getFrequencyBandLevel(minHz, maxHz, sampleRate) {
+  if (!frequencyData?.length || !sampleRate) return 0;
+
+  const nyquist = sampleRate / 2;
+  const minIndex = Math.max(0, Math.floor((minHz / nyquist) * frequencyData.length));
+  const maxIndex = Math.min(
+    frequencyData.length - 1,
+    Math.ceil((maxHz / nyquist) * frequencyData.length),
+  );
+
+  if (maxIndex < minIndex) return 0;
+
+  let total = 0;
+  for (let index = minIndex; index <= maxIndex; index += 1) total += frequencyData[index];
+  return total / Math.max(1, maxIndex - minIndex + 1) / 255;
 }
 
 function getButterchurnPresetAt(index) {
@@ -237,6 +327,253 @@ function ensureButterchurnVisualizer() {
   }
 
   return butterchurnVisualizer;
+}
+
+function getOrbVertexShader() {
+  return `
+    uniform float uTime;
+    uniform float uFrequency;
+
+    vec3 mod289(vec3 x) {
+      return x - floor(x * (1.0 / 289.0)) * 289.0;
+    }
+
+    vec4 mod289(vec4 x) {
+      return x - floor(x * (1.0 / 289.0)) * 289.0;
+    }
+
+    vec4 permute(vec4 x) {
+      return mod289(((x * 34.0) + 10.0) * x);
+    }
+
+    vec4 taylorInvSqrt(vec4 r) {
+      return 1.79284291400159 - 0.85373472095314 * r;
+    }
+
+    vec3 fade(vec3 t) {
+      return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
+    }
+
+    float pnoise(vec3 P, vec3 rep) {
+      vec3 Pi0 = mod(floor(P), rep);
+      vec3 Pi1 = mod(Pi0 + vec3(1.0), rep);
+      Pi0 = mod289(Pi0);
+      Pi1 = mod289(Pi1);
+      vec3 Pf0 = fract(P);
+      vec3 Pf1 = Pf0 - vec3(1.0);
+      vec4 ix = vec4(Pi0.x, Pi1.x, Pi0.x, Pi1.x);
+      vec4 iy = vec4(Pi0.yy, Pi1.yy);
+      vec4 iz0 = Pi0.zzzz;
+      vec4 iz1 = Pi1.zzzz;
+
+      vec4 ixy = permute(permute(ix) + iy);
+      vec4 ixy0 = permute(ixy + iz0);
+      vec4 ixy1 = permute(ixy + iz1);
+
+      vec4 gx0 = ixy0 * (1.0 / 7.0);
+      vec4 gy0 = fract(floor(gx0) * (1.0 / 7.0)) - 0.5;
+      gx0 = fract(gx0);
+      vec4 gz0 = vec4(0.5) - abs(gx0) - abs(gy0);
+      vec4 sz0 = step(gz0, vec4(0.0));
+      gx0 -= sz0 * (step(0.0, gx0) - 0.5);
+      gy0 -= sz0 * (step(0.0, gy0) - 0.5);
+
+      vec4 gx1 = ixy1 * (1.0 / 7.0);
+      vec4 gy1 = fract(floor(gx1) * (1.0 / 7.0)) - 0.5;
+      gx1 = fract(gx1);
+      vec4 gz1 = vec4(0.5) - abs(gx1) - abs(gy1);
+      vec4 sz1 = step(gz1, vec4(0.0));
+      gx1 -= sz1 * (step(0.0, gx1) - 0.5);
+      gy1 -= sz1 * (step(0.0, gy1) - 0.5);
+
+      vec3 g000 = vec3(gx0.x, gy0.x, gz0.x);
+      vec3 g100 = vec3(gx0.y, gy0.y, gz0.y);
+      vec3 g010 = vec3(gx0.z, gy0.z, gz0.z);
+      vec3 g110 = vec3(gx0.w, gy0.w, gz0.w);
+      vec3 g001 = vec3(gx1.x, gy1.x, gz1.x);
+      vec3 g101 = vec3(gx1.y, gy1.y, gz1.y);
+      vec3 g011 = vec3(gx1.z, gy1.z, gz1.z);
+      vec3 g111 = vec3(gx1.w, gy1.w, gz1.w);
+
+      vec4 norm0 = taylorInvSqrt(vec4(dot(g000, g000), dot(g010, g010), dot(g100, g100), dot(g110, g110)));
+      g000 *= norm0.x;
+      g010 *= norm0.y;
+      g100 *= norm0.z;
+      g110 *= norm0.w;
+      vec4 norm1 = taylorInvSqrt(vec4(dot(g001, g001), dot(g011, g011), dot(g101, g101), dot(g111, g111)));
+      g001 *= norm1.x;
+      g011 *= norm1.y;
+      g101 *= norm1.z;
+      g111 *= norm1.w;
+
+      float n000 = dot(g000, Pf0);
+      float n100 = dot(g100, vec3(Pf1.x, Pf0.yz));
+      float n010 = dot(g010, vec3(Pf0.x, Pf1.y, Pf0.z));
+      float n110 = dot(g110, vec3(Pf1.xy, Pf0.z));
+      float n001 = dot(g001, vec3(Pf0.xy, Pf1.z));
+      float n101 = dot(g101, vec3(Pf1.x, Pf0.y, Pf1.z));
+      float n011 = dot(g011, vec3(Pf0.x, Pf1.yz));
+      float n111 = dot(g111, Pf1);
+
+      vec3 fade_xyz = fade(Pf0);
+      vec4 n_z = mix(vec4(n000, n100, n010, n110), vec4(n001, n101, n011, n111), fade_xyz.z);
+      vec2 n_yz = mix(n_z.xy, n_z.zw, fade_xyz.y);
+      float n_xyz = mix(n_yz.x, n_yz.y, fade_xyz.x);
+      return 2.2 * n_xyz;
+    }
+
+    void main() {
+      float noise = 3.0 * pnoise(position + uTime, vec3(10.0));
+      float displacement = (uFrequency / 30.0) * (noise / 10.0);
+      vec3 newPosition = position + normal * displacement;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
+    }
+  `;
+}
+
+function getOrbFragmentShader() {
+  return `
+    uniform vec3 uAccent;
+
+    void main() {
+      gl_FragColor = vec4(uAccent, 1.0);
+    }
+  `;
+}
+
+function isOrbAvailable() {
+  if (orbSupported !== null) return orbSupported;
+  if (typeof document === 'undefined') {
+    orbSupported = false;
+    return orbSupported;
+  }
+
+  const canvas = document.createElement('canvas');
+  let gl = null;
+
+  try {
+    gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+  } catch {
+    gl = null;
+  }
+
+  orbSupported = Boolean(gl);
+  return orbSupported;
+}
+
+async function loadOrbModules() {
+  if (orbThree && orbEffectComposerCtor && orbRenderPassCtor && orbUnrealBloomPassCtor && orbOutputPassCtor) return;
+  if (!orbModulePromise) {
+    orbModulePromise = Promise.all([
+      import('three'),
+      import('three/examples/jsm/postprocessing/EffectComposer.js'),
+      import('three/examples/jsm/postprocessing/RenderPass.js'),
+      import('three/examples/jsm/postprocessing/UnrealBloomPass.js'),
+      import('three/examples/jsm/postprocessing/OutputPass.js'),
+    ]).then(([threeModule, composerModule, renderPassModule, bloomPassModule, outputPassModule]) => {
+      orbThree = threeModule;
+      orbEffectComposerCtor = composerModule.EffectComposer;
+      orbRenderPassCtor = renderPassModule.RenderPass;
+      orbUnrealBloomPassCtor = bloomPassModule.UnrealBloomPass;
+      orbOutputPassCtor = outputPassModule.OutputPass;
+    });
+  }
+  await orbModulePromise;
+}
+
+function preloadOrbVisualizer() {
+  if (!isOrbAvailable()) return;
+  void loadOrbModules()
+    .then(() => {
+      if (!isOrbMode.value) return;
+      ensureOrbVisualizer();
+      resizeCanvas();
+    })
+    .catch(() => {
+      orbSupported = false;
+    });
+}
+
+function disposeThreeObject(object) {
+  if (!object) return;
+  object.geometry?.dispose?.();
+  if (Array.isArray(object.material)) {
+    for (const material of object.material) material?.dispose?.();
+    return;
+  }
+  object.material?.dispose?.();
+}
+
+function ensureOrbVisualizer() {
+  if (!isOrbMode.value || !isOrbAvailable()) return null;
+  if (!orbThree || !orbEffectComposerCtor || !orbRenderPassCtor || !orbUnrealBloomPassCtor || !orbOutputPassCtor) {
+    preloadOrbVisualizer();
+    return null;
+  }
+
+  const canvas = orbCanvasRef.value;
+  if (!canvas) return null;
+
+  if (!orbRenderer) {
+    orbRenderer = new orbThree.WebGLRenderer({
+      canvas,
+      antialias: true,
+      alpha: false,
+      powerPreference: 'high-performance',
+    });
+    orbRenderer.outputColorSpace = orbThree.SRGBColorSpace;
+    orbRenderer.setClearColor(0x000000, 1);
+
+    orbScene = new orbThree.Scene();
+    orbCamera = new orbThree.PerspectiveCamera(45, 1, 0.1, 100);
+    orbCamera.position.set(0, -2, 14);
+
+    const uniforms = {
+      uTime: { value: 0 },
+      uFrequency: { value: 0 },
+      uAccent: { value: new orbThree.Color(0x34d399) },
+    };
+
+    orbMesh = new orbThree.Mesh(
+      new orbThree.IcosahedronGeometry(4, 30),
+      new orbThree.ShaderMaterial({
+        uniforms,
+        vertexShader: getOrbVertexShader(),
+        fragmentShader: getOrbFragmentShader(),
+        wireframe: true,
+        transparent: false,
+      }),
+    );
+    orbScene.add(orbMesh);
+
+    orbComposer = new orbEffectComposerCtor(orbRenderer);
+    orbComposer.addPass(new orbRenderPassCtor(orbScene, orbCamera));
+    orbBloomPass = new orbUnrealBloomPassCtor(
+      new orbThree.Vector2(Math.max(1, viewportWidth), Math.max(1, viewportHeight)),
+      0.5,
+      0.5,
+      0.8,
+    );
+    orbBloomPass.threshold = 0.5;
+    orbBloomPass.strength = 0.5;
+    orbBloomPass.radius = 0.8;
+    orbComposer.addPass(orbBloomPass);
+    orbComposer.addPass(new orbOutputPassCtor());
+
+    orbClock = new orbThree.Clock();
+  }
+
+  return {
+    renderer: orbRenderer,
+    composer: orbComposer,
+    scene: orbScene,
+    camera: orbCamera,
+    mesh: orbMesh,
+    auraMesh: orbAuraMesh,
+    backGlowMesh: orbBackGlowMesh,
+    pointLight: orbPointLight,
+    clock: orbClock,
+  };
 }
 
 function clearModeTransitionTimer() {
@@ -361,6 +698,26 @@ function disposeButterchurnVisualizer() {
   butterchurnPresetName.value = null;
   butterchurnWasPlaying = false;
   butterchurnVisualizer = null;
+}
+
+function disposeOrbVisualizer() {
+  orbComposer?.dispose?.();
+  orbComposer = null;
+  orbBloomPass = null;
+  disposeThreeObject(orbMesh);
+  disposeThreeObject(orbAuraMesh);
+  disposeThreeObject(orbBackGlowMesh);
+  orbMesh = null;
+  orbAuraMesh = null;
+  orbBackGlowMesh = null;
+  orbPointLight = null;
+  orbScene = null;
+  orbCamera = null;
+  orbClock = null;
+  if (orbRenderer) {
+    orbRenderer.dispose();
+    orbRenderer = null;
+  }
 }
 
 function clearButterchurnCanvas() {
@@ -488,15 +845,23 @@ function syncAnalyser() {
   analyserRef.value = props.analyser ?? getVisualizerAnalyser();
   frequencyData = analyserRef.value ? new Uint8Array(analyserRef.value.frequencyBinCount) : null;
   timeDomainData = analyserRef.value ? new Float32Array(analyserRef.value.fftSize) : null;
+  prevFrequencyFrame = frequencyData ? new Uint8Array(frequencyData.length) : null;
 }
 
 function resetMotionState() {
   smoothBass = 0;
   smoothMid = 0;
   smoothHigh = 0;
+  smoothRms = 0;
+  smoothOrbFrequency = 0;
+  orbBeatPulse = 0;
+  smoothOrbBody = 0;
+  smoothOrbDetail = 0;
+  orbBackdropPulse = 0;
   prevBass = 0;
   beatBoost = 0;
   visualTime = 0;
+  prevFrequencyFrame?.fill(0);
 }
 
 function resizeCanvas() {
@@ -536,6 +901,20 @@ function resizeCanvas() {
     );
   }
 
+  const orbCanvas = orbCanvasRef.value;
+  if (orbCanvas) {
+    orbCanvas.width = Math.round(viewportWidth * dpr);
+    orbCanvas.height = Math.round(viewportHeight * dpr);
+    const orb = ensureOrbVisualizer();
+    if (orb) {
+      orb.renderer.setPixelRatio(dpr);
+      orb.renderer.setSize(viewportWidth, viewportHeight, false);
+      orb.composer.setSize(viewportWidth, viewportHeight);
+      orb.camera.aspect = viewportWidth / viewportHeight;
+      orb.camera.updateProjectionMatrix();
+    }
+  }
+
   resizePills(previousWidth, previousHeight);
   paintBackground(spiralCtx);
   paintBackground(pillsCtx);
@@ -562,8 +941,8 @@ function coolPills() {
 
 function updateBeatBoost(rawBass) {
   const delta = rawBass - prevBass;
-  if (delta > 0.08) beatBoost = Math.min(1, beatBoost + delta * 4);
-  beatBoost *= 0.88;
+  if (delta > 0.022) beatBoost = Math.min(1, beatBoost + delta * 3.6);
+  beatBoost *= 0.84;
   prevBass = rawBass;
 }
 
@@ -572,29 +951,54 @@ function analyzeAudioFrame() {
 
   analyserRef.value.getByteFrequencyData(frequencyData);
   analyserRef.value.getFloatTimeDomainData(timeDomainData);
+  const sampleRate = analyserRef.value.context?.sampleRate ?? 44100;
+  const bass = getFrequencyBandLevel(20, 180, sampleRate);
+  const mid = getFrequencyBandLevel(180, 1800, sampleRate);
+  const high = getFrequencyBandLevel(1800, 12000, sampleRate);
+  const presence = getFrequencyBandLevel(2500, 7000, sampleRate);
 
-  const third = Math.floor(frequencyData.length / 3);
-  let bass = 0;
-  let mid = 0;
-  let high = 0;
+  let rms = 0;
+  for (let index = 0; index < timeDomainData.length; index += 1) {
+    const sample = timeDomainData[index] || 0;
+    rms += sample * sample;
+  }
+  rms = Math.sqrt(rms / Math.max(1, timeDomainData.length));
 
-  for (let index = 0; index < third; index += 1) bass += frequencyData[index];
-  for (let index = third; index < third * 2; index += 1) mid += frequencyData[index];
-  for (let index = third * 2; index < frequencyData.length; index += 1) high += frequencyData[index];
+  if (!prevFrequencyFrame || prevFrequencyFrame.length !== frequencyData.length) {
+    prevFrequencyFrame = new Uint8Array(frequencyData.length);
+  }
 
-  bass = bass / third / 255;
-  mid = mid / third / 255;
-  high = high / Math.max(1, frequencyData.length - third * 2) / 255;
+  let flux = 0;
+  let fluxBins = 0;
+  for (let index = 1; index < frequencyData.length; index += 2) {
+    const current = frequencyData[index] / 255;
+    const previous = prevFrequencyFrame[index] / 255;
+    if (current > previous) flux += current - previous;
+    prevFrequencyFrame[index] = frequencyData[index];
+    fluxBins += 1;
+  }
+  flux /= Math.max(1, fluxBins);
 
   smoothBass += (bass - smoothBass) * 0.18;
   smoothMid += (mid - smoothMid) * 0.15;
   smoothHigh += (high - smoothHigh) * 0.12;
+  smoothRms += (rms - smoothRms) * 0.18;
   updateBeatBoost(bass);
+
+  const transient = clamp01(
+    beatBoost * 0.54
+    + Math.max(0, rms - smoothRms) * 1.9
+    + flux * 1.65,
+  );
 
   return {
     bass,
     mid,
     high,
+    presence,
+    rms,
+    flux,
+    transient,
     energy: (smoothBass + smoothMid + smoothHigh) / 3,
   };
 }
@@ -810,9 +1214,60 @@ function drawButterchurnFrame() {
   butterchurnWasPlaying = true;
 }
 
+function updateOrbPointer(event) {
+  const container = containerRef.value;
+  if (!container) return;
+
+  const bounds = container.getBoundingClientRect();
+  if (!bounds.width || !bounds.height) return;
+
+  const centerX = bounds.left + bounds.width / 2;
+  const centerY = bounds.top + bounds.height / 2;
+  orbPointerX = (event.clientX - centerX) / 100;
+  orbPointerY = (event.clientY - centerY) / 100;
+}
+
+function drawOrbFrame() {
+  const orb = ensureOrbVisualizer();
+  if (!orb) return;
+
+  analyzeAudioFrame();
+  const [red, green, blue] = getAccentRgb();
+  const accentColor = new orbThree.Color(`rgb(${red}, ${green}, ${blue})`);
+
+  // Boost lightness so wireframe always contrasts the dark background
+  const hsl = {};
+  accentColor.getHSL(hsl);
+  const wireColor = new orbThree.Color().setHSL(hsl.h, Math.max(0.6, hsl.s), Math.max(0.80, hsl.l));
+  let averageFrequency = 0;
+  if (state.isPlaying && analyserRef.value && frequencyData) {
+    for (let index = 0; index < frequencyData.length; index += 1) {
+      averageFrequency += frequencyData[index];
+    }
+    averageFrequency /= Math.max(1, frequencyData.length);
+  }
+  orbBackdropPulse += ((smoothBass * 1.05 + beatBoost * 0.6) - orbBackdropPulse) * 0.2;
+
+  const uniforms = orb.mesh.material.uniforms;
+  uniforms.uTime.value = orb.clock.getElapsedTime();
+  uniforms.uFrequency.value = averageFrequency;
+  uniforms.uAccent.value.copy(wireColor);
+
+  orb.camera.position.x += (orbPointerX - orb.camera.position.x) * 0.05;
+  orb.camera.position.y += ((-orbPointerY) - orb.camera.position.y) * 0.5;
+  orb.camera.lookAt(orb.scene.position);
+
+  orb.composer.render();
+}
+
 function render() {
   animationFrameId = window.requestAnimationFrame(render);
   if (!viewportWidth || !viewportHeight) return;
+
+  if (activeCanvasMode.value === 'orb') {
+    drawOrbFrame();
+    return;
+  }
 
   if (activeCanvasMode.value === 'butterchurn') {
     drawButterchurnFrame();
@@ -881,6 +1336,7 @@ function selectMode(mode) {
   resetMotionState();
   if (mode === 'pills') paintBackground(pillsCtx);
   else if (mode === 'spiral') paintBackground(spiralCtx);
+  else if (mode === 'orb') preloadOrbVisualizer();
 }
 
 function clearOverlayHideTimer() {
@@ -937,6 +1393,7 @@ watch(vizMode, () => {
   transitionCanvasMode(vizMode.value);
   resetMotionState();
   ensureButterchurnVisualizer();
+  if (vizMode.value === 'orb') preloadOrbVisualizer();
   resizeCanvas();
   if (vizMode.value === 'pills') paintBackground(pillsCtx);
   else if (vizMode.value === 'spiral') paintBackground(spiralCtx);
@@ -996,6 +1453,7 @@ onMounted(() => {
 onUnmounted(() => {
   stop();
   disposeButterchurnVisualizer();
+  disposeOrbVisualizer();
   clearOverlayHideTimer();
   clearModeTransitionTimer();
   resizeObserver?.disconnect();
@@ -1010,7 +1468,7 @@ onUnmounted(() => {
     ref="containerRef"
     class="visualizer relative flex-1 overflow-hidden bg-[#13242f] font-sans"
     :style="{ '--visualizer-nav-offset': isFullscreen ? '0px' : 'calc(env(safe-area-inset-top) + 3.5rem)' }"
-    @pointermove="revealOverlay"
+    @pointermove="(event) => { revealOverlay(); updateOrbPointer(event); }"
     @pointerdown="revealOverlay"
     @focusin="revealOverlay"
     @dblclick="handleVisualizerDoubleClick"
@@ -1029,6 +1487,20 @@ onUnmounted(() => {
       ref="butterchurnCanvasRef"
       class="visualizer-canvas absolute inset-0 z-0 block size-full"
       :class="isCanvasVisible('butterchurn') ? 'opacity-100' : 'opacity-0'"
+    />
+    <canvas
+      ref="orbCanvasRef"
+      class="visualizer-canvas absolute inset-0 z-0 block size-full"
+      :class="isCanvasVisible('orb') ? 'opacity-100' : 'opacity-0'"
+    />
+    <div
+      v-if="currentMode.value === 'orb'"
+      class="orb-backdrop pointer-events-none absolute inset-0 z-[1]"
+      :style="orbBackdropStyle"
+    />
+    <div
+      v-if="currentMode.value === 'orb'"
+      class="orb-vignette pointer-events-none absolute inset-0 z-[2]"
     />
     <div
       v-if="currentMode.value === 'pills'"
@@ -1252,6 +1724,19 @@ onUnmounted(() => {
 <style scoped>
 .visualizer-canvas {
   transition: opacity 0.65s ease;
+}
+
+.orb-backdrop {
+  mix-blend-mode: screen;
+  filter: blur(36px);
+  transition: opacity 0.35s ease, transform 0.18s ease;
+  will-change: transform, opacity;
+}
+
+.orb-vignette {
+  background:
+    radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.24) 72%, rgba(0, 0, 0, 0.52) 100%);
+  opacity: 0.82;
 }
 
 .menu-enter-active, .menu-leave-active {

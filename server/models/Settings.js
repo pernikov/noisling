@@ -20,7 +20,7 @@ const settingsSchema = new mongoose.Schema({
   homeShowQuickPlay:  { type: Boolean, default: true },
   homeShowRecent:     { type: Boolean, default: true },
   homeShowAlbums:     { type: Boolean, default: true },
-  vizMode:            { type: String, enum: ['spiral', 'pills', 'butterchurn'], default: 'spiral' },
+  vizMode:            { type: String, enum: ['spiral', 'pills', 'butterchurn', 'orb'], default: 'spiral' },
   randomizeOnNewTrack: { type: Boolean, default: false },
   butterchurnPresetMode: { type: String, enum: ['single', 'random'], default: 'random' },
   butterchurnPreset:  { type: String, default: 'Flexi, martin + geiss - dedicated to the sherwin maxawow' },

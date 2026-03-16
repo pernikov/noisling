@@ -40,6 +40,7 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
 test('normalizeVizMode maps nebula to pills', () => {
   assert.equal(normalizeVizMode('nebula'), 'pills');
   assert.equal(normalizeVizMode('spiral'), 'spiral');
+  assert.equal(normalizeVizMode('orb'), 'orb');
 });
 
 test('buildSettingsUpdate validates and normalizes a mixed patch payload', () => {
