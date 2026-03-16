@@ -146,6 +146,7 @@ let orbModulePromise = null;
 const butterchurnPresetLoaded = ref(false);
 const butterchurnPresetName = ref(null);
 let butterchurnWasPlaying = false;
+let butterchurnPauseFade = 1;
 const butterchurnPresetIndex = ref(-1);
 let butterchurnTrackStep = 0;
 const butterchurnDesiredIndex = ref(0);
@@ -172,6 +173,9 @@ const orbBackdropStyle = computed(() => {
     background: `radial-gradient(circle at 44% 42%, rgba(${primary.join(', ')}, ${coreAlpha}) 0%, rgba(${secondary.join(', ')}, ${haloAlpha}) 28%, rgba(${secondary.join(', ')}, 0) 62%)`,
   };
 });
+const butterchurnPauseFadeStyle = computed(() => ({
+  opacity: isCanvasVisible('butterchurn') ? butterchurnPauseFade : 0,
+}));
 
 const shouldShowOverlay = computed(() => {
   if (showModeDropdown.value) return true;
@@ -678,6 +682,7 @@ function disposeButterchurnVisualizer() {
   butterchurnDesiredIndex.value = 0;
   butterchurnPresetName.value = null;
   butterchurnWasPlaying = false;
+  butterchurnPauseFade = 1;
   butterchurnVisualizer = null;
 }
 
@@ -1062,6 +1067,7 @@ function drawButterchurnFrame() {
   if (!state.currentTrack) {
     clearButterchurnCanvas();
     butterchurnWasPlaying = false;
+    butterchurnPauseFade += (1 - butterchurnPauseFade) * 0.12;
     return;
   }
 
@@ -1070,11 +1076,13 @@ function drawButterchurnFrame() {
   if (!state.isPlaying) {
     if (butterchurnWasPlaying) butterchurnVisualizer?.render();
     butterchurnWasPlaying = false;
+    butterchurnPauseFade += (1 - butterchurnPauseFade) * 0.08;
     return;
   }
 
   ensureButterchurnVisualizer()?.render();
   butterchurnWasPlaying = true;
+  butterchurnPauseFade += (0 - butterchurnPauseFade) * 0.14;
 }
 
 function updateOrbPointer(event) {
@@ -1120,14 +1128,22 @@ function drawOrbFrame() {
       averageFrequency += frequencyData[index];
     }
     averageFrequency /= Math.max(1, frequencyData.length);
+  } else {
+    smoothBass *= 0.9;
+    smoothMid *= 0.9;
+    smoothHigh *= 0.9;
+    beatBoost *= 0.84;
   }
-  orbBackdropPulse += ((smoothBass * 1.05 + beatBoost * 0.6) - orbBackdropPulse) * 0.2;
-  const mixAmount = 0.28 + Math.min(0.2, averageFrequency / 255 * 0.2);
+  smoothOrbFrequency += ((state.isPlaying ? averageFrequency : 0) - smoothOrbFrequency)
+    * (state.isPlaying ? 0.24 : 0.1);
+  orbBackdropPulse += (((state.isPlaying ? (smoothBass * 1.05 + beatBoost * 0.6) : 0)) - orbBackdropPulse)
+    * (state.isPlaying ? 0.2 : 0.08);
+  const mixAmount = 0.28 + Math.min(0.2, smoothOrbFrequency / 255 * 0.2);
   const wireColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
 
   const uniforms = orb.mesh.material.uniforms;
   uniforms.uTime.value = orb.clock.getElapsedTime();
-  uniforms.uFrequency.value = averageFrequency;
+  uniforms.uFrequency.value = smoothOrbFrequency;
   uniforms.uAccent.value.copy(wireColor);
 
   orb.camera.position.x += (orbPointerX - orb.camera.position.x) * 0.05;
@@ -1352,6 +1368,11 @@ onUnmounted(() => {
       ref="butterchurnCanvasRef"
       class="visualizer-canvas absolute inset-0 z-0 block size-full"
       :class="isCanvasVisible('butterchurn') ? 'opacity-100' : 'opacity-0'"
+    />
+    <div
+      v-if="currentMode.value === 'butterchurn'"
+      class="butterchurn-fade pointer-events-none absolute inset-0 z-[1]"
+      :style="butterchurnPauseFadeStyle"
     />
     <canvas
       ref="orbCanvasRef"
@@ -1602,6 +1623,12 @@ onUnmounted(() => {
   background:
     radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.24) 72%, rgba(0, 0, 0, 0.52) 100%);
   opacity: 0.82;
+}
+
+.butterchurn-fade {
+  background:
+    radial-gradient(ellipse at center, rgba(19, 36, 47, 0.14) 0%, rgba(19, 36, 47, 0.36) 62%, rgba(19, 36, 47, 0.82) 100%);
+  transition: opacity 0.18s ease;
 }
 
 .menu-enter-active, .menu-leave-active {
