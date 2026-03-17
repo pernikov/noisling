@@ -13,6 +13,198 @@ async function loadResolvedTracks(filter = {}) {
   return tracks.map(mergeTrackOverrides);
 }
 
+function effectiveField(field, fallback = `$${field}`) {
+  return { $ifNull: [`$overrides.${field}`, fallback] };
+}
+
+function buildResolvedArtistMatch(norm) {
+  return {
+    $or: [
+      { artistsNorm: norm },
+      { 'overrides.artistsNorm': norm },
+    ],
+  };
+}
+
+function buildResolvedAlbumMatch(artistNorm, album) {
+  return {
+    $and: [
+      buildResolvedArtistMatch(artistNorm),
+      {
+        $or: [
+          { album },
+          { 'overrides.album': album },
+        ],
+      },
+    ],
+  };
+}
+
+async function aggregateArtistSummaries({ search, page = 1, limit = 60, random = false } = {}) {
+  const regex = buildSearchRegex(search);
+  const paginationStages = random
+    ? [{ $sample: { size: limit } }]
+    : [{ $skip: (page - 1) * limit }, { $limit: limit }];
+
+  const [result] = await Track.aggregate([
+    {
+      $project: {
+        effectiveArtists: effectiveField('artists'),
+        effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveAlbum: effectiveField('album'),
+        effectiveCover: effectiveField('cover'),
+      },
+    },
+    {
+      $unwind: {
+        path: '$effectiveArtists',
+        includeArrayIndex: 'artistIndex',
+        preserveNullAndEmptyArrays: false,
+      },
+    },
+    {
+      $project: {
+        name: '$effectiveArtists',
+        artistNorm: {
+          $ifNull: [
+            { $arrayElemAt: ['$effectiveArtistsNorm', '$artistIndex'] },
+            { $toLower: '$effectiveArtists' },
+          ],
+        },
+        effectiveAlbum: 1,
+        effectiveCover: 1,
+      },
+    },
+    ...(regex ? [{ $match: { name: regex } }] : []),
+    {
+      $group: {
+        _id: '$artistNorm',
+        name: { $first: '$name' },
+        albumSet: { $addToSet: '$effectiveAlbum' },
+        trackCount: { $sum: 1 },
+        coverSet: { $addToSet: '$effectiveCover' },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        artistNorm: '$_id',
+        name: 1,
+        albumCount: {
+          $size: {
+            $filter: {
+              input: '$albumSet',
+              as: 'album',
+              cond: { $and: [{ $ne: ['$$album', null] }, { $ne: ['$$album', ''] }] },
+            },
+          },
+        },
+        trackCount: 1,
+        covers: {
+          $filter: {
+            input: '$coverSet',
+            as: 'cover',
+            cond: { $and: [{ $ne: ['$$cover', null] }, { $ne: ['$$cover', ''] }] },
+          },
+        },
+      },
+    },
+    ...(random ? [] : [{ $sort: { name: 1 } }]),
+    {
+      $facet: {
+        items: paginationStages,
+        total: [{ $count: 'count' }],
+      },
+    },
+  ]);
+
+  return {
+    items: result?.items ?? [],
+    total: result?.total?.[0]?.count ?? 0,
+  };
+}
+
+async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 } } = {}) {
+  const regex = buildSearchRegex(search);
+
+  const albums = await Track.aggregate([
+    {
+      $project: {
+        effectiveAlbum: effectiveField('album'),
+        effectiveArtists: effectiveField('artists'),
+        effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveYear: effectiveField('year'),
+        effectiveCover: effectiveField('cover'),
+        scannedAt: 1,
+        duration: { $ifNull: ['$duration', 0] },
+        hasCustomCover: { $cond: [{ $ne: ['$overrides.cover', null] }, 1, 0] },
+      },
+    },
+    ...(regex ? [{ $match: { effectiveAlbum: regex } }] : []),
+    {
+      $group: {
+        _id: {
+          artistNorm: { $arrayElemAt: ['$effectiveArtistsNorm', 0] },
+          album: '$effectiveAlbum',
+        },
+        name: { $first: '$effectiveAlbum' },
+        artists: { $first: '$effectiveArtists' },
+        artistsNorm: { $first: '$effectiveArtistsNorm' },
+        years: { $addToSet: '$effectiveYear' },
+        covers: { $addToSet: '$effectiveCover' },
+        hasCustomCover: { $max: '$hasCustomCover' },
+        duration: { $sum: '$duration' },
+        trackCount: { $sum: 1 },
+        addedAt: { $max: '$scannedAt' },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        name: 1,
+        artists: 1,
+        artistsNorm: 1,
+        year: {
+          $let: {
+            vars: {
+              filteredYears: {
+                $filter: {
+                  input: '$years',
+                  as: 'year',
+                  cond: { $gt: ['$$year', 0] },
+                },
+              },
+            },
+            in: { $ifNull: [{ $arrayElemAt: ['$$filteredYears', 0] }, 0] },
+          },
+        },
+        trackCount: 1,
+        cover: {
+          $let: {
+            vars: {
+              filteredCovers: {
+                $filter: {
+                  input: '$covers',
+                  as: 'cover',
+                  cond: { $and: [{ $ne: ['$$cover', null] }, { $ne: ['$$cover', ''] }] },
+                },
+              },
+            },
+            in: { $ifNull: [{ $arrayElemAt: ['$$filteredCovers', 0] }, '' ] },
+          },
+        },
+        hasCustomCover: { $toBool: '$hasCustomCover' },
+        duration: 1,
+        addedAt: 1,
+      },
+    },
+    { $sort: sort },
+    ...(limit != null ? [{ $limit: limit }] : []),
+  ]);
+
+  return albums;
+}
+
 function buildArtistSummaries(tracks) {
   const artistMap = new Map();
 
@@ -104,24 +296,16 @@ router.get('/artists', async (req, res) => {
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(200, parseInt(req.query.limit, 10) || 60);
   const search = req.query.search?.trim();
-  const regex = buildSearchRegex(search);
-  let artists = buildArtistSummaries(await loadResolvedTracks())
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  if (regex) {
-    artists = artists.filter((artist) => regex.test(artist.name));
-  }
-
-  const total = artists.length;
-  artists = paginate(artists, page, limit).map(({ artistNorm: _artistNorm, ...artist }) => artist);
+  const { items, total } = await aggregateArtistSummaries({ search, page, limit });
+  const artists = items.map(({ artistNorm: _artistNorm, ...artist }) => artist);
   res.json({ artists, total, page, limit });
 });
 
 // GET /api/artists/random — random sample of artists
 router.get('/artists/random', async (req, res) => {
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
-  const artists = sampleItems(buildArtistSummaries(await loadResolvedTracks()), limit)
-    .map(({ artistNorm: _artistNorm, ...artist }) => artist);
+  const { items } = await aggregateArtistSummaries({ limit, random: true });
+  const artists = items.map(({ artistNorm: _artistNorm, ...artist }) => artist);
   res.json(artists);
 });
 
@@ -131,7 +315,7 @@ router.get('/artists/:name', async (req, res) => {
   const norm  = name.toLowerCase();
   const page  = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
-  const tracks = (await loadResolvedTracks()).filter((track) => track.artistsNorm?.includes(norm));
+  const tracks = await loadResolvedTracks(buildResolvedArtistMatch(norm));
   const albums = buildAlbumSummaries(tracks)
     .sort((a, b) => (b.year || 0) - (a.year || 0) || a.name.localeCompare(b.name));
   const totalCount = albums.length;
@@ -147,8 +331,7 @@ router.get('/artists/:name', async (req, res) => {
 router.get('/artists/:name/tracks', async (req, res) => {
   const { name } = req.params;
   const norm = name.toLowerCase();
-  const tracks = (await loadResolvedTracks())
-    .filter((track) => track.artistsNorm?.includes(norm))
+  const tracks = (await loadResolvedTracks(buildResolvedArtistMatch(norm)))
     .sort((a, b) => a.album.localeCompare(b.album) || (a.disc || 0) - (b.disc || 0) || (a.trackNumber || 0) - (b.trackNumber || 0));
   res.json(tracks);
 });
@@ -156,16 +339,13 @@ router.get('/artists/:name/tracks', async (req, res) => {
 // GET /api/albums/recent — recently added albums, sorted by scannedAt desc
 router.get('/albums/recent', async (req, res) => {
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
-  const albums = buildAlbumSummaries(await loadResolvedTracks())
-    .sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0))
-    .slice(0, limit);
+  const albums = await aggregateAlbumSummaries({ limit, sort: { addedAt: -1 } });
   res.json(albums);
 });
 
 // GET /api/albums — all albums
 router.get('/albums', async (req, res) => {
-  const albums = buildAlbumSummaries(await loadResolvedTracks())
-    .sort((a, b) => a.name.localeCompare(b.name));
+  const albums = await aggregateAlbumSummaries({ sort: { name: 1 } });
   res.json(albums);
 });
 
@@ -173,8 +353,7 @@ router.get('/albums', async (req, res) => {
 router.get('/albums/:artist/:album', async (req, res) => {
   const { artist, album } = req.params;
   const norm = artist.toLowerCase();
-  const resolvedTracks = (await loadResolvedTracks())
-    .filter((track) => track.artistsNorm?.includes(norm) && track.album === album)
+  const resolvedTracks = (await loadResolvedTracks(buildResolvedAlbumMatch(norm, album)))
     .sort((a, b) => (a.disc || 0) - (b.disc || 0) || (a.trackNumber || 0) - (b.trackNumber || 0));
 
   if (resolvedTracks.length === 0) {
@@ -346,8 +525,7 @@ router.patch('/albums/:artist/:album/cover', async (req, res) => {
 
   const norm = req.params.artist.toLowerCase();
   const album = req.params.album;
-  const tracks = (await loadResolvedTracks())
-    .filter((track) => track.artistsNorm?.includes(norm) && track.album === album);
+  const tracks = await loadResolvedTracks(buildResolvedAlbumMatch(norm, album));
 
   if (!tracks.length) {
     await removeCoverIfUnused(coverFilename);
@@ -373,8 +551,7 @@ router.patch('/albums/:artist/:album/cover', async (req, res) => {
 router.delete('/albums/:artist/:album/cover', async (req, res) => {
   const norm = req.params.artist.toLowerCase();
   const album = req.params.album;
-  const tracks = (await loadResolvedTracks())
-    .filter((track) => track.artistsNorm?.includes(norm) && track.album === album);
+  const tracks = await loadResolvedTracks(buildResolvedAlbumMatch(norm, album));
 
   if (!tracks.length) {
     return res.status(404).json({ error: 'Album not found' });

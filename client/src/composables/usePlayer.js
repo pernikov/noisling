@@ -68,6 +68,7 @@ const state = reactive({
   showNowPlaying:    false,
   showQueue:         false,
   showShortcuts:     false,
+  showAddToPlaylist: false,
   playReportCount:   0,
   visualizerTrackTick: 0,
   transcodeWaiting:  false,
@@ -323,7 +324,10 @@ function toggleVisualizer() {
 }
 
 watch(() => state.currentTrack, (track) => {
-  if (!track) state.showVisualizer = false;
+  if (!track) {
+    state.showVisualizer = false;
+    state.showAddToPlaylist = false;
+  }
 });
 
 function toggleNowPlaying() {
@@ -336,6 +340,15 @@ function toggleQueue() {
 
 function toggleShortcuts() {
   state.showShortcuts = !state.showShortcuts;
+}
+
+function openAddToPlaylist() {
+  if (!state.currentTrack) return;
+  state.showAddToPlaylist = true;
+}
+
+function closeAddToPlaylist() {
+  state.showAddToPlaylist = false;
 }
 
 async function toggleLove(track = state.currentTrack) {
@@ -457,6 +470,8 @@ export function usePlayer() {
     toggleNowPlaying,
     toggleQueue,
     toggleShortcuts,
+    openAddToPlaylist,
+    closeAddToPlaylist,
     toggleLove,
     cycleRepeat,
     getVisualizerAnalyser,

@@ -20,9 +20,12 @@ import {
   mdiEyeOutline,
   mdiHeart,
   mdiHeartOutline,
+  mdiPlaylistPlus,
 } from "@mdi/js";
 import Icon from "./Icon.vue";
 import Tooltip from "./Tooltip.vue";
+import AddToPlaylistModal from "./AddToPlaylistModal.vue";
+import { useToast } from "../composables/useToast.js";
 
 const {
   state,
@@ -38,13 +41,16 @@ const {
   toggleVisualizer,
   toggleNowPlaying,
   toggleQueue,
+  openAddToPlaylist,
+  closeAddToPlaylist,
   toggleLove,
   cycleRepeat,
   hasNext,
   hasPrev,
 } = usePlayer();
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor, lovedUseAccent } = useTheme();
+const { accentColor, lovedUseAccent, showPlaylists } = useTheme();
+const { show: showToast } = useToast();
 
 const barStyle = computed(() => {
   if (!albumAccentColor.value) return {};
@@ -97,6 +103,11 @@ const hoverTime = computed(() => {
   if (pct === null || !state.duration) return null;
   return formatTime(pct / 100 * state.duration);
 });
+
+function onPlaylistAdded(playlistName) {
+  if (playlistName) showToast(`Added to "${playlistName}"`);
+  else showToast("Failed to add to playlist");
+}
 </script>
 
 <template>
@@ -132,6 +143,15 @@ const hoverTime = computed(() => {
         </span>
       </div>
       <div class="flex items-center gap-1 flex-shrink-0">
+        <button
+          v-if="showPlaylists"
+          class="text-zinc-400 hover:text-zinc-100 transition-colors p-1"
+          @click.stop="openAddToPlaylist"
+          aria-label="Add to playlist"
+          title="Add to playlist"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-5 h-5" />
+        </button>
         <button
           :disabled="!hasPrev"
           class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
@@ -335,15 +355,14 @@ const hoverTime = computed(() => {
         </button>
       </Tooltip>
 
-      <!-- Visualizer -->
-      <Tooltip label="Visualizer" shortcut="V">
+      <!-- Add to playlist -->
+      <Tooltip v-if="showPlaylists" label="Add to playlist" shortcut="A">
         <button
-          class="transition-colors disabled:text-zinc-700"
-          :class="state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
-          :disabled="!state.currentTrack"
-          @click="toggleVisualizer"
+          class="text-zinc-400 hover:text-zinc-100 transition-colors"
+          @click="openAddToPlaylist"
+          aria-label="Add to playlist"
         >
-          <Icon :path="mdiEyeOutline" class="w-4 h-4" />
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4" />
         </button>
       </Tooltip>
 
@@ -355,6 +374,18 @@ const hoverTime = computed(() => {
           @click="toggleQueue"
         >
           <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
+        </button>
+      </Tooltip>
+
+      <!-- Visualizer -->
+      <Tooltip label="Visualizer" shortcut="V">
+        <button
+          class="transition-colors disabled:text-zinc-700"
+          :class="state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+          :disabled="!state.currentTrack"
+          @click="toggleVisualizer"
+        >
+          <Icon :path="mdiEyeOutline" class="w-4 h-4" />
         </button>
       </Tooltip>
 
@@ -395,6 +426,13 @@ const hoverTime = computed(() => {
 
   <!-- Queue drawer -->
   <QueueDrawer :open="state.showQueue" @close="toggleQueue" />
+
+  <AddToPlaylistModal
+    v-if="state.showAddToPlaylist && state.currentTrack"
+    :track="state.currentTrack"
+    @close="closeAddToPlaylist"
+    @added="onPlaylistAdded"
+  />
 </template>
 
 <style scoped>

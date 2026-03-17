@@ -17,6 +17,7 @@ const groups = [
       { keys: ['S'], description: 'Toggle shuffle' },
       { keys: ['R'], description: 'Cycle repeat mode' },
       { keys: ['L'], description: 'Love / unlove track' },
+      { keys: ['A'], description: 'Add track to playlist' },
     ],
   },
   {

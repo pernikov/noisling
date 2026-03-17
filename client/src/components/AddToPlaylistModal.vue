@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, nextTick } from 'vue';
+import { computed, ref, onMounted, nextTick } from 'vue';
 import { mdiPlaylistMusic, mdiPlus } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -24,6 +24,11 @@ const adding = ref(null); // playlist._id currently being added
 const creating = ref(false);
 const newName = ref('');
 const nameInput = ref(null);
+const artistText = computed(() => {
+  if (props.track.artist) return props.track.artist;
+  if (Array.isArray(props.track.artists)) return props.track.artists.join(', ');
+  return '';
+});
 
 onMounted(async () => {
   try {
@@ -78,7 +83,7 @@ async function confirmCreate() {
         <div class="min-w-0">
           <p class="text-xs text-zinc-500 mb-0.5">Add to playlist</p>
           <p class="text-sm font-semibold truncate leading-tight">{{ track.title }}</p>
-          <p v-if="track.artist" class="text-xs text-zinc-500 truncate mt-0.5">{{ track.artist }}</p>
+          <p v-if="artistText" class="text-xs text-zinc-500 truncate mt-0.5">{{ artistText }}</p>
         </div>
       </div>
 
