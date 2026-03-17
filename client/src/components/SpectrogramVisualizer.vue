@@ -1201,9 +1201,9 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
   uniforms.uAccent.value.copy(wireColor);
 
   const orbitAmount = 0.35 + nucleusBackdropPulse * 0.12;
-  const targetCameraX = Math.sin(elapsedTime * 0.22) * orbitAmount;
-  const targetCameraY = -2 + Math.cos(elapsedTime * 0.16) * 0.18;
-  const targetCameraZ = 14 + Math.sin(elapsedTime * 0.12) * 0.25;
+  const targetCameraX = Math.sin(elapsedTime * 0.14) * orbitAmount;
+  const targetCameraY = -2 + Math.cos(elapsedTime * 0.1) * 0.18;
+  const targetCameraZ = 14 + Math.sin(elapsedTime * 0.08) * 0.25;
   orb.camera.position.x += (targetCameraX - orb.camera.position.x) * 0.035;
   orb.camera.position.y += (targetCameraY - orb.camera.position.y) * 0.08;
   orb.camera.position.z += (targetCameraZ - orb.camera.position.z) * 0.05;
@@ -1211,9 +1211,9 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
 
   const orbPulseScale = 1 + nucleusBackdropPulse * 0.016 + nucleusBeatPulse * 0.058;
   orb.mesh.scale.setScalar(orbPulseScale);
-  orb.mesh.rotation.y = elapsedTime * 0.18;
-  orb.mesh.rotation.x = Math.sin(elapsedTime * 0.24) * 0.08 + nucleusBeatPulse * 0.056;
-  orb.mesh.rotation.z = Math.cos(elapsedTime * 0.17) * 0.05 + transient * 0.024;
+  orb.mesh.rotation.y = elapsedTime * 0.1;
+  orb.mesh.rotation.x = Math.sin(elapsedTime * 0.16) * 0.08 + nucleusBeatPulse * 0.056;
+  orb.mesh.rotation.z = Math.cos(elapsedTime * 0.12) * 0.05 + transient * 0.024;
   if (orbBloomPass) {
     orbBloomPass.strength = 0.44 + nucleusBackdropPulse * 0.15 + transient * 0.18;
   }
