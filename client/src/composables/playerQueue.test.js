@@ -103,6 +103,26 @@ describe('createPlayerQueue', () => {
     expect(state.showQueue).toBe(false);
   });
 
+  it('keeps only the current track in the queue', () => {
+    const { state, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[1];
+    state.queueIndex = 1;
+
+    queue.keepCurrentOnly();
+
+    expect(state.queue).toEqual([tracks[1]]);
+    expect(state.originalQueue).toEqual([tracks[1]]);
+    expect(state.queueIndex).toBe(0);
+    expect(state.isLargeQueue).toBe(false);
+    expect(state.queueLoading).toBe(false);
+    expect(state.queueTotal).toBe(0);
+    expect(state.queueBufferOffset).toBe(0);
+    expect(state.largeQueueIds).toEqual([]);
+  });
+
   it('exposes hasNext and hasPrev based on queue position', () => {
     const { state, audio, queue } = createQueueHarness();
     const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];

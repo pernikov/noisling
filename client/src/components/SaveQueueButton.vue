@@ -9,6 +9,7 @@ import { useToast } from '../composables/useToast.js';
 defineProps({
   iconClass: { type: String, default: 'w-5 h-5' },
   btnClass:  { type: String, default: '' },
+  showTitle: { type: Boolean, default: true },
 });
 
 const { state } = usePlayer();
@@ -31,7 +32,7 @@ function onCreated() {
   <button
     v-if="queueTrackIds.length"
     :class="btnClass"
-    title="Save queue as playlist"
+    :title="showTitle ? 'Save queue as playlist' : null"
     aria-label="Save queue as playlist"
     @click="showModal = true"
   >

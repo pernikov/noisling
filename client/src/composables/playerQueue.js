@@ -251,6 +251,20 @@ export function createPlayerQueue({
     state.queue.push(track);
   }
 
+  function keepCurrentOnly() {
+    const current = state.currentTrack;
+    if (!current) return;
+
+    state.queue = [current];
+    state.originalQueue = [current];
+    state.largeQueueIds = [];
+    state.queueLoading = false;
+    state.queueIndex = 0;
+    state.queueTotal = 0;
+    state.queueBufferOffset = 0;
+    state.isLargeQueue = false;
+  }
+
   function playNext(track) {
     const insertAt = Math.max(state.queueIndex + 1, 0);
     state.queue.splice(insertAt, 0, track);
@@ -340,6 +354,7 @@ export function createPlayerQueue({
     next,
     prev,
     addToQueue,
+    keepCurrentOnly,
     playNext,
     moveTrack,
     playFromQueue,

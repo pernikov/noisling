@@ -8,6 +8,7 @@ import { useProgressScrub, formatTime } from '../composables/useProgressScrub.js
 import Icon from './Icon.vue';
 import Spinner from './Spinner.vue';
 import QueueList from './QueueList.vue';
+import QueueActions from './QueueActions.vue';
 import {
   mdiChevronDown,
   mdiSkipPrevious,
@@ -20,7 +21,6 @@ import {
   mdiHeart,
   mdiHeartOutline,
 } from '@mdi/js';
-import SaveQueueButton from './SaveQueueButton.vue';
 
 const {
   state,
@@ -355,11 +355,7 @@ onUnmounted(() => {
                 <Icon v-else :path="mdiHeartOutline" class="w-6 h-6" :key="'unloved'" />
               </Transition>
             </button>
-            <SaveQueueButton
-              v-else
-              btn-class="p-1 -mr-1 rounded-full hover:bg-white/10 transition-colors text-zinc-300 hover:text-white"
-              icon-class="w-6 h-6"
-            />
+            <div v-else class="w-8 h-8 flex-shrink-0" aria-hidden="true" />
           </div>
 
           <!-- Tab content: both panels always mounted, crossfade via CSS opacity -->
@@ -555,6 +551,15 @@ onUnmounted(() => {
             class="sm:hidden absolute inset-0 flex flex-col pb-[env(safe-area-inset-bottom)] transition-opacity duration-200"
             :class="activeTab === 'queue' ? 'opacity-100' : 'opacity-0 pointer-events-none'"
           >
+            <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
+              <div class="text-xs uppercase tracking-[0.18em] text-white/60">
+                Queue
+              </div>
+              <QueueActions
+                button-class="p-1 rounded-full hover:bg-white/10 transition-colors text-zinc-300 hover:text-white"
+                icon-class="w-5 h-5"
+              />
+            </div>
             <QueueList ref="queueList" rowPaddingClass="px-3" @navigate="toggleNowPlaying" />
           </div>
 
