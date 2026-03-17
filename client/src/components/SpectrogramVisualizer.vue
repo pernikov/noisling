@@ -96,6 +96,9 @@ const {
 } = useTheme();
 const activeCanvasMode = ref(vizMode.value);
 const fadingCanvasMode = ref(null);
+const nucleusRevealProgress = ref(0);
+const modeTransitionProgress = ref(1);
+const modeTransitionDecay = ref(0);
 
 let ctx = null;
 let pillsCtx = null;
@@ -149,6 +152,7 @@ const butterchurnPresetIndex = ref(-1);
 let butterchurnTrackStep = 0;
 const butterchurnDesiredIndex = ref(0);
 let modeTransitionTimer = 0;
+let modeTransitionStartedAt = 0;
 
 const currentMode = computed(() =>
   VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
@@ -163,16 +167,51 @@ const showButterchurnPresetPicker = computed(() => (
 const nucleusBackdropStyle = computed(() => {
   const pulse = clamp01(nucleusBackdropPulse);
   const [primary, secondary = primary] = getArtworkPalette();
-  const coreAlpha = 0.05 + pulse * 0.2;
-  const haloAlpha = 0.05 + pulse * 0.16;
+  const reveal = activeCanvasMode.value === 'nucleus'
+    ? smoothstep(0, 1, nucleusRevealProgress.value)
+    : 1;
+  const glowReveal = smoothstep(0.9, 0.995, reveal);
+  const coreAlpha = (0.022 + pulse * 0.12) * glowReveal;
+  const haloAlpha = (0.018 + pulse * 0.1) * glowReveal;
   return {
-    opacity: isCanvasVisible('nucleus') ? 1 : 0,
-    transform: `scale(${1 + pulse * 0.075})`,
+    opacity: isCanvasVisible('nucleus') ? glowReveal : 0,
+    transform: `scale(${0.996 + glowReveal * 0.004 + pulse * 0.018})`,
     background: `radial-gradient(circle at 44% 42%, rgba(${primary.join(', ')}, ${coreAlpha}) 0%, rgba(${secondary.join(', ')}, ${haloAlpha}) 28%, rgba(${secondary.join(', ')}, 0) 62%)`,
   };
 });
+const nucleusCanvasStyle = computed(() => {
+  const reveal = activeCanvasMode.value === 'nucleus'
+    ? smoothstep(0, 1, nucleusRevealProgress.value)
+    : 1;
+  return {
+    opacity: isCanvasVisible('nucleus') ? reveal : 0,
+    transform: `scale(${1.06 - reveal * 0.06})`,
+  };
+});
+const nucleusVignetteStyle = computed(() => {
+  const reveal = activeCanvasMode.value === 'nucleus'
+    ? smoothstep(0, 1, nucleusRevealProgress.value)
+    : 1;
+  return {
+    opacity: 0.82 * smoothstep(0.7, 0.96, reveal),
+  };
+});
+const visualizerStyle = computed(() => ({
+  '--visualizer-nav-offset': isFullscreen.value ? '0px' : 'calc(env(safe-area-inset-top) + 3.5rem)',
+  backgroundColor: '#13242f',
+}));
 const butterchurnPauseFadeStyle = computed(() => ({
-  opacity: isCanvasVisible('butterchurn') ? butterchurnPauseFade : 0,
+  opacity: getModeLayerOpacity('butterchurn', butterchurnPauseFade),
+}));
+const pillsGlowStyle = computed(() => ({
+  opacity: getModeLayerOpacity('pills'),
+}));
+const pillsNoiseStyle = computed(() => ({
+  opacity: getModeLayerOpacity('pills', 0.5),
+  backgroundImage: pillsNoiseUrl.value ? `url(${pillsNoiseUrl.value})` : 'none',
+}));
+const pillsVignetteStyle = computed(() => ({
+  opacity: getModeLayerOpacity('pills', 0.88),
 }));
 
 const shouldShowOverlay = computed(() => {
@@ -290,8 +329,8 @@ function isButterchurnAvailable() {
   return butterchurnSupported;
 }
 
-function ensureButterchurnVisualizer() {
-  if (!isButterchurnMode.value || !isButterchurnAvailable()) return null;
+function ensureButterchurnVisualizer({ allowInactive = false } = {}) {
+  if ((!allowInactive && !isButterchurnMode.value) || !isButterchurnAvailable()) return null;
 
   const canvas = butterchurnCanvasRef.value;
   const graph = getVisualizerGraph();
@@ -487,8 +526,8 @@ function disposeThreeObject(object) {
   object.material?.dispose?.();
 }
 
-function ensureNucleusVisualizer() {
-  if (!isNucleusMode.value || !isNucleusAvailable()) return null;
+function ensureNucleusVisualizer({ allowInactive = false } = {}) {
+  if ((!allowInactive && !isNucleusMode.value) || !isNucleusAvailable()) return null;
   if (!orbThree || !orbEffectComposerCtor || !orbRenderPassCtor || !orbUnrealBloomPassCtor || !orbOutputPassCtor) {
     preloadNucleusVisualizer();
     return null;
@@ -569,19 +608,40 @@ function isCanvasVisible(mode) {
   return activeCanvasMode.value === mode || fadingCanvasMode.value === mode;
 }
 
+function getModeLayerOpacity(mode, maxOpacity = 1) {
+  if (activeCanvasMode.value === mode) {
+    const activeOpacity = fadingCanvasMode.value ? modeTransitionProgress.value : 1;
+    return activeOpacity * maxOpacity;
+  }
+  if (fadingCanvasMode.value === mode) {
+    return modeTransitionDecay.value * maxOpacity;
+  }
+  return 0;
+}
+
 function transitionCanvasMode(nextMode, previousMode = activeCanvasMode.value) {
   if (nextMode === previousMode) {
     activeCanvasMode.value = nextMode;
+    if (nextMode === 'nucleus') nucleusRevealProgress.value = 0;
     return;
   }
 
+  if (nextMode === 'nucleus') nucleusRevealProgress.value = 0;
   activeCanvasMode.value = nextMode;
   fadingCanvasMode.value = previousMode;
+  modeTransitionStartedAt = window.performance?.now?.() ?? Date.now();
   clearModeTransitionTimer();
   modeTransitionTimer = window.setTimeout(() => {
     fadingCanvasMode.value = null;
+    modeTransitionStartedAt = 0;
     modeTransitionTimer = 0;
   }, CANVAS_MODE_TRANSITION_MS);
+}
+
+function getTransitionDecay(now = window.performance?.now?.() ?? Date.now()) {
+  if (!fadingCanvasMode.value || !modeTransitionStartedAt) return 0;
+  const elapsed = now - modeTransitionStartedAt;
+  return 1 - clamp01(elapsed / CANVAS_MODE_TRANSITION_MS);
 }
 
 function loadButterchurnPreset({ index = 0, blendTime = BUTTERCHURN_BLEND_SECONDS } = {}) {
@@ -993,7 +1053,8 @@ function analyzeAudioFrame() {
   };
 }
 
-function drawPillsFrame() {
+function drawPillsFrame({ decay = 1 } = {}) {
+  const motionDecay = 0.28 + decay * 0.72;
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = state.isPlaying ? 'rgba(19, 36, 47, 0.42)' : 'rgba(19, 36, 47, 0.66)';
   ctx.fillRect(0, 0, viewportWidth, viewportHeight);
@@ -1005,7 +1066,7 @@ function drawPillsFrame() {
     analyserRef.value.getByteFrequencyData(frequencyData);
     for (let index = 0; index < pillsParticles.length; index += 1) {
       const particle = pillsParticles[index];
-      particle.energy = frequencyData[Math.min(particle.band, frequencyData.length - 1)] / 256;
+      particle.energy = (frequencyData[Math.min(particle.band, frequencyData.length - 1)] / 256) * motionDecay;
       averageEnergy += particle.energy;
     }
     averageEnergy /= Math.max(1, pillsParticles.length);
@@ -1038,7 +1099,7 @@ function drawPillsFrame() {
     particle.decayScale *= 0.982;
     particle.decayAlpha *= 0.92;
     particle.rotation += particle.spin;
-    particle.y -= particle.speed * particle.level;
+    particle.y -= particle.speed * particle.level * (0.45 + motionDecay * 0.55);
 
     ctx.save();
     ctx.beginPath();
@@ -1052,7 +1113,7 @@ function drawPillsFrame() {
     ctx.lineTo(particle.size * -0.5, 0);
     ctx.lineWidth = 1;
     ctx.lineCap = 'round';
-    ctx.globalAlpha = Math.min(0.4, particle.smoothedAlpha / (particle.level * 1.65));
+    ctx.globalAlpha = Math.min(0.4, particle.smoothedAlpha / (particle.level * 1.65)) * motionDecay;
     const [r, g, b] = palette[particle.colorIndex % palette.length];
     ctx.strokeStyle = `rgb(${r}, ${g}, ${b})`;
     ctx.stroke();
@@ -1062,7 +1123,7 @@ function drawPillsFrame() {
   ctx.globalCompositeOperation = 'source-over';
 }
 
-function drawButterchurnFrame() {
+function drawButterchurnFrame({ allowInactive = false } = {}) {
   if (!state.currentTrack) {
     clearButterchurnCanvas();
     butterchurnWasPlaying = false;
@@ -1079,14 +1140,17 @@ function drawButterchurnFrame() {
     return;
   }
 
-  ensureButterchurnVisualizer()?.render();
+  ensureButterchurnVisualizer({ allowInactive })?.render();
   butterchurnWasPlaying = true;
   butterchurnPauseFade += (0 - butterchurnPauseFade) * 0.14;
 }
 
-function drawNucleusFrame() {
-  const orb = ensureNucleusVisualizer();
+function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
+  const orb = ensureNucleusVisualizer({ allowInactive });
   if (!orb) return;
+  const motionDecay = 0.24 + decay * 0.76;
+
+  nucleusRevealProgress.value += (1 - nucleusRevealProgress.value) * 0.24;
 
   const analysis = analyzeAudioFrame();
   const [primaryRgb, secondaryRgb = primaryRgb] = getArtworkPalette();
@@ -1120,12 +1184,12 @@ function drawNucleusFrame() {
     smoothHigh *= 0.9;
     beatBoost *= 0.84;
   }
-  const transient = state.isPlaying ? (analysis?.transient ?? 0) : 0;
-  smoothNucleusFrequency += ((state.isPlaying ? averageFrequency : 0) - smoothNucleusFrequency)
+  const transient = state.isPlaying ? (analysis?.transient ?? 0) * motionDecay : 0;
+  smoothNucleusFrequency += ((state.isPlaying ? averageFrequency * motionDecay : 0) - smoothNucleusFrequency)
     * (state.isPlaying ? 0.24 : 0.1);
-  nucleusBackdropPulse += (((state.isPlaying ? (smoothBass * 1.1 + beatBoost * 0.56) : 0)) - nucleusBackdropPulse)
+  nucleusBackdropPulse += (((state.isPlaying ? (smoothBass * 1.1 + beatBoost * 0.56) * motionDecay : 0)) - nucleusBackdropPulse)
     * (state.isPlaying ? 0.2 : 0.08);
-  nucleusBeatPulse += (((state.isPlaying ? (smoothBass * 1.0 + beatBoost * 1.02 + transient * 0.64) : 0)) - nucleusBeatPulse)
+  nucleusBeatPulse += (((state.isPlaying ? (smoothBass * 1.0 + beatBoost * 1.02 + transient * 0.64) * motionDecay : 0)) - nucleusBeatPulse)
     * (state.isPlaying ? 0.22 : 0.08);
   const mixAmount = 0.28 + Math.min(0.2, smoothNucleusFrequency / 255 * 0.2);
   const wireColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
@@ -1157,9 +1221,21 @@ function drawNucleusFrame() {
   orb.composer.render();
 }
 
-function render() {
+function render(now) {
   animationFrameId = window.requestAnimationFrame(render);
   if (!viewportWidth || !viewportHeight) return;
+  const transitionDecay = getTransitionDecay(now);
+  modeTransitionDecay.value = transitionDecay;
+  modeTransitionProgress.value = fadingCanvasMode.value ? 1 - transitionDecay : 1;
+
+  if (fadingCanvasMode.value === 'nucleus' && transitionDecay > 0) {
+    drawNucleusFrame({ allowInactive: true, decay: transitionDecay });
+  } else if (fadingCanvasMode.value === 'butterchurn' && transitionDecay > 0) {
+    drawButterchurnFrame({ allowInactive: true });
+  } else if (fadingCanvasMode.value === 'pills' && transitionDecay > 0) {
+    ctx = pillsCtx;
+    if (ctx) drawPillsFrame({ decay: transitionDecay });
+  }
 
   if (activeCanvasMode.value === 'nucleus') {
     drawNucleusFrame();
@@ -1356,8 +1432,8 @@ onUnmounted(() => {
 <template>
   <section
     ref="containerRef"
-    class="visualizer relative flex-1 overflow-hidden bg-[#13242f] font-sans"
-    :style="{ '--visualizer-nav-offset': isFullscreen ? '0px' : 'calc(env(safe-area-inset-top) + 3.5rem)' }"
+    class="visualizer relative flex-1 overflow-hidden font-sans"
+    :style="visualizerStyle"
     @pointermove="revealOverlay"
     @pointerdown="revealOverlay"
     @focusin="revealOverlay"
@@ -1374,14 +1450,13 @@ onUnmounted(() => {
       :class="isCanvasVisible('butterchurn') ? 'opacity-100' : 'opacity-0'"
     />
     <div
-      v-if="currentMode.value === 'butterchurn'"
-      class="butterchurn-fade pointer-events-none absolute inset-0 z-[1]"
+      class="visualizer-layer-fade butterchurn-fade pointer-events-none absolute inset-0 z-[1]"
       :style="butterchurnPauseFadeStyle"
     />
     <canvas
       ref="nucleusCanvasRef"
       class="visualizer-canvas absolute inset-0 z-0 block size-full"
-      :class="isCanvasVisible('nucleus') ? 'opacity-100' : 'opacity-0'"
+      :style="nucleusCanvasStyle"
     />
     <div
       v-if="currentMode.value === 'nucleus'"
@@ -1391,19 +1466,20 @@ onUnmounted(() => {
     <div
       v-if="currentMode.value === 'nucleus'"
       class="nucleus-vignette pointer-events-none absolute inset-0 z-[2]"
+      :style="nucleusVignetteStyle"
     />
     <div
-      v-if="currentMode.value === 'pills'"
-      class="pointer-events-none absolute inset-0 z-[1] mix-blend-screen [background:radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.06),transparent_18%),radial-gradient(circle_at_50%_48%,rgba(255,255,255,0.03),transparent_34%)]"
+      class="visualizer-layer-fade pointer-events-none absolute inset-0 z-[1] mix-blend-screen [background:radial-gradient(circle_at_50%_42%,rgba(255,255,255,0.06),transparent_18%),radial-gradient(circle_at_50%_48%,rgba(255,255,255,0.03),transparent_34%)]"
+      :style="pillsGlowStyle"
     />
     <div
-      v-if="currentMode.value === 'pills' && pillsNoiseUrl"
-      class="pointer-events-none absolute inset-0 z-[2] bg-[length:160px_160px] bg-repeat opacity-50 mix-blend-screen"
-      :style="{ backgroundImage: `url(${pillsNoiseUrl})` }"
+      v-if="pillsNoiseUrl"
+      class="visualizer-layer-fade pointer-events-none absolute inset-0 z-[2] bg-[length:160px_160px] bg-repeat opacity-50 mix-blend-screen"
+      :style="pillsNoiseStyle"
     />
     <div
-      v-if="currentMode.value === 'pills'"
-      class="pointer-events-none absolute inset-0 z-[3] opacity-[0.88] [background:radial-gradient(ellipse_at_center,rgba(0,0,0,0)_24%,rgba(0,0,0,0.92)_95%)]"
+      class="visualizer-layer-fade pointer-events-none absolute inset-0 z-[3] opacity-[0.88] [background:radial-gradient(ellipse_at_center,rgba(0,0,0,0)_24%,rgba(0,0,0,0.92)_95%)]"
+      :style="pillsVignetteStyle"
     />
 
     <div
@@ -1613,13 +1689,17 @@ onUnmounted(() => {
 
 <style scoped>
 .visualizer-canvas {
-  transition: opacity 0.65s ease;
+  transition: opacity 0.32s ease, transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+
+.visualizer-layer-fade {
+  will-change: opacity;
 }
 
 .nucleus-backdrop {
   mix-blend-mode: screen;
   filter: blur(36px);
-  transition: opacity 0.35s ease, transform 0.18s ease;
   will-change: transform, opacity;
 }
 
@@ -1655,6 +1735,7 @@ onUnmounted(() => {
 
 .visualizer {
   min-height: calc(100vh - 5.5rem);
+  transition: background-color 0.32s ease;
 }
 
 .visualizer::before {
