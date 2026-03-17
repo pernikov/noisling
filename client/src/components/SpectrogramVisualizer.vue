@@ -1055,6 +1055,7 @@ function analyzeAudioFrame() {
 
 function drawPillsFrame({ decay = 1 } = {}) {
   const motionDecay = 0.28 + decay * 0.72;
+  visualTime += 0.016 * motionDecay;
   ctx.globalCompositeOperation = 'source-over';
   ctx.fillStyle = state.isPlaying ? 'rgba(19, 36, 47, 0.42)' : 'rgba(19, 36, 47, 0.66)';
   ctx.fillRect(0, 0, viewportWidth, viewportHeight);
@@ -1073,6 +1074,23 @@ function drawPillsFrame({ decay = 1 } = {}) {
     if (averageEnergy < 0.012) coolPills();
   } else {
     coolPills();
+    for (let index = 0; index < pillsParticles.length; index += 1) {
+      const particle = pillsParticles[index];
+      const isIdleAnchor = index % 12 === 0;
+      const idleEnergy = 0.026
+        + ((Math.sin(
+          visualTime * (0.35 + particle.speed * 0.06)
+          + particle.band * 0.31
+          + particle.x * 0.002,
+        ) + 1) * 0.5) * 0.04;
+      const anchorEnergy = 0.24
+        + ((Math.sin(
+          visualTime * (0.55 + particle.speed * 0.08)
+          + particle.band * 0.47
+          + particle.rotation,
+        ) + 1) * 0.5) * 0.16;
+      particle.energy = Math.max(particle.energy, isIdleAnchor ? anchorEnergy : idleEnergy);
+    }
   }
 
   ctx.globalCompositeOperation = 'lighter';
@@ -1099,7 +1117,10 @@ function drawPillsFrame({ decay = 1 } = {}) {
     particle.decayScale *= 0.982;
     particle.decayAlpha *= 0.92;
     particle.rotation += particle.spin;
-    particle.y -= particle.speed * particle.level * (0.45 + motionDecay * 0.55);
+    const verticalSpeed = state.isPlaying
+      ? particle.speed * particle.level * (0.45 + motionDecay * 0.55)
+      : particle.speed * particle.level * 0.28;
+    particle.y -= verticalSpeed;
 
     ctx.save();
     ctx.beginPath();
@@ -1134,9 +1155,9 @@ function drawButterchurnFrame({ allowInactive = false } = {}) {
   syncButterchurnPreset();
 
   if (!state.isPlaying) {
-    if (butterchurnWasPlaying) butterchurnVisualizer?.render();
+    ensureButterchurnVisualizer({ allowInactive })?.render();
     butterchurnWasPlaying = false;
-    butterchurnPauseFade += (1 - butterchurnPauseFade) * 0.08;
+    butterchurnPauseFade += (0.72 - butterchurnPauseFade) * 0.08;
     return;
   }
 
