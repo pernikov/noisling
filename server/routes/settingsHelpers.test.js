@@ -39,8 +39,9 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
 
 test('normalizeVizMode maps legacy visualizer values', () => {
   assert.equal(normalizeVizMode('nebula'), 'pills');
-  assert.equal(normalizeVizMode('spiral'), 'orb');
-  assert.equal(normalizeVizMode('orb'), 'orb');
+  assert.equal(normalizeVizMode('spiral'), 'nucleus');
+  assert.equal(normalizeVizMode('orb'), 'nucleus');
+  assert.equal(normalizeVizMode('nucleus'), 'nucleus');
 });
 
 test('buildSettingsUpdate validates and normalizes a mixed patch payload', () => {

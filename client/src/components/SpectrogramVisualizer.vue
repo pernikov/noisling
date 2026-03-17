@@ -28,8 +28,8 @@ const VIZ_OPTIONS = [
     },
   },
   {
-    value: 'orb',
-    label: 'Orb',
+    value: 'nucleus',
+    label: 'Nucleus',
     icon: '<circle cx="12" cy="12" r="5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke-linecap="round"/>',
     credit: {
       label: 'Inspired by Wael Yasmina',
@@ -67,7 +67,7 @@ const butterchurnPresetOptions = BUTTERCHURN_PRESET_OPTIONS
 const containerRef = ref(null);
 const pillsCanvasRef = ref(null);
 const butterchurnCanvasRef = ref(null);
-const orbCanvasRef = ref(null);
+const nucleusCanvasRef = ref(null);
 const analyserRef = shallowRef(null);
 const isFullscreen = ref(false);
 const showModeDropdown = ref(false);
@@ -128,13 +128,11 @@ let orbBackGlowMesh = null;
 let orbPointLight = null;
 let orbClock = null;
 let orbSupported = null;
-let orbPointerX = 0;
-let orbPointerY = 0;
-let smoothOrbFrequency = 0;
-let orbBeatPulse = 0;
-let smoothOrbBody = 0;
-let smoothOrbDetail = 0;
-let orbBackdropPulse = 0;
+let smoothNucleusFrequency = 0;
+let nucleusBeatPulse = 0;
+let smoothNucleusBody = 0;
+let smoothNucleusDetail = 0;
+let nucleusBackdropPulse = 0;
 let prevFrequencyFrame = null;
 let orbThree = null;
 let orbEffectComposerCtor = null;
@@ -156,19 +154,19 @@ const currentMode = computed(() =>
   VIZ_OPTIONS.find(option => option.value === vizMode.value) ?? VIZ_OPTIONS[0]
 );
 const isButterchurnMode = computed(() => currentMode.value.value === 'butterchurn');
-const isOrbMode = computed(() => currentMode.value.value === 'orb');
+const isNucleusMode = computed(() => currentMode.value.value === 'nucleus');
 const shouldShuffleVisualizerModes = computed(() => randomizeOnNewTrack.value);
 const shouldRandomizeButterchurnPresets = computed(() => butterchurnPresetMode.value === 'random');
 const showButterchurnPresetPicker = computed(() => (
   butterchurnPresetMode.value === 'single'
 ));
-const orbBackdropStyle = computed(() => {
-  const pulse = clamp01(orbBackdropPulse);
+const nucleusBackdropStyle = computed(() => {
+  const pulse = clamp01(nucleusBackdropPulse);
   const [primary, secondary = primary] = getArtworkPalette();
   const coreAlpha = 0.05 + pulse * 0.2;
   const haloAlpha = 0.05 + pulse * 0.16;
   return {
-    opacity: isCanvasVisible('orb') ? 1 : 0,
+    opacity: isCanvasVisible('nucleus') ? 1 : 0,
     transform: `scale(${1 + pulse * 0.075})`,
     background: `radial-gradient(circle at 44% 42%, rgba(${primary.join(', ')}, ${coreAlpha}) 0%, rgba(${secondary.join(', ')}, ${haloAlpha}) 28%, rgba(${secondary.join(', ')}, 0) 62%)`,
   };
@@ -190,10 +188,10 @@ const message = computed(() => {
     };
   }
 
-  if (isOrbMode.value && !isOrbAvailable()) {
+  if (isNucleusMode.value && !isNucleusAvailable()) {
     return {
-      title: 'Orb unavailable',
-      body: 'This browser does not expose the WebGL renderer needed for the Orb visualizer.',
+      title: 'Nucleus unavailable',
+      body: 'This browser does not expose the WebGL renderer needed for the Nucleus visualizer.',
     };
   }
 
@@ -314,7 +312,7 @@ function ensureButterchurnVisualizer() {
   return butterchurnVisualizer;
 }
 
-function getOrbVertexShader() {
+function getNucleusVertexShader() {
   return `
     uniform float uTime;
     uniform float uFrequency;
@@ -416,7 +414,7 @@ function getOrbVertexShader() {
   `;
 }
 
-function getOrbFragmentShader() {
+function getNucleusFragmentShader() {
   return `
     uniform vec3 uAccent;
 
@@ -426,7 +424,7 @@ function getOrbFragmentShader() {
   `;
 }
 
-function isOrbAvailable() {
+function isNucleusAvailable() {
   if (orbSupported !== null) return orbSupported;
   if (typeof document === 'undefined') {
     orbSupported = false;
@@ -446,7 +444,7 @@ function isOrbAvailable() {
   return orbSupported;
 }
 
-async function loadOrbModules() {
+async function loadNucleusModules() {
   if (orbThree && orbEffectComposerCtor && orbRenderPassCtor && orbUnrealBloomPassCtor && orbOutputPassCtor) return;
   if (!orbModulePromise) {
     orbModulePromise = Promise.all([
@@ -466,12 +464,12 @@ async function loadOrbModules() {
   await orbModulePromise;
 }
 
-function preloadOrbVisualizer() {
-  if (!isOrbAvailable()) return;
-  void loadOrbModules()
+function preloadNucleusVisualizer() {
+  if (!isNucleusAvailable()) return;
+  void loadNucleusModules()
     .then(() => {
-      if (!isOrbMode.value) return;
-      ensureOrbVisualizer();
+      if (!isNucleusMode.value) return;
+      ensureNucleusVisualizer();
       resizeCanvas();
     })
     .catch(() => {
@@ -489,14 +487,14 @@ function disposeThreeObject(object) {
   object.material?.dispose?.();
 }
 
-function ensureOrbVisualizer() {
-  if (!isOrbMode.value || !isOrbAvailable()) return null;
+function ensureNucleusVisualizer() {
+  if (!isNucleusMode.value || !isNucleusAvailable()) return null;
   if (!orbThree || !orbEffectComposerCtor || !orbRenderPassCtor || !orbUnrealBloomPassCtor || !orbOutputPassCtor) {
-    preloadOrbVisualizer();
+    preloadNucleusVisualizer();
     return null;
   }
 
-  const canvas = orbCanvasRef.value;
+  const canvas = nucleusCanvasRef.value;
   if (!canvas) return null;
 
   if (!orbRenderer) {
@@ -523,8 +521,8 @@ function ensureOrbVisualizer() {
       new orbThree.IcosahedronGeometry(4, 30),
       new orbThree.ShaderMaterial({
         uniforms,
-        vertexShader: getOrbVertexShader(),
-        fragmentShader: getOrbFragmentShader(),
+        vertexShader: getNucleusVertexShader(),
+        fragmentShader: getNucleusFragmentShader(),
         wireframe: true,
         transparent: false,
       }),
@@ -539,7 +537,7 @@ function ensureOrbVisualizer() {
       0.5,
       0.8,
     );
-    orbBloomPass.threshold = 0.5;
+    orbBloomPass.threshold = 0.46;
     orbBloomPass.strength = 0.5;
     orbBloomPass.radius = 0.8;
     orbComposer.addPass(orbBloomPass);
@@ -686,7 +684,7 @@ function disposeButterchurnVisualizer() {
   butterchurnVisualizer = null;
 }
 
-function disposeOrbVisualizer() {
+function disposeNucleusVisualizer() {
   orbComposer?.dispose?.();
   orbComposer = null;
   orbBloomPass = null;
@@ -846,15 +844,16 @@ function resetMotionState() {
   smoothMid = 0;
   smoothHigh = 0;
   smoothRms = 0;
-  smoothOrbFrequency = 0;
-  orbBeatPulse = 0;
-  smoothOrbBody = 0;
-  smoothOrbDetail = 0;
-  orbBackdropPulse = 0;
+  smoothNucleusFrequency = 0;
+  nucleusBeatPulse = 0;
+  smoothNucleusBody = 0;
+  smoothNucleusDetail = 0;
+  nucleusBackdropPulse = 0;
   prevBass = 0;
   beatBoost = 0;
   visualTime = 0;
   prevFrequencyFrame?.fill(0);
+  if (orbMesh) orbMesh.scale.setScalar(1);
 }
 
 function resizeCanvas() {
@@ -893,11 +892,11 @@ function resizeCanvas() {
     );
   }
 
-  const orbCanvas = orbCanvasRef.value;
-  if (orbCanvas) {
-    orbCanvas.width = Math.round(viewportWidth * dpr);
-    orbCanvas.height = Math.round(viewportHeight * dpr);
-    const orb = ensureOrbVisualizer();
+  const nucleusCanvas = nucleusCanvasRef.value;
+  if (nucleusCanvas) {
+    nucleusCanvas.width = Math.round(viewportWidth * dpr);
+    nucleusCanvas.height = Math.round(viewportHeight * dpr);
+    const orb = ensureNucleusVisualizer();
     if (orb) {
       orb.renderer.setPixelRatio(dpr);
       orb.renderer.setSize(viewportWidth, viewportHeight, false);
@@ -1085,24 +1084,11 @@ function drawButterchurnFrame() {
   butterchurnPauseFade += (0 - butterchurnPauseFade) * 0.14;
 }
 
-function updateOrbPointer(event) {
-  const container = containerRef.value;
-  if (!container) return;
-
-  const bounds = container.getBoundingClientRect();
-  if (!bounds.width || !bounds.height) return;
-
-  const centerX = bounds.left + bounds.width / 2;
-  const centerY = bounds.top + bounds.height / 2;
-  orbPointerX = (event.clientX - centerX) / 100;
-  orbPointerY = (event.clientY - centerY) / 100;
-}
-
-function drawOrbFrame() {
-  const orb = ensureOrbVisualizer();
+function drawNucleusFrame() {
+  const orb = ensureNucleusVisualizer();
   if (!orb) return;
 
-  analyzeAudioFrame();
+  const analysis = analyzeAudioFrame();
   const [primaryRgb, secondaryRgb = primaryRgb] = getArtworkPalette();
   const primaryColor = new orbThree.Color(`rgb(${primaryRgb.join(', ')})`);
   const secondaryColor = new orbThree.Color(`rgb(${secondaryRgb.join(', ')})`);
@@ -1134,21 +1120,39 @@ function drawOrbFrame() {
     smoothHigh *= 0.9;
     beatBoost *= 0.84;
   }
-  smoothOrbFrequency += ((state.isPlaying ? averageFrequency : 0) - smoothOrbFrequency)
+  const transient = state.isPlaying ? (analysis?.transient ?? 0) : 0;
+  smoothNucleusFrequency += ((state.isPlaying ? averageFrequency : 0) - smoothNucleusFrequency)
     * (state.isPlaying ? 0.24 : 0.1);
-  orbBackdropPulse += (((state.isPlaying ? (smoothBass * 1.05 + beatBoost * 0.6) : 0)) - orbBackdropPulse)
+  nucleusBackdropPulse += (((state.isPlaying ? (smoothBass * 1.1 + beatBoost * 0.56) : 0)) - nucleusBackdropPulse)
     * (state.isPlaying ? 0.2 : 0.08);
-  const mixAmount = 0.28 + Math.min(0.2, smoothOrbFrequency / 255 * 0.2);
+  nucleusBeatPulse += (((state.isPlaying ? (smoothBass * 1.0 + beatBoost * 1.02 + transient * 0.64) : 0)) - nucleusBeatPulse)
+    * (state.isPlaying ? 0.22 : 0.08);
+  const mixAmount = 0.28 + Math.min(0.2, smoothNucleusFrequency / 255 * 0.2);
   const wireColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
 
   const uniforms = orb.mesh.material.uniforms;
-  uniforms.uTime.value = orb.clock.getElapsedTime();
-  uniforms.uFrequency.value = smoothOrbFrequency;
+  const elapsedTime = orb.clock.getElapsedTime();
+  uniforms.uTime.value = elapsedTime;
+  uniforms.uFrequency.value = smoothNucleusFrequency * 0.84;
   uniforms.uAccent.value.copy(wireColor);
 
-  orb.camera.position.x += (orbPointerX - orb.camera.position.x) * 0.05;
-  orb.camera.position.y += ((-orbPointerY) - orb.camera.position.y) * 0.5;
+  const orbitAmount = 0.35 + nucleusBackdropPulse * 0.12;
+  const targetCameraX = Math.sin(elapsedTime * 0.22) * orbitAmount;
+  const targetCameraY = -2 + Math.cos(elapsedTime * 0.16) * 0.18;
+  const targetCameraZ = 14 + Math.sin(elapsedTime * 0.12) * 0.25;
+  orb.camera.position.x += (targetCameraX - orb.camera.position.x) * 0.035;
+  orb.camera.position.y += (targetCameraY - orb.camera.position.y) * 0.08;
+  orb.camera.position.z += (targetCameraZ - orb.camera.position.z) * 0.05;
   orb.camera.lookAt(orb.scene.position);
+
+  const orbPulseScale = 1 + nucleusBackdropPulse * 0.016 + nucleusBeatPulse * 0.058;
+  orb.mesh.scale.setScalar(orbPulseScale);
+  orb.mesh.rotation.y = elapsedTime * 0.18;
+  orb.mesh.rotation.x = Math.sin(elapsedTime * 0.24) * 0.08 + nucleusBeatPulse * 0.056;
+  orb.mesh.rotation.z = Math.cos(elapsedTime * 0.17) * 0.05 + transient * 0.024;
+  if (orbBloomPass) {
+    orbBloomPass.strength = 0.44 + nucleusBackdropPulse * 0.15 + transient * 0.18;
+  }
 
   orb.composer.render();
 }
@@ -1157,8 +1161,8 @@ function render() {
   animationFrameId = window.requestAnimationFrame(render);
   if (!viewportWidth || !viewportHeight) return;
 
-  if (activeCanvasMode.value === 'orb') {
-    drawOrbFrame();
+  if (activeCanvasMode.value === 'nucleus') {
+    drawNucleusFrame();
     return;
   }
 
@@ -1223,7 +1227,7 @@ function selectMode(mode) {
   showModeDropdown.value = false;
   resetMotionState();
   if (mode === 'pills') paintBackground(pillsCtx);
-  else if (mode === 'orb') preloadOrbVisualizer();
+  else if (mode === 'nucleus') preloadNucleusVisualizer();
 }
 
 function clearOverlayHideTimer() {
@@ -1280,7 +1284,7 @@ watch(vizMode, () => {
   transitionCanvasMode(vizMode.value);
   resetMotionState();
   ensureButterchurnVisualizer();
-  if (vizMode.value === 'orb') preloadOrbVisualizer();
+  if (vizMode.value === 'nucleus') preloadNucleusVisualizer();
   resizeCanvas();
   if (vizMode.value === 'pills') paintBackground(pillsCtx);
   syncButterchurnPreset();
@@ -1339,7 +1343,7 @@ onMounted(() => {
 onUnmounted(() => {
   stop();
   disposeButterchurnVisualizer();
-  disposeOrbVisualizer();
+  disposeNucleusVisualizer();
   clearOverlayHideTimer();
   clearModeTransitionTimer();
   resizeObserver?.disconnect();
@@ -1354,7 +1358,7 @@ onUnmounted(() => {
     ref="containerRef"
     class="visualizer relative flex-1 overflow-hidden bg-[#13242f] font-sans"
     :style="{ '--visualizer-nav-offset': isFullscreen ? '0px' : 'calc(env(safe-area-inset-top) + 3.5rem)' }"
-    @pointermove="(event) => { revealOverlay(); updateOrbPointer(event); }"
+    @pointermove="revealOverlay"
     @pointerdown="revealOverlay"
     @focusin="revealOverlay"
     @dblclick="handleVisualizerDoubleClick"
@@ -1375,18 +1379,18 @@ onUnmounted(() => {
       :style="butterchurnPauseFadeStyle"
     />
     <canvas
-      ref="orbCanvasRef"
+      ref="nucleusCanvasRef"
       class="visualizer-canvas absolute inset-0 z-0 block size-full"
-      :class="isCanvasVisible('orb') ? 'opacity-100' : 'opacity-0'"
+      :class="isCanvasVisible('nucleus') ? 'opacity-100' : 'opacity-0'"
     />
     <div
-      v-if="currentMode.value === 'orb'"
-      class="orb-backdrop pointer-events-none absolute inset-0 z-[1]"
-      :style="orbBackdropStyle"
+      v-if="currentMode.value === 'nucleus'"
+      class="nucleus-backdrop pointer-events-none absolute inset-0 z-[1]"
+      :style="nucleusBackdropStyle"
     />
     <div
-      v-if="currentMode.value === 'orb'"
-      class="orb-vignette pointer-events-none absolute inset-0 z-[2]"
+      v-if="currentMode.value === 'nucleus'"
+      class="nucleus-vignette pointer-events-none absolute inset-0 z-[2]"
     />
     <div
       v-if="currentMode.value === 'pills'"
@@ -1612,14 +1616,14 @@ onUnmounted(() => {
   transition: opacity 0.65s ease;
 }
 
-.orb-backdrop {
+.nucleus-backdrop {
   mix-blend-mode: screen;
   filter: blur(36px);
   transition: opacity 0.35s ease, transform 0.18s ease;
   will-change: transform, opacity;
 }
 
-.orb-vignette {
+.nucleus-vignette {
   background:
     radial-gradient(ellipse at center, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.24) 72%, rgba(0, 0, 0, 0.52) 100%);
   opacity: 0.82;

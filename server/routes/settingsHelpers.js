@@ -3,7 +3,7 @@ export const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 export const VALID_REPEAT = ['off', 'all', 'one'];
 export const VALID_DENSITY = ['comfortable', 'compact'];
 export const VALID_FONT = ['small', 'medium', 'large'];
-export const VALID_VIZ_MODES = ['pills', 'orb', 'butterchurn'];
+export const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
 export const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
 export const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to the sherwin maxawow';
 export const VALID_SORT_DIRS = ['asc', 'desc'];
@@ -49,7 +49,7 @@ export function buildSettingsResponse(settings) {
 
 export function normalizeVizMode(value) {
   if (value === 'nebula') return 'pills';
-  if (value === 'spiral') return 'orb';
+  if (value === 'spiral' || value === 'orb') return 'nucleus';
   return value;
 }
 
