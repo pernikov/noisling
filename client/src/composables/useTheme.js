@@ -66,6 +66,7 @@ const ARTISTS_NAV_KEY  = 'noisling_artists_nav';
 const HOME_QUICK_KEY   = 'noisling_home_quick';
 const HOME_RECENT_KEY  = 'noisling_home_recent';
 const HOME_ALBUMS_KEY  = 'noisling_home_albums';
+const HOME_PENDING_KEY = 'noisling_home_pending_play';
 const WIDE_LAYOUT_KEY  = 'noisling_wide_layout';
 const PLAYLISTS_KEY    = 'noisling_playlists';
 const SHARP_KEY        = 'noisling_sharp_corners';
@@ -137,6 +138,7 @@ const wideLayout        = ref(readStoredBool(WIDE_LAYOUT_KEY, false));
 const homeShowQuickPlay = ref(readStoredBool(HOME_QUICK_KEY));
 const homeShowRecent    = ref(readStoredBool(HOME_RECENT_KEY));
 const homeShowAlbums    = ref(readStoredBool(HOME_ALBUMS_KEY));
+const homeShowPendingPlay = ref(readStoredBool(HOME_PENDING_KEY, true));
 
 // Visualizer prefs
 const storedViz = normalizeVizMode(readStoredValue(VIZ_MODE_KEY));
@@ -265,6 +267,10 @@ export function useTheme() {
       if (typeof data.homeShowAlbums === 'boolean') {
         homeShowAlbums.value = data.homeShowAlbums;
         writeStoredBool(HOME_ALBUMS_KEY, data.homeShowAlbums);
+      }
+      if (typeof data.homeShowPendingPlay === 'boolean') {
+        homeShowPendingPlay.value = data.homeShowPendingPlay;
+        writeStoredBool(HOME_PENDING_KEY, data.homeShowPendingPlay);
       }
       const normalizedVizMode = normalizeVizMode(data.vizMode);
       if (VALID_VIZ_MODES.includes(normalizedVizMode)) {
@@ -593,7 +599,7 @@ export function useTheme() {
     tracksColumns, tracksSort,
     showArtistsNav,
     wideLayout,
-    homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
+    homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay, homeVisibleCount,
     vizMode, randomizeOnNewTrack, VALID_VIZ_MODES,
     butterchurnPresetMode, butterchurnPreset,
     BUTTERCHURN_PRESET_OPTIONS, VALID_BUTTERCHURN_PRESET_MODES,
@@ -609,6 +615,17 @@ export function useTheme() {
       if (key === 'quickPlay') _setHomeSection(homeShowQuickPlay, HOME_QUICK_KEY, 'homeShowQuickPlay', value);
       if (key === 'recent')    _setHomeSection(homeShowRecent,    HOME_RECENT_KEY, 'homeShowRecent', value);
       if (key === 'albums')    _setHomeSection(homeShowAlbums,    HOME_ALBUMS_KEY, 'homeShowAlbums', value);
+    },
+    setHomePendingPlay: async (value) => {
+      const next = Boolean(value);
+      await applyStoredSetting({
+        current: homeShowPendingPlay,
+        previous: homeShowPendingPlay.value,
+        next,
+        persist: (nextValue) => writeStoredBool(HOME_PENDING_KEY, nextValue),
+        body: { homeShowPendingPlay: next },
+        message: 'Failed to save pending-play status visibility.',
+      });
     },
   };
 }

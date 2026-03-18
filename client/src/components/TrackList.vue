@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiCheck } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
 import { usePlayer } from '../composables/usePlayer.js';
@@ -29,8 +29,6 @@ const props = defineProps({
   sortDir: { type: String, default: 'asc' },
   playlistId: { type: String, default: null }, // if set, shows "Remove from playlist" in menu
   draggable: { type: Boolean, default: false },
-  showPendingState: { type: Boolean, default: false },
-  savedTrackId: { type: String, default: null },
 });
 
 const emit = defineEmits(['sort', 'remove-from-playlist', 'reorder', 'track-updated']);
@@ -113,58 +111,8 @@ function playAll() { _playAll(props.tracks, props.getAllTracks); }
 function playShuffle() { _playShuffled(props.tracks, props.getAllTracks); }
 
 
-function isCurrentTrack(track, index = -1) {
-  if (state.currentTrack?._id !== track._id) return false;
-  if (props.showPendingState && !state.currentTrackReported) return index === 0;
-  return true;
-}
-
-function isPendingTrack(track) {
-  return props.showPendingState && Boolean(track._pendingRecentPhase);
-}
-
-function pendingTrackPhase(track) {
-  return isPendingTrack(track) ? track._pendingRecentPhase : null;
-}
-
-function isActivePendingTrack(track) {
-  return pendingTrackPhase(track) === 'counting';
-}
-
-function shouldRenderPendingBadge(track, index) {
-  return isPendingTrack(track) && index === 0;
-}
-
-function shouldShowPendingBadge(track, index) {
-  return shouldRenderPendingBadge(track, index);
-}
-
-function isPendingBadgeCompleting(track) {
-  const phase = pendingTrackPhase(track);
-  return phase === 'completed' || phase === 'fading';
-}
-
-function isPendingBadgeLeaving(track) {
-  return pendingTrackPhase(track) === 'fading';
-}
-
-function isSavedTrack(track) {
-  if (!props.savedTrackId) return false;
-  const trackId = track._id?.toString?.() ?? track._id;
-  return trackId === props.savedTrackId;
-}
-
-function pendingBadgeStyle(track) {
-  if (!isPendingTrack(track)) return undefined;
-
-  const progress = isPendingBadgeCompleting(track)
-    ? 1
-    : (state.currentTrack?._id === track._id ? state.currentTrackPlayProgress : 0);
-  const progressPct = Math.round(progress * 100);
-
-  return {
-    '--pending-progress': `${progressPct}%`,
-  };
+function isCurrentTrack(track) {
+  return state.currentTrack?._id === track._id;
 }
 
 // --- Drag and drop reordering (playlist mode) ---
@@ -339,14 +287,12 @@ defineExpose({ playAll, playShuffle });
             track.deleted
               ? 'cursor-default opacity-40'
               : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
-            { [`text-${accentColor}-400`]: isCurrentTrack(track, i) },
-            { 'max-sm:[&>td]:bg-zinc-800/50': isCurrentTrack(track, i) },
+            { [`text-${accentColor}-400`]: isCurrentTrack(track) },
+            { 'max-sm:[&>td]:bg-zinc-800/50': isCurrentTrack(track) },
             { '[&>td]:bg-zinc-800/50': menuRowIndex === i },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
             { 'drop-below': draggable && dragOverIndex === i && dragIndex !== null && dragIndex < i },
-            { 'track-pending': isActivePendingTrack(track) },
-            { 'track-just-saved': isSavedTrack(track) },
           ]"
           :style="draggable ? { '--indicator': `rgb(${accentRgb})` } : {}"
           :draggable="draggable ? 'true' : 'false'"
@@ -359,10 +305,10 @@ defineExpose({ playAll, playShuffle });
           @dragend="draggable && onDragEnd()"
         >
           <td :class="[rowPy, 'px-1 text-zinc-500 text-center hidden sm:table-cell']">
-            <span v-if="isCurrentTrack(track, i) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
+            <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
               <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
             </span>
-            <span v-else-if="isCurrentTrack(track, i) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
+            <span v-else-if="isCurrentTrack(track) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
               <Icon :path="mdiPlay" class="w-3 h-3" />
             </span>
             <template v-else-if="useTrackNumber">
@@ -375,36 +321,6 @@ defineExpose({ playAll, playShuffle });
             <div class="flex items-center gap-2 min-w-0">
               <CoverArt v-if="showCover && showCoverArt" :cover="track.deleted ? '' : track.cover" :size="density === 'compact' ? 'w-6 h-6 shrink-0' : 'w-8 h-8 shrink-0'" />
               <span class="truncate">{{ track.title }}</span>
-              <span class="shrink-0 inline-flex justify-start">
-                <Transition
-                  appear
-                  enter-active-class="transition-all duration-320 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                  leave-active-class="transition-all duration-760 ease-[cubic-bezier(0.22,1,0.36,1)]"
-                  enter-from-class="opacity-0 translate-y-[3px] scale-[0.97] blur-[1px]"
-                  leave-to-class="opacity-0 translate-y-[-1px] scale-[0.96] blur-[1.5px]"
-                >
-                  <span
-                    v-if="shouldRenderPendingBadge(track, i)"
-                    v-show="shouldShowPendingBadge(track, i)"
-                    class="pending-badge rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-400"
-                    :class="{
-                      'pending-badge--completing': isPendingBadgeCompleting(track),
-                      'pending-badge--leaving': isPendingBadgeLeaving(track),
-                    }"
-                    :style="pendingBadgeStyle(track)"
-                  >
-                    <span class="pending-badge__fill"></span>
-                    <span class="pending-badge__content relative z-10">
-                      <span class="pending-badge__label" :class="{ 'pending-badge__label--hidden': isPendingBadgeCompleting(track) }">Marking played</span>
-                      <Icon
-                        :path="mdiCheck"
-                        class="pending-badge__check h-3 w-3"
-                        :class="{ 'pending-badge__check--visible': isPendingBadgeCompleting(track) }"
-                      />
-                    </span>
-                  </span>
-                </Transition>
-              </span>
             </div>
           </td>
           <td v-if="showArtist" :class="[rowPy, 'px-3 text-zinc-400 hidden sm:table-cell overflow-hidden']">
@@ -428,7 +344,7 @@ defineExpose({ playAll, playShuffle });
           </td>
           <td v-if="showPlays" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">{{ track.playCount || 0 }}</td>
           <td v-if="showLastPlayed" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">
-            {{ isPendingTrack(track) ? 'now' : ((track.playedAt ?? track.lastPlayedAt) ? timeAgo(track.playedAt ?? track.lastPlayedAt) : '') }}
+            {{ (track.playedAt ?? track.lastPlayedAt) ? timeAgo(track.playedAt ?? track.lastPlayedAt) : '' }}
           </td>
           <td :class="[rowPy, 'px-1 align-middle']">
             <button
@@ -476,109 +392,6 @@ defineExpose({ playAll, playShuffle });
 .drop-below > td {
   box-shadow: inset 0 -2px 0 var(--indicator);
 }
-.track-pending > td {
-  opacity: 0.72;
-  animation: pending-recent-glow 1.8s ease-in-out infinite;
-}
-.pending-badge {
-  position: relative;
-  overflow: hidden;
-  isolation: isolate;
-  transform-origin: center;
-  display: inline-flex;
-  align-items: center;
-  transition: padding 360ms cubic-bezier(0.22, 1, 0.36, 1), border-color 300ms ease-out, background-color 300ms ease-out, opacity 360ms ease-out, transform 360ms cubic-bezier(0.22, 1, 0.36, 1), filter 360ms ease-out;
-}
-.pending-badge__fill {
-  position: absolute;
-  inset: 0;
-  width: var(--pending-progress, 0%);
-  border-radius: inherit;
-  background: linear-gradient(90deg, rgb(255 255 255 / 0.14), rgb(255 255 255 / 0.08));
-}
-.pending-badge__content {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.pending-badge__check {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  opacity: 0;
-  transform: translate(-50%, -50%) scale(0.72);
-  transition: opacity 280ms ease-out, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.pending-badge__check--visible {
-  opacity: 0.95;
-  transform: translate(-50%, -50%) scale(1.02);
-}
-.pending-badge__label {
-  display: inline-block;
-  max-width: 7.5rem;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: max-width 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 260ms ease-out, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-.pending-badge__label--hidden {
-  max-width: 0;
-  opacity: 0;
-  transform: translateY(-3px) scale(0.98);
-}
-.pending-badge--completing {
-  padding-left: 0.72rem;
-  padding-right: 0.72rem;
-}
-.pending-badge--leaving {
-  transform: translateY(-1px) scale(0.94);
-  filter: blur(1px);
-  opacity: 0;
-}
-.track-just-saved > td {
-  animation: recent-saved-flash 1080ms cubic-bezier(0.2, 0.8, 0.2, 1) 1;
-}
 @media (prefers-reduced-motion: reduce) {
-  .track-pending > td {
-    animation: none;
-    opacity: 0.82;
-  }
-  .track-just-saved > td {
-    animation: none;
-  }
-}
-@keyframes pending-recent-glow {
-  0%, 100% {
-    opacity: 0.72;
-  }
-  50% {
-    opacity: 0.98;
-  }
-}
-@keyframes recent-saved-flash {
-  0% {
-    background-color: rgb(255 255 255 / 0);
-    box-shadow: inset 0 0 0 0 rgb(255 255 255 / 0);
-  }
-  18% {
-    background-color: rgb(255 255 255 / 0.014);
-    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.006);
-  }
-  48% {
-    background-color: rgb(255 255 255 / 0.062);
-    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.024);
-  }
-  72% {
-    background-color: rgb(255 255 255 / 0.028);
-    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.01);
-  }
-  88% {
-    background-color: rgb(255 255 255 / 0.008);
-    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.003);
-  }
-  100% {
-    background-color: rgb(255 255 255 / 0);
-    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0);
-  }
 }
 </style>

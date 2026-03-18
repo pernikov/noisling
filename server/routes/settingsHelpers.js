@@ -35,6 +35,7 @@ export function buildSettingsResponse(settings) {
     homeShowQuickPlay: settings.homeShowQuickPlay ?? true,
     homeShowRecent: settings.homeShowRecent ?? true,
     homeShowAlbums: settings.homeShowAlbums ?? true,
+    homeShowPendingPlay: settings.homeShowPendingPlay ?? true,
     vizMode: normalizeVizMode(settings.vizMode ?? 'pills'),
     randomizeOnNewTrack: settings.randomizeOnNewTrack ?? false,
     butterchurnPresetMode: settings.butterchurnPresetMode === 'random' ? 'random' : 'single',
@@ -57,7 +58,7 @@ export function buildSettingsUpdate(body = {}) {
   const {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, tracksColumns, tracksSort,
-    lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums,
+    lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay,
     vizMode, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, showPlaylists, sharpCorners, reduceMotion,
   } = body;
 
@@ -129,6 +130,9 @@ export function buildSettingsUpdate(body = {}) {
   }
   if (homeShowAlbums !== undefined) {
     update.homeShowAlbums = Boolean(homeShowAlbums);
+  }
+  if (homeShowPendingPlay !== undefined) {
+    update.homeShowPendingPlay = Boolean(homeShowPendingPlay);
   }
   if (vizMode !== undefined) {
     const normalizedVizMode = normalizeVizMode(vizMode);

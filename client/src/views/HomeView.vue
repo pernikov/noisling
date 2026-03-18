@@ -7,6 +7,7 @@ import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
+import PendingPlayStatus from '../components/PendingPlayStatus.vue';
 import CoverArt from '../components/CoverArt.vue';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
@@ -14,7 +15,7 @@ import Spinner from '../components/Spinner.vue';
 const api = useApi();
 const router = useRouter();
 const { state: playerState, playAlbum, shuffleAll } = usePlayer();
-const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, tracksColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
+const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay, tracksColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
 
 const lovedTracks = ref([]);
 const recentTracks = ref([]);
@@ -42,48 +43,20 @@ const greeting = GREETINGS[nextIdx];
 
 const loadingShuffleAll = ref(false);
 const loadingTopTracks = ref(false);
-const recentlySavedTrackId = ref(null);
 const completingRecentTrack = ref(null);
-let recentSavedAnimationTimer = null;
 let completingRecentTimer = null;
 let completingRecentFadeTimer = null;
 
-const recentTracksForDisplay = computed(() => {
+const recentTracksForDisplay = computed(() => recentTracks.value);
+
+const pendingPlayStatus = computed(() => {
   const currentTrack = playerState.currentTrack;
-  const completingTrackId = completingRecentTrack.value?._id?.toString?.() ?? completingRecentTrack.value?._id ?? null;
-
-  if (completingRecentTrack.value) {
-    const dedupedRecentTracks = recentTracks.value.filter((track) => {
-      const trackId = track._id?.toString?.() ?? track._id;
-      return trackId !== completingTrackId;
-    });
-
-    return [
-      {
-        ...completingRecentTrack.value,
-        historyId: completingTrackId,
-        _pendingRecentPhase: completingRecentTrack.value._pendingRecentPhase,
-      },
-      ...dedupedRecentTracks.slice(0, 9),
-    ];
-  }
-
-  if (!currentTrack || playerState.currentTrackReported) return recentTracks.value;
-
-  const currentTrackId = currentTrack._id?.toString?.() ?? currentTrack._id;
-  const dedupedRecentTracks = recentTracks.value.filter((track) => {
-    const trackId = track._id?.toString?.() ?? track._id;
-    return trackId !== currentTrackId;
-  });
-
-  return [
-    {
-      ...currentTrack,
-      historyId: `pending-${currentTrackId}`,
-      _pendingRecentPhase: 'counting',
-    },
-    ...dedupedRecentTracks.slice(0, 9),
-  ];
+  if (completingRecentTrack.value) return completingRecentTrack.value;
+  if (!currentTrack || playerState.currentTrackReported) return null;
+  return {
+    ...currentTrack,
+    _pendingRecentPhase: 'counting',
+  };
 });
 
 async function playShuffleAll() {
@@ -130,15 +103,6 @@ async function loadRecent() {
   }
 }
 
-function triggerRecentSavedAnimation(trackId) {
-  if (!trackId) return;
-  recentlySavedTrackId.value = trackId;
-  clearTimeout(recentSavedAnimationTimer);
-  recentSavedAnimationTimer = setTimeout(() => {
-    if (recentlySavedTrackId.value === trackId) recentlySavedTrackId.value = null;
-  }, 900);
-}
-
 function clearCompletingRecentRow() {
   clearTimeout(completingRecentTimer);
   clearTimeout(completingRecentFadeTimer);
@@ -160,7 +124,6 @@ function stageCompletedPendingRow(trackId) {
     ...completedTrack,
     _pendingRecentPhase: 'completed',
   };
-  triggerRecentSavedAnimation(trackId);
   completingRecentFadeTimer = setTimeout(() => {
     if ((completingRecentTrack.value?._id?.toString?.() ?? completingRecentTrack.value?._id) === trackId) {
       completingRecentTrack.value = {
@@ -176,6 +139,32 @@ function stageCompletedPendingRow(trackId) {
     }
     completingRecentTimer = null;
   }, 2000);
+}
+
+function animatePendingStatusEnter(el) {
+  el.style.height = '0px';
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(-6px)';
+  requestAnimationFrame(() => {
+    el.style.height = `${el.scrollHeight}px`;
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+  });
+}
+
+function animatePendingStatusAfterEnter(el) {
+  el.style.height = 'auto';
+}
+
+function animatePendingStatusLeave(el) {
+  el.style.height = `${el.scrollHeight}px`;
+  el.style.opacity = '1';
+  el.style.transform = 'translateY(0)';
+  requestAnimationFrame(() => {
+    el.style.height = '0px';
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(-6px)';
+  });
 }
 
 async function loadRecentAlbums() {
@@ -195,7 +184,6 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
-  clearTimeout(recentSavedAnimationTimer);
   clearCompletingRecentRow();
 });
 
@@ -321,18 +309,33 @@ function goToAlbum(album) {
         <p class="text-xs text-zinc-600">Your recently played tracks will show up here.</p>
       </div>
 
-      <TrackList
-        v-else
-        :tracks="recentTracksForDisplay"
-        show-cover
-        :show-artist="tracksColumns.artist"
-        :show-album="tracksColumns.album"
-        :show-plays="tracksColumns.plays"
-        :show-last-played="tracksColumns.lastPlayed"
-        :saved-track-id="recentlySavedTrackId"
-        show-pending-state
-        hide-controls
-      />
+      <div v-else class="space-y-3">
+        <Transition
+          @enter="animatePendingStatusEnter"
+          @after-enter="animatePendingStatusAfterEnter"
+          @leave="animatePendingStatusLeave"
+        >
+          <div
+            v-if="pendingPlayStatus && homeShowPendingPlay"
+            class="overflow-hidden transition-[height,opacity,transform] duration-350 ease-[cubic-bezier(0.22,1,0.36,1)]"
+          >
+            <PendingPlayStatus
+              :track="pendingPlayStatus"
+              :phase="pendingPlayStatus._pendingRecentPhase"
+            />
+          </div>
+        </Transition>
+
+        <TrackList
+          :tracks="recentTracksForDisplay"
+          show-cover
+          :show-artist="tracksColumns.artist"
+          :show-album="tracksColumns.album"
+          :show-plays="tracksColumns.plays"
+          :show-last-played="tracksColumns.lastPlayed"
+          hide-controls
+        />
+      </div>
     </section>
 
     <!-- Recently Added Albums -->

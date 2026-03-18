@@ -71,7 +71,6 @@ const state = reactive({
   showAddToPlaylist: false,
   playReportCount:   0,
   currentTrackReported: true,
-  currentTrackBadgeLeaving: false,
   currentTrackPlayProgress: 0,
   lastReportedTrackId: null,
   visualizerTrackTick: 0,
@@ -127,7 +126,6 @@ function savePrefs(updates) {
 function resetPlayTracking() {
   playReported = false;
   state.currentTrackReported = false;
-  state.currentTrackBadgeLeaving = false;
   state.currentTrackPlayProgress = 0;
   playedSeconds = 0;
   _lastUpdateTime = null;
@@ -172,7 +170,6 @@ function registerPlayerEventListeners() {
       state.currentTrackPlayProgress = threshold > 0
         ? Math.max(0, Math.min(1, playedSeconds / threshold))
         : 0;
-      state.currentTrackBadgeLeaving = playedSeconds >= Math.max(0, threshold - 0.55);
       if (playedSeconds >= threshold) {
         playReported = true;
         const reportedTrackId = state.currentTrack._id;
@@ -180,7 +177,6 @@ function registerPlayerEventListeners() {
           .then(() => {
             markCurrentTrackReported(reportedTrackId);
             state.currentTrackReported = true;
-            state.currentTrackBadgeLeaving = true;
             state.currentTrackPlayProgress = 1;
             state.lastReportedTrackId = reportedTrackId;
             state.playReportCount++;

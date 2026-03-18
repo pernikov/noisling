@@ -43,10 +43,11 @@ const {
   lovedUseAccent, setLovedUseAccent,
   tracksColumns, setTracksColumn,
   showArtistsNav, wideLayout,
-  homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeVisibleCount,
+  homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay, homeVisibleCount,
   showPlaylists,
   setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
   setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists, setSharpCorners, setReduceMotion,
+  setHomePendingPlay,
 } = useTheme();
 
 const VALID_TABS = ['appearance', 'library', 'stats'];
@@ -462,25 +463,51 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <div
               v-for="section in HOME_SECTION_OPTIONS"
               :key="section.key"
-              class="flex items-center justify-between"
+              class="space-y-3"
             >
-              <div>
-                <p class="text-sm text-zinc-200">{{ section.label }}</p>
-                <p class="text-xs text-zinc-500 mt-0.5">{{ section.desc }}</p>
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-sm text-zinc-200">{{ section.label }}</p>
+                  <p class="text-xs text-zinc-500 mt-0.5">{{ section.desc }}</p>
+                </div>
+                <button
+                  @click="setHomeSection(section.key, !homeSectionValues[section.key])"
+                  :disabled="homeSectionValues[section.key] && homeVisibleCount <= 1"
+                  class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  :class="homeSectionValues[section.key] ? `bg-${accentColor}-500` : 'bg-zinc-700 cursor-pointer'"
+                  role="switch"
+                  :aria-checked="homeSectionValues[section.key]"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+                    :class="homeSectionValues[section.key] ? 'translate-x-5' : 'translate-x-0'"
+                  />
+                </button>
               </div>
-              <button
-                @click="setHomeSection(section.key, !homeSectionValues[section.key])"
-                :disabled="homeSectionValues[section.key] && homeVisibleCount <= 1"
-                class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                :class="homeSectionValues[section.key] ? `bg-${accentColor}-500` : 'bg-zinc-700 cursor-pointer'"
-                role="switch"
-                :aria-checked="homeSectionValues[section.key]"
+
+              <div
+                v-if="section.key === 'recent'"
+                class="flex items-center justify-between transition-opacity"
+                :class="homeShowRecent ? 'opacity-100' : 'opacity-45'"
               >
-                <span
-                  class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-                  :class="homeSectionValues[section.key] ? 'translate-x-5' : 'translate-x-0'"
-                />
-              </button>
+                <div>
+                  <p class="text-sm text-zinc-200">Pending play status</p>
+                  <p class="text-xs text-zinc-500 mt-0.5">Show the home-page status card while a track is being counted as played.</p>
+                </div>
+                <button
+                  @click="homeShowRecent && setHomePendingPlay(!homeShowPendingPlay)"
+                  :disabled="!homeShowRecent"
+                  class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                  :class="homeShowPendingPlay ? `bg-${accentColor}-500` : 'bg-zinc-700'"
+                  role="switch"
+                  :aria-checked="homeShowPendingPlay"
+                >
+                  <span
+                    class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
+                    :class="homeShowPendingPlay ? 'translate-x-5' : 'translate-x-0'"
+                  />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -514,8 +541,6 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             />
           </button>
         </div>
-
-        <div class="border-t border-zinc-800" />
 
         <div class="space-y-3">
           <div
