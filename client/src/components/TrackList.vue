@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onBeforeUnmount } from 'vue';
 import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
@@ -29,6 +29,8 @@ const props = defineProps({
   sortDir: { type: String, default: 'asc' },
   playlistId: { type: String, default: null }, // if set, shows "Remove from playlist" in menu
   draggable: { type: Boolean, default: false },
+  showPendingState: { type: Boolean, default: false },
+  savedTrackId: { type: String, default: null },
 });
 
 const emit = defineEmits(['sort', 'remove-from-playlist', 'reorder', 'track-updated']);
@@ -73,6 +75,8 @@ function onMenuTrackUpdated(updatedTrack) {
 
 const { accentColor, accentRgb, density, showCoverArt, lovedUseAccent } = useTheme();
 const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
+const visiblePendingBadgeTrackId = ref(null);
+let pendingBadgeTimer = null;
 
 // When any track's love status changes (from PlayerBar or another TrackList instance),
 // keep the matching track object in this list in sync.
@@ -114,6 +118,48 @@ function playShuffle() { _playShuffled(props.tracks, props.getAllTracks); }
 function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;
 }
+
+function isPendingTrack(track) {
+  return props.showPendingState && track._pendingRecent;
+}
+
+function shouldShowPendingBadge(track, index) {
+  if (!isPendingTrack(track)) return false;
+  if (index !== 0) return false;
+  const trackId = track._id?.toString?.() ?? track._id;
+  return visiblePendingBadgeTrackId.value === trackId && !state.currentTrackBadgeLeaving;
+}
+
+function isSavedTrack(track) {
+  if (isPendingTrack(track) || !props.savedTrackId) return false;
+  const trackId = track._id?.toString?.() ?? track._id;
+  return trackId === props.savedTrackId;
+}
+
+watch(
+  () => props.tracks.find((track) => isPendingTrack(track))?._id?.toString?.() ?? null,
+  (pendingTrackId, previousPendingTrackId) => {
+    clearTimeout(pendingBadgeTimer);
+
+    if (!pendingTrackId) {
+      visiblePendingBadgeTrackId.value = null;
+      return;
+    }
+
+    if (pendingTrackId === previousPendingTrackId && visiblePendingBadgeTrackId.value === pendingTrackId) return;
+
+    visiblePendingBadgeTrackId.value = null;
+    pendingBadgeTimer = setTimeout(() => {
+      visiblePendingBadgeTrackId.value = pendingTrackId;
+      pendingBadgeTimer = null;
+    }, previousPendingTrackId ? 180 : 120);
+  },
+  { immediate: true }
+);
+
+onBeforeUnmount(() => {
+  clearTimeout(pendingBadgeTimer);
+});
 
 // --- Drag and drop reordering (playlist mode) ---
 const dragIndex = ref(null);
@@ -293,6 +339,8 @@ defineExpose({ playAll, playShuffle });
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
             { 'drop-below': draggable && dragOverIndex === i && dragIndex !== null && dragIndex < i },
+            { 'track-pending': isPendingTrack(track) },
+            { 'track-just-saved': isSavedTrack(track) },
           ]"
           :style="draggable ? { '--indicator': `rgb(${accentRgb})` } : {}"
           :draggable="draggable ? 'true' : 'false'"
@@ -321,6 +369,21 @@ defineExpose({ playAll, playShuffle });
             <div class="flex items-center gap-2 min-w-0">
               <CoverArt v-if="showCover && showCoverArt" :cover="track.deleted ? '' : track.cover" :size="density === 'compact' ? 'w-6 h-6 shrink-0' : 'w-8 h-8 shrink-0'" />
               <span class="truncate">{{ track.title }}</span>
+              <span class="shrink-0 inline-flex min-w-[7.25rem] justify-start">
+                <Transition
+                  enter-active-class="transition-all duration-220 ease-out"
+                  leave-active-class="transition-all duration-520 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  enter-from-class="opacity-0 translate-y-[1px]"
+                  leave-to-class="opacity-0 translate-y-[-1px] blur-[1px]"
+                >
+                  <span
+                    v-show="shouldShowPendingBadge(track, i)"
+                    class="rounded-full border border-zinc-700 bg-zinc-900/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-zinc-400"
+                  >
+                    Listening now
+                  </span>
+                </Transition>
+              </span>
             </div>
           </td>
           <td v-if="showArtist" :class="[rowPy, 'px-3 text-zinc-400 hidden sm:table-cell overflow-hidden']">
@@ -343,7 +406,9 @@ defineExpose({ playAll, playShuffle });
             >{{ track.album }}</router-link>
           </td>
           <td v-if="showPlays" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">{{ track.playCount || 0 }}</td>
-          <td v-if="showLastPlayed" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">{{ (track.playedAt ?? track.lastPlayedAt) ? timeAgo(track.playedAt ?? track.lastPlayedAt) : '' }}</td>
+          <td v-if="showLastPlayed" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">
+            {{ isPendingTrack(track) ? 'now' : ((track.playedAt ?? track.lastPlayedAt) ? timeAgo(track.playedAt ?? track.lastPlayedAt) : '') }}
+          </td>
           <td :class="[rowPy, 'px-1 align-middle']">
             <button
               v-if="!track.deleted"
@@ -389,5 +454,55 @@ defineExpose({ playAll, playShuffle });
 }
 .drop-below > td {
   box-shadow: inset 0 -2px 0 var(--indicator);
+}
+.track-pending > td {
+  opacity: 0.72;
+  animation: pending-recent-glow 1.8s ease-in-out infinite;
+}
+.track-just-saved > td {
+  animation: recent-saved-flash 1080ms cubic-bezier(0.2, 0.8, 0.2, 1) 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .track-pending > td {
+    animation: none;
+    opacity: 0.82;
+  }
+  .track-just-saved > td {
+    animation: none;
+  }
+}
+@keyframes pending-recent-glow {
+  0%, 100% {
+    opacity: 0.72;
+  }
+  50% {
+    opacity: 0.98;
+  }
+}
+@keyframes recent-saved-flash {
+  0% {
+    background-color: rgb(255 255 255 / 0);
+    box-shadow: inset 0 0 0 0 rgb(255 255 255 / 0);
+  }
+  18% {
+    background-color: rgb(255 255 255 / 0.014);
+    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.006);
+  }
+  48% {
+    background-color: rgb(255 255 255 / 0.062);
+    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.024);
+  }
+  72% {
+    background-color: rgb(255 255 255 / 0.028);
+    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.01);
+  }
+  88% {
+    background-color: rgb(255 255 255 / 0.008);
+    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0.003);
+  }
+  100% {
+    background-color: rgb(255 255 255 / 0);
+    box-shadow: inset 0 0 0 9999px rgb(255 255 255 / 0);
+  }
 }
 </style>

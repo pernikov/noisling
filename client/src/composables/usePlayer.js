@@ -70,6 +70,9 @@ const state = reactive({
   showShortcuts:     false,
   showAddToPlaylist: false,
   playReportCount:   0,
+  currentTrackReported: true,
+  currentTrackBadgeLeaving: false,
+  lastReportedTrackId: null,
   visualizerTrackTick: 0,
   transcodeWaiting:  false,
   transcodeActive:   false,
@@ -122,6 +125,8 @@ function savePrefs(updates) {
 
 function resetPlayTracking() {
   playReported = false;
+  state.currentTrackReported = false;
+  state.currentTrackBadgeLeaving = false;
   playedSeconds = 0;
   _lastUpdateTime = null;
 }
@@ -153,10 +158,17 @@ function registerPlayerEventListeners() {
 
     if (!playReported && state.currentTrack && audio.duration > 0) {
       const threshold = Math.min(audio.duration * 0.5, 240);
+      state.currentTrackBadgeLeaving = playedSeconds >= Math.max(0, threshold - 0.55);
       if (playedSeconds >= threshold) {
         playReported = true;
+        const reportedTrackId = state.currentTrack._id;
         api.reportPlay(state.currentTrack._id)
-          .then(() => { state.playReportCount++; })
+          .then(() => {
+            state.currentTrackReported = true;
+            state.currentTrackBadgeLeaving = true;
+            state.lastReportedTrackId = reportedTrackId;
+            state.playReportCount++;
+          })
           .catch(() => {});
       }
     }

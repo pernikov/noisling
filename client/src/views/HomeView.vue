@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from 'vue';
+import { ref, watch, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
@@ -42,6 +42,28 @@ const greeting = GREETINGS[nextIdx];
 
 const loadingShuffleAll = ref(false);
 const loadingTopTracks = ref(false);
+const recentlySavedTrackId = ref(null);
+let recentSavedAnimationTimer = null;
+
+const recentTracksForDisplay = computed(() => {
+  const currentTrack = playerState.currentTrack;
+  if (!playerState.isPlaying || !currentTrack || playerState.currentTrackReported) return recentTracks.value;
+
+  const currentTrackId = currentTrack._id?.toString?.() ?? currentTrack._id;
+  const dedupedRecentTracks = recentTracks.value.filter((track) => {
+    const trackId = track._id?.toString?.() ?? track._id;
+    return trackId !== currentTrackId;
+  });
+
+  return [
+    {
+      ...currentTrack,
+      historyId: `pending-${currentTrackId}`,
+      _pendingRecent: true,
+    },
+    ...dedupedRecentTracks.slice(0, 9),
+  ];
+});
 
 async function playShuffleAll() {
   loadingShuffleAll.value = true;
@@ -87,6 +109,15 @@ async function loadRecent() {
   }
 }
 
+function triggerRecentSavedAnimation(trackId) {
+  if (!trackId) return;
+  recentlySavedTrackId.value = trackId;
+  clearTimeout(recentSavedAnimationTimer);
+  recentSavedAnimationTimer = setTimeout(() => {
+    if (recentlySavedTrackId.value === trackId) recentlySavedTrackId.value = null;
+  }, 900);
+}
+
 async function loadRecentAlbums() {
   try {
     recentAlbums.value = await api.getRecentAlbums(12);
@@ -108,8 +139,11 @@ useLibraryEvents(() => {
   if (homeShowAlbums.value)  loadRecentAlbums();
 });
 
-watch(() => playerState.playReportCount, (count) => {
-  if (count > 0 && homeShowRecent.value) loadRecent();
+watch(() => playerState.playReportCount, async (count) => {
+  if (count > 0 && homeShowRecent.value) {
+    await loadRecent();
+    triggerRecentSavedAnimation(playerState.lastReportedTrackId);
+  }
 });
 
 watch(() => playerState.loveToggled, (change) => {
@@ -209,7 +243,7 @@ function goToAlbum(album) {
         </div>
       </div>
 
-      <div v-else-if="recentTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
+      <div v-else-if="recentTracksForDisplay.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
         <Icon :path="mdiHistory" class="w-8 h-8 text-zinc-600" />
         <p class="text-sm font-medium text-zinc-400">Nothing played yet</p>
         <p class="text-xs text-zinc-600">Your recently played tracks will show up here.</p>
@@ -217,12 +251,14 @@ function goToAlbum(album) {
 
       <TrackList
         v-else
-        :tracks="recentTracks"
+        :tracks="recentTracksForDisplay"
         show-cover
         :show-artist="tracksColumns.artist"
         :show-album="tracksColumns.album"
         :show-plays="tracksColumns.plays"
         :show-last-played="tracksColumns.lastPlayed"
+        :saved-track-id="recentlySavedTrackId"
+        show-pending-state
         hide-controls
       />
     </section>
