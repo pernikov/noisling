@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, computed } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
@@ -43,11 +43,32 @@ const greeting = GREETINGS[nextIdx];
 const loadingShuffleAll = ref(false);
 const loadingTopTracks = ref(false);
 const recentlySavedTrackId = ref(null);
+const completingRecentTrack = ref(null);
 let recentSavedAnimationTimer = null;
+let completingRecentTimer = null;
+let completingRecentFadeTimer = null;
 
 const recentTracksForDisplay = computed(() => {
   const currentTrack = playerState.currentTrack;
-  if (!playerState.isPlaying || !currentTrack || playerState.currentTrackReported) return recentTracks.value;
+  const completingTrackId = completingRecentTrack.value?._id?.toString?.() ?? completingRecentTrack.value?._id ?? null;
+
+  if (completingRecentTrack.value) {
+    const dedupedRecentTracks = recentTracks.value.filter((track) => {
+      const trackId = track._id?.toString?.() ?? track._id;
+      return trackId !== completingTrackId;
+    });
+
+    return [
+      {
+        ...completingRecentTrack.value,
+        historyId: completingTrackId,
+        _pendingRecentPhase: completingRecentTrack.value._pendingRecentPhase,
+      },
+      ...dedupedRecentTracks.slice(0, 9),
+    ];
+  }
+
+  if (!currentTrack || playerState.currentTrackReported) return recentTracks.value;
 
   const currentTrackId = currentTrack._id?.toString?.() ?? currentTrack._id;
   const dedupedRecentTracks = recentTracks.value.filter((track) => {
@@ -59,7 +80,7 @@ const recentTracksForDisplay = computed(() => {
     {
       ...currentTrack,
       historyId: `pending-${currentTrackId}`,
-      _pendingRecent: true,
+      _pendingRecentPhase: 'counting',
     },
     ...dedupedRecentTracks.slice(0, 9),
   ];
@@ -118,6 +139,45 @@ function triggerRecentSavedAnimation(trackId) {
   }, 900);
 }
 
+function clearCompletingRecentRow() {
+  clearTimeout(completingRecentTimer);
+  clearTimeout(completingRecentFadeTimer);
+  completingRecentTimer = null;
+  completingRecentFadeTimer = null;
+  completingRecentTrack.value = null;
+}
+
+function stageCompletedPendingRow(trackId) {
+  if (!trackId) return;
+
+  const recentMatch = recentTracks.value.find((track) => (track._id?.toString?.() ?? track._id) === trackId);
+  const currentTrackId = playerState.currentTrack?._id?.toString?.() ?? playerState.currentTrack?._id ?? null;
+  const completedTrack = recentMatch ?? (currentTrackId === trackId ? playerState.currentTrack : null);
+  if (!completedTrack) return;
+
+  clearCompletingRecentRow();
+  completingRecentTrack.value = {
+    ...completedTrack,
+    _pendingRecentPhase: 'completed',
+  };
+  triggerRecentSavedAnimation(trackId);
+  completingRecentFadeTimer = setTimeout(() => {
+    if ((completingRecentTrack.value?._id?.toString?.() ?? completingRecentTrack.value?._id) === trackId) {
+      completingRecentTrack.value = {
+        ...completingRecentTrack.value,
+        _pendingRecentPhase: 'fading',
+      };
+    }
+    completingRecentFadeTimer = null;
+  }, 1760);
+  completingRecentTimer = setTimeout(() => {
+    if ((completingRecentTrack.value?._id?.toString?.() ?? completingRecentTrack.value?._id) === trackId) {
+      completingRecentTrack.value = null;
+    }
+    completingRecentTimer = null;
+  }, 2000);
+}
+
 async function loadRecentAlbums() {
   try {
     recentAlbums.value = await api.getRecentAlbums(12);
@@ -134,6 +194,11 @@ onMounted(() => {
   if (homeShowAlbums.value)   loadRecentAlbums();
 });
 
+onBeforeUnmount(() => {
+  clearTimeout(recentSavedAnimationTimer);
+  clearCompletingRecentRow();
+});
+
 useLibraryEvents(() => {
   if (homeShowRecent.value)  loadRecent();
   if (homeShowAlbums.value)  loadRecentAlbums();
@@ -141,8 +206,15 @@ useLibraryEvents(() => {
 
 watch(() => playerState.playReportCount, async (count) => {
   if (count > 0 && homeShowRecent.value) {
+    stageCompletedPendingRow(playerState.lastReportedTrackId);
     await loadRecent();
-    triggerRecentSavedAnimation(playerState.lastReportedTrackId);
+  }
+});
+
+watch(() => playerState.currentTrack?._id?.toString?.() ?? playerState.currentTrack?._id ?? null, (trackId) => {
+  const completingTrackId = completingRecentTrack.value?._id?.toString?.() ?? completingRecentTrack.value?._id ?? null;
+  if (completingTrackId && trackId && completingTrackId !== trackId) {
+    clearCompletingRecentRow();
   }
 });
 

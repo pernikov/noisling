@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, nextTick } from 'vue';
 import { useApi } from '../composables/useApi.js';
 import Spinner from './Spinner.vue';
 
@@ -11,10 +11,19 @@ const props = defineProps({
 
 const api = useApi();
 const loaded = ref(false);
+const imgEl = ref(null);
 const src = computed(() => props.cover?.startsWith?.('data:') ? props.cover : api.coverUrl(props.cover));
 
-watch(() => props.cover, () => {
+function syncLoadedFromElement() {
+  const img = imgEl.value;
+  if (!img) return;
+  if (img.complete && img.naturalWidth > 0) loaded.value = true;
+}
+
+watch(() => src.value, async () => {
   loaded.value = false;
+  await nextTick();
+  syncLoadedFromElement();
 });
 
 function onLoad() {
@@ -42,6 +51,7 @@ function onLoad() {
     </div>
     <img
       v-if="props.cover"
+      ref="imgEl"
       :src="src"
       class="w-full h-full object-cover transition-opacity duration-300"
       :class="loaded ? 'opacity-100' : 'opacity-0'"

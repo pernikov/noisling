@@ -72,6 +72,7 @@ const state = reactive({
   playReportCount:   0,
   currentTrackReported: true,
   currentTrackBadgeLeaving: false,
+  currentTrackPlayProgress: 0,
   lastReportedTrackId: null,
   visualizerTrackTick: 0,
   transcodeWaiting:  false,
@@ -127,6 +128,7 @@ function resetPlayTracking() {
   playReported = false;
   state.currentTrackReported = false;
   state.currentTrackBadgeLeaving = false;
+  state.currentTrackPlayProgress = 0;
   playedSeconds = 0;
   _lastUpdateTime = null;
 }
@@ -136,6 +138,15 @@ function updateCurrentTrackLove(track, isLoved) {
   if (state.currentTrack?._id === track._id) {
     state.currentTrack.isLoved = isLoved;
   }
+}
+
+function markCurrentTrackReported(trackId) {
+  const currentTrackId = state.currentTrack?._id?.toString?.() ?? state.currentTrack?._id ?? null;
+  const normalizedTrackId = trackId?.toString?.() ?? trackId ?? null;
+  if (!currentTrackId || currentTrackId !== normalizedTrackId || !state.currentTrack) return;
+
+  state.currentTrack.playCount = (state.currentTrack.playCount || 0) + 1;
+  state.currentTrack.lastPlayedAt = new Date().toISOString();
 }
 
 function warmNextQueuedTrack() {
@@ -158,14 +169,19 @@ function registerPlayerEventListeners() {
 
     if (!playReported && state.currentTrack && audio.duration > 0) {
       const threshold = Math.min(audio.duration * 0.5, 240);
+      state.currentTrackPlayProgress = threshold > 0
+        ? Math.max(0, Math.min(1, playedSeconds / threshold))
+        : 0;
       state.currentTrackBadgeLeaving = playedSeconds >= Math.max(0, threshold - 0.55);
       if (playedSeconds >= threshold) {
         playReported = true;
         const reportedTrackId = state.currentTrack._id;
         api.reportPlay(state.currentTrack._id)
           .then(() => {
+            markCurrentTrackReported(reportedTrackId);
             state.currentTrackReported = true;
             state.currentTrackBadgeLeaving = true;
+            state.currentTrackPlayProgress = 1;
             state.lastReportedTrackId = reportedTrackId;
             state.playReportCount++;
           })
