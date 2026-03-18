@@ -20,6 +20,7 @@ const settingsSchema = new mongoose.Schema({
   homeShowQuickPlay:  { type: Boolean, default: true },
   homeShowRecent:     { type: Boolean, default: true },
   homeShowAlbums:     { type: Boolean, default: true },
+  homeAlbumsMode:     { type: String, enum: ['recent', 'random', 'top'], default: 'recent' },
   homeShowPendingPlay:{ type: Boolean, default: true },
   vizMode:            { type: String, enum: ['pills', 'nucleus', 'butterchurn'], default: 'pills' },
   randomizeOnNewTrack: { type: Boolean, default: false },

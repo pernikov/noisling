@@ -9,6 +9,7 @@ export const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to 
 export const VALID_SORT_DIRS = ['asc', 'desc'];
 export const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
 export const VALID_COL_KEYS = ['artist', 'album', 'plays', 'lastPlayed'];
+export const VALID_HOME_ALBUM_MODES = ['recent', 'random', 'top'];
 
 export function buildSettingsResponse(settings) {
   const tracksSortField = VALID_TRACK_SORT_FIELDS.includes(settings?.tracksSort?.field)
@@ -35,6 +36,7 @@ export function buildSettingsResponse(settings) {
     homeShowQuickPlay: settings.homeShowQuickPlay ?? true,
     homeShowRecent: settings.homeShowRecent ?? true,
     homeShowAlbums: settings.homeShowAlbums ?? true,
+    homeAlbumsMode: VALID_HOME_ALBUM_MODES.includes(settings.homeAlbumsMode) ? settings.homeAlbumsMode : 'recent',
     homeShowPendingPlay: settings.homeShowPendingPlay ?? true,
     vizMode: normalizeVizMode(settings.vizMode ?? 'pills'),
     randomizeOnNewTrack: settings.randomizeOnNewTrack ?? false,
@@ -59,6 +61,7 @@ export function buildSettingsUpdate(body = {}) {
     accentColor, themeColor, volume, shuffle, repeatMode, density,
     showCoverArt, fontSize, tracksColumns, tracksSort,
     lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay,
+    homeAlbumsMode,
     vizMode, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, showPlaylists, sharpCorners, reduceMotion,
   } = body;
 
@@ -130,6 +133,10 @@ export function buildSettingsUpdate(body = {}) {
   }
   if (homeShowAlbums !== undefined) {
     update.homeShowAlbums = Boolean(homeShowAlbums);
+  }
+  if (homeAlbumsMode !== undefined) {
+    if (!VALID_HOME_ALBUM_MODES.includes(homeAlbumsMode)) return { error: 'Invalid homeAlbumsMode' };
+    update.homeAlbumsMode = homeAlbumsMode;
   }
   if (homeShowPendingPlay !== undefined) {
     update.homeShowPendingPlay = Boolean(homeShowPendingPlay);

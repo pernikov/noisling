@@ -19,6 +19,7 @@ test('buildSettingsResponse fills defaults for missing optional settings', () =>
   assert.deepEqual(response.tracksSort, { field: 'artist', dir: 'asc' });
   assert.equal(response.vizMode, 'pills');
   assert.equal(response.showPlaylists, true);
+  assert.equal(response.homeAlbumsMode, 'recent');
 });
 
 test('buildSettingsResponse preserves valid tracksSort and preset values', () => {
@@ -28,11 +29,13 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
     shuffle: true,
     repeatMode: 'all',
     tracksSort: { field: 'plays', dir: 'desc' },
+    homeAlbumsMode: 'top',
     butterchurnPresetMode: 'single',
     butterchurnPreset: 'Custom Preset',
   });
 
   assert.deepEqual(response.tracksSort, { field: 'plays', dir: 'desc' });
+  assert.equal(response.homeAlbumsMode, 'top');
   assert.equal(response.butterchurnPresetMode, 'single');
   assert.equal(response.butterchurnPreset, 'Custom Preset');
 });
@@ -50,6 +53,7 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
     volume: 0.4,
     tracksColumns: { artist: 0, album: 1, plays: true, ignored: true },
     tracksSort: { field: 'title', dir: 'desc' },
+    homeAlbumsMode: 'random',
     vizMode: 'nebula',
     butterchurnPresetMode: 'random',
     showPlaylists: 1,
@@ -62,6 +66,7 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
       volume: 0.4,
       tracksColumns: { artist: false, album: true, plays: true },
       tracksSort: { field: 'title', dir: 'desc' },
+      homeAlbumsMode: 'random',
       vizMode: 'pills',
       butterchurnPresetMode: 'random',
       showPlaylists: true,
@@ -74,6 +79,7 @@ test('buildSettingsUpdate rejects invalid payloads and empty updates', () => {
   assert.deepEqual(buildSettingsUpdate({ accentColor: 'pink' }), { error: 'Invalid color' });
   assert.deepEqual(buildSettingsUpdate({ volume: 2 }), { error: 'Invalid volume' });
   assert.deepEqual(buildSettingsUpdate({ tracksSort: { field: 'nope', dir: 'asc' } }), { error: 'Invalid tracksSort' });
+  assert.deepEqual(buildSettingsUpdate({ homeAlbumsMode: 'latest' }), { error: 'Invalid homeAlbumsMode' });
   assert.deepEqual(buildSettingsUpdate({ butterchurnPreset: '   ' }), { error: 'Invalid butterchurnPreset' });
   assert.deepEqual(buildSettingsUpdate({}), { error: 'No valid fields' });
 });

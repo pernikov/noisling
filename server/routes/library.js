@@ -124,7 +124,7 @@ async function aggregateArtistSummaries({ search, page = 1, limit = 60, random =
   };
 }
 
-async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 } } = {}) {
+async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 }, random = false } = {}) {
   const regex = buildSearchRegex(search);
 
   const albums = await Track.aggregate([
@@ -198,11 +198,68 @@ async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 
         addedAt: 1,
       },
     },
-    { $sort: sort },
-    ...(limit != null ? [{ $limit: limit }] : []),
+    ...(random
+      ? [{ $sample: { size: limit ?? 12 } }]
+      : [{ $sort: sort }, ...(limit != null ? [{ $limit: limit }] : [])]),
   ]);
 
   return albums;
+}
+
+async function aggregateTopAlbumSummaries({ limit = 12 } = {}) {
+  return Track.aggregate([
+    {
+      $project: {
+        effectiveAlbum: effectiveField('album'),
+        effectiveArtists: effectiveField('artists'),
+        effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveCover: effectiveField('cover'),
+        scannedAt: 1,
+        playCount: { $ifNull: ['$playCount', 0] },
+      },
+    },
+    { $match: { playCount: { $gt: 0 } } },
+    {
+      $group: {
+        _id: {
+          artistNorm: { $arrayElemAt: ['$effectiveArtistsNorm', 0] },
+          album: '$effectiveAlbum',
+        },
+        name: { $first: '$effectiveAlbum' },
+        artists: { $first: '$effectiveArtists' },
+        artistsNorm: { $first: '$effectiveArtistsNorm' },
+        covers: { $addToSet: '$effectiveCover' },
+        plays: { $sum: '$playCount' },
+        addedAt: { $max: '$scannedAt' },
+      },
+    },
+    {
+      $project: {
+        _id: 0,
+        name: 1,
+        artists: 1,
+        artistsNorm: 1,
+        cover: {
+          $let: {
+            vars: {
+              filteredCovers: {
+                $filter: {
+                  input: '$covers',
+                  as: 'cover',
+                  cond: { $and: [{ $ne: ['$$cover', null] }, { $ne: ['$$cover', ''] }] },
+                },
+              },
+            },
+            in: { $ifNull: [{ $arrayElemAt: ['$$filteredCovers', 0] }, ''] },
+          },
+        },
+        plays: 1,
+        addedAt: 1,
+      },
+    },
+    { $sort: { plays: -1, addedAt: -1, name: 1 } },
+    { $limit: limit },
+  ]);
 }
 
 function buildArtistSummaries(tracks) {
@@ -340,6 +397,20 @@ router.get('/artists/:name/tracks', async (req, res) => {
 router.get('/albums/recent', async (req, res) => {
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
   const albums = await aggregateAlbumSummaries({ limit, sort: { addedAt: -1 } });
+  res.json(albums);
+});
+
+// GET /api/albums/random — random sample of albums
+router.get('/albums/random', async (req, res) => {
+  const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
+  const albums = await aggregateAlbumSummaries({ limit, random: true });
+  res.json(albums);
+});
+
+// GET /api/albums/top — most played albums
+router.get('/albums/top', async (req, res) => {
+  const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
+  const albums = await aggregateTopAlbumSummaries({ limit });
   res.json(albums);
 });
 

@@ -15,14 +15,27 @@ import Spinner from '../components/Spinner.vue';
 const api = useApi();
 const router = useRouter();
 const { state: playerState, playAlbum, shuffleAll } = usePlayer();
-const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay, tracksColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
+const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeAlbumsMode, homeShowPendingPlay, tracksColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
 
 const lovedTracks = ref([]);
 const recentTracks = ref([]);
-const recentAlbums = ref([]);
+const albumModeItems = ref({
+  recent: [],
+  random: [],
+  top: [],
+});
+const albumModeLoaded = ref({
+  recent: false,
+  random: false,
+  top: false,
+});
+const loadingAlbumModes = ref({
+  recent: true,
+  random: false,
+  top: false,
+});
 const loadingLoved = ref(true);
 const loadingRecent = ref(true);
-const loadingRecentAlbums = ref(true);
 
 const GREETINGS = [
   'Hello again.',
@@ -48,6 +61,33 @@ let completingRecentTimer = null;
 let completingRecentFadeTimer = null;
 
 const recentTracksForDisplay = computed(() => recentTracks.value);
+const currentAlbumModeLabel = computed(() => {
+  if (homeAlbumsMode.value === 'random') return 'Random';
+  if (homeAlbumsMode.value === 'top') return 'Top Albums';
+  return 'Recently Added';
+});
+const currentAlbumItems = computed(() => albumModeItems.value[homeAlbumsMode.value] ?? []);
+const currentAlbumLoading = computed(() => loadingAlbumModes.value[homeAlbumsMode.value]);
+const currentAlbumEmptyState = computed(() => {
+  if (homeAlbumsMode.value === 'random') {
+    return {
+      title: 'No albums to shuffle through',
+      body: 'Scan your library to start exploring albums at random.',
+    };
+  }
+
+  if (homeAlbumsMode.value === 'top') {
+    return {
+      title: 'No top albums yet',
+      body: 'Play some tracks and your most played albums will show up here.',
+    };
+  }
+
+  return {
+    title: 'No albums yet',
+    body: 'Scan your library to discover your music.',
+  };
+});
 
 const pendingPlayStatus = computed(() => {
   const currentTrack = playerState.currentTrack;
@@ -167,20 +207,44 @@ function animatePendingStatusLeave(el) {
   });
 }
 
-async function loadRecentAlbums() {
+async function loadAlbums(mode = homeAlbumsMode.value, { force = false } = {}) {
+  const shouldReloadRandom = mode === 'random';
+  if (!force && albumModeLoaded.value[mode] && !shouldReloadRandom) return;
+
+  loadingAlbumModes.value = {
+    ...loadingAlbumModes.value,
+    [mode]: true,
+  };
+
   try {
-    recentAlbums.value = await api.getRecentAlbums(12);
+    const albums = mode === 'random'
+      ? await api.getRandomAlbums(12)
+      : mode === 'top'
+        ? await api.getTopAlbums(12)
+        : await api.getRecentAlbums(12);
+
+    albumModeItems.value = {
+      ...albumModeItems.value,
+      [mode]: albums,
+    };
+    albumModeLoaded.value = {
+      ...albumModeLoaded.value,
+      [mode]: true,
+    };
   } catch (err) {
-    console.error('Failed to load recent albums:', err);
+    console.error(`Failed to load ${mode} albums:`, err);
   } finally {
-    loadingRecentAlbums.value = false;
+    loadingAlbumModes.value = {
+      ...loadingAlbumModes.value,
+      [mode]: false,
+    };
   }
 }
 
 onMounted(() => {
   if (homeShowQuickPlay.value) loadLoved();
   if (homeShowRecent.value)    loadRecent();
-  if (homeShowAlbums.value)   loadRecentAlbums();
+  if (homeShowAlbums.value)    loadAlbums();
 });
 
 onBeforeUnmount(() => {
@@ -189,7 +253,7 @@ onBeforeUnmount(() => {
 
 useLibraryEvents(() => {
   if (homeShowRecent.value)  loadRecent();
-  if (homeShowAlbums.value)  loadRecentAlbums();
+  if (homeShowAlbums.value)  loadAlbums(homeAlbumsMode.value, { force: true });
 });
 
 watch(() => playerState.playReportCount, async (count) => {
@@ -213,6 +277,11 @@ watch(() => playerState.loveToggled, (change) => {
   } else {
     lovedTracks.value = lovedTracks.value.filter(t => t._id !== change.id);
   }
+});
+
+watch(homeAlbumsMode, (mode) => {
+  if (!homeShowAlbums.value) return;
+  loadAlbums(mode);
 });
 
 function goToAlbum(album) {
@@ -340,9 +409,9 @@ function goToAlbum(album) {
 
     <!-- Recently Added Albums -->
     <section v-if="homeShowAlbums">
-      <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Recently Added</h2>
+      <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">{{ currentAlbumModeLabel }}</h2>
 
-      <div v-if="loadingRecentAlbums" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">
+      <div v-if="currentAlbumLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">
         <div v-for="i in 12" :key="i" class="rounded-lg p-2 sm:p-4">
           <div class="aspect-square bg-zinc-800 rounded-lg mb-3"></div>
           <div class="h-3.5 bg-zinc-800 rounded mb-1.5" :style="{ width: `${50 + (i * 11) % 35}%` }"></div>
@@ -350,18 +419,21 @@ function goToAlbum(album) {
         </div>
       </div>
 
-      <div v-else-if="recentAlbums.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
+      <div v-else-if="currentAlbumItems.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
         <Icon :path="mdiAlbum" class="w-8 h-8 text-zinc-600" />
-        <p class="text-sm font-medium text-zinc-400">No albums yet</p>
+        <p class="text-sm font-medium text-zinc-400">{{ currentAlbumEmptyState.title }}</p>
         <p class="text-xs text-zinc-600">
-          <router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
+          <template v-if="homeAlbumsMode === 'recent' || homeAlbumsMode === 'random'">
+            <router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
+          </template>
+          <template v-else>{{ currentAlbumEmptyState.body }}</template>
         </p>
       </div>
 
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
         <div
-          v-for="album in recentAlbums"
-          :key="album.name"
+          v-for="album in currentAlbumItems"
+          :key="`${album.artistsNorm?.[0] ?? album.artists?.[0] ?? 'album'}-${album.name}`"
           class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
           @click="goToAlbum(album)"
         >

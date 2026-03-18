@@ -43,11 +43,11 @@ const {
   lovedUseAccent, setLovedUseAccent,
   tracksColumns, setTracksColumn,
   showArtistsNav, wideLayout,
-  homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay, homeVisibleCount,
+  homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeAlbumsMode, homeShowPendingPlay, homeVisibleCount,
   showPlaylists,
   setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
   setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists, setSharpCorners, setReduceMotion,
-  setHomePendingPlay,
+  setHomeAlbumsMode, setHomePendingPlay,
 } = useTheme();
 
 const VALID_TABS = ['appearance', 'library', 'stats'];
@@ -66,11 +66,20 @@ const FONT_SIZE_TABS = [
   { value: 'medium', label: 'Medium' },
   { value: 'large', label: 'Large' },
 ];
-const HOME_SECTION_OPTIONS = [
+const HOME_ALBUM_MODE_TABS = [
+  { value: 'recent', label: 'Recently Added' },
+  { value: 'random', label: 'Random' },
+  { value: 'top', label: 'Top Albums' },
+];
+const HOME_SECTION_OPTIONS = computed(() => [
   { key: 'quickPlay', label: 'Quick Play', desc: 'Shuffle All, Top Tracks, and Loved Tracks cards.' },
   { key: 'recent', label: 'Recently Played', desc: 'Your last 10 played tracks.' },
-  { key: 'albums', label: 'Recently Added', desc: 'Albums added to your library.' },
-];
+  {
+    key: 'albums',
+    label: HOME_ALBUM_MODE_TABS.find((tab) => tab.value === homeAlbumsMode.value)?.label ?? 'Recently Added',
+    desc: 'Album section shown on the home page.',
+  },
+]);
 const TRACK_COLUMN_OPTIONS = [
   { key: 'artist', label: 'Artist', desc: 'Primary artist column. Shown in Tracks, Recents, the home page, the queue, and search results.' },
   { key: 'album', label: 'Album', desc: 'Album column. Shown in Tracks, Recents, the home page, and search results.' },
@@ -507,6 +516,23 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
                     :class="homeShowPendingPlay ? 'translate-x-5' : 'translate-x-0'"
                   />
                 </button>
+              </div>
+
+              <div
+                v-if="section.key === 'albums'"
+                class="space-y-2 transition-opacity"
+                :class="homeShowAlbums ? 'opacity-100' : 'opacity-45'"
+              >
+                <div>
+                  <p class="text-sm text-zinc-200">Album section mode</p>
+                  <p class="text-xs text-zinc-500 mt-0.5">Choose what the home page album grid shows by default.</p>
+                </div>
+                <TabBar
+                  :model-value="homeAlbumsMode"
+                  :tabs="HOME_ALBUM_MODE_TABS"
+                  size="sm"
+                  @update:model-value="homeShowAlbums && setHomeAlbumsMode($event)"
+                />
               </div>
             </div>
           </div>

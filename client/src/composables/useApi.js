@@ -23,6 +23,8 @@ export function useApi() {
     },
     getArtistTracks: (name) => request(`/artists/${encodeURIComponent(name)}/tracks`),
     getRecentAlbums: (limit = 12) => request(`/albums/recent?limit=${limit}`),
+    getRandomAlbums: (limit = 12) => request(`/albums/random?limit=${limit}`),
+    getTopAlbums: (limit = 12) => request(`/albums/top?limit=${limit}`),
     getAlbums: () => request('/albums'),
     getAlbum: (artist, album) =>
       request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}`),
