@@ -108,11 +108,7 @@ function startWarm(id, trackPath, label) {
 // Called by the client while the current track plays so the next track's cache is
 // ready before playback starts, eliminating the first-play stall/gap.
 router.get('/stream/:id/warm', async (req, res) => {
-  const track = await Track.findById(req.params.id).lean();
-  if (!track) return res.status(404).json({ error: 'Track not found' });
-
   const id = req.params.id;
-  const label = `"${track.title || id}"`;
 
   if (transcodeReady.has(id)) return res.json({ status: 'ready' });
   if (transcodeInProgress.has(id)) return res.json({ status: 'in_progress' });
@@ -124,6 +120,10 @@ router.get('/stream/:id/warm', async (req, res) => {
     return res.json({ status: 'ready' });
   } catch { /* not on disk */ }
 
+  const track = await Track.findById(id).select('path title').lean();
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+
+  const label = `"${track.title || id}"`;
   startWarm(id, track.path, label);
   res.json({ status: 'started' });
 });
@@ -132,11 +132,7 @@ router.get('/stream/:id/warm', async (req, res) => {
 // Unlike /stream/:id?transcode=1, this endpoint always resolves to the same URL
 // for a given track id and only serves the completed cached file.
 router.get('/stream/:id/transcoded', async (req, res) => {
-  const track = await Track.findById(req.params.id).lean();
-  if (!track) return res.status(404).json({ error: 'Track not found' });
-
   const id = req.params.id;
-  const label = `"${track.title || id}"`;
 
   if (transcodeReady.has(id)) {
     if (await serveCachedTranscode(id, req, res)) return;
@@ -153,6 +149,10 @@ router.get('/stream/:id/transcoded', async (req, res) => {
     } catch { /* not on disk yet */ }
   }
 
+  const track = await Track.findById(id).select('path title').lean();
+  if (!track) return res.status(404).json({ error: 'Track not found' });
+
+  const label = `"${track.title || id}"`;
   if (!transcodeInProgress.has(id)) startWarm(id, track.path, label);
   const inFlight = transcodeInProgress.get(id);
   if (!inFlight) return res.status(500).json({ error: 'Transcode did not start' });

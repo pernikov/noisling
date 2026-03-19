@@ -62,7 +62,7 @@ let completingRecentFadeTimer = null;
 
 const recentTracksForDisplay = computed(() => recentTracks.value);
 const currentAlbumModeLabel = computed(() => {
-  if (homeAlbumsMode.value === 'random') return 'Random';
+  if (homeAlbumsMode.value === 'random') return 'Random Albums';
   if (homeAlbumsMode.value === 'top') return 'Top Albums';
   return 'Recently Added';
 });

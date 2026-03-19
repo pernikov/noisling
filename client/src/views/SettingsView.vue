@@ -68,7 +68,7 @@ const FONT_SIZE_TABS = [
 ];
 const HOME_ALBUM_MODE_TABS = [
   { value: 'recent', label: 'Recently Added' },
-  { value: 'random', label: 'Random' },
+  { value: 'random', label: 'Random Albums' },
   { value: 'top', label: 'Top Albums' },
 ];
 const HOME_SECTION_OPTIONS = computed(() => [

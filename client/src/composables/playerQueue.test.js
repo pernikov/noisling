@@ -1,5 +1,5 @@
 import { computed, reactive } from 'vue';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPlayerQueue } from './playerQueue.js';
 
 function makeTrack(id, title = `Track ${id}`) {
@@ -52,6 +52,13 @@ function createQueueHarness(overrides = {}) {
 
   return { state, audio, api, savePrefs, play, queue };
 }
+
+beforeEach(() => {
+  Object.defineProperty(document, 'visibilityState', {
+    configurable: true,
+    value: 'visible',
+  });
+});
 
 describe('createPlayerQueue', () => {
   it('plays an album from the requested start index when shuffle is off', () => {
@@ -138,5 +145,43 @@ describe('createPlayerQueue', () => {
 
     state.queueIndex = 2;
     expect(queue.hasNext.value).toBe(false);
+  });
+
+  it('starts the next transcoded track immediately in the foreground', () => {
+    const { state, api, play, queue } = createQueueHarness({
+      needsTranscode: () => true,
+    });
+    const tracks = [makeTrack('1'), makeTrack('2')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[0];
+    state.queueIndex = 0;
+
+    queue.next();
+
+    expect(state.queueIndex).toBe(1);
+    expect(play).toHaveBeenCalledWith(tracks[1]);
+    expect(api.warmTranscode).not.toHaveBeenCalled();
+  });
+
+  it('starts the next transcoded track immediately in the background', () => {
+    const { state, api, play, queue } = createQueueHarness({
+      needsTranscode: () => true,
+    });
+    const tracks = [makeTrack('1'), makeTrack('2')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[0];
+    state.queueIndex = 0;
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    queue.next();
+
+    expect(state.queueIndex).toBe(1);
+    expect(play).toHaveBeenCalledWith(tracks[1]);
+    expect(api.warmTranscode).not.toHaveBeenCalled();
   });
 });

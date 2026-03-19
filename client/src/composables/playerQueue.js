@@ -66,29 +66,8 @@ export function createPlayerQueue({
     }
   }
 
-  async function playWithWarmupIfNeeded(track, expectedIndex) {
+  function playWithWarmupIfNeeded(track, expectedIndex) {
     const seq = ++deferredStartSeq;
-    const isHidden = typeof document !== 'undefined' && document.visibilityState === 'hidden';
-
-    // When the app is in the background, do NOT poll before calling play(). iOS has a
-    // narrow grace window after a track ends during which a programmatic play() is
-    // permitted as a continuation of the active audio session. Any await (even a single
-    // round-trip to check warm status) can push past that window, causing iOS to reject
-    // the play() call with NotAllowedError. The /transcoded endpoint is self-sufficient:
-    // it serves the cached file immediately if warm is done (which it usually is, since
-    // warmNextQueuedTrack fires when the current track starts), or starts transcoding
-    // and waits if not. Skip straight to play() so we stay inside the session window.
-    if (!isHidden && needsTranscode(track)) {
-      const startedAt = Date.now();
-      const deadline = startedAt + 60000;
-      while (Date.now() < deadline) {
-        if (seq !== deferredStartSeq) return;
-        if (state.queueIndex !== expectedIndex || state.currentTrack?._id === track?._id) return;
-        const { status } = await api.warmTranscode(track._id);
-        if (status === 'ready') break;
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-    }
 
     if (seq !== deferredStartSeq) return;
     if (state.queueIndex !== expectedIndex) return;
