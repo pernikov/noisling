@@ -16,13 +16,20 @@ const { state } = usePlayer();
 const { density, showCoverArt, accentRgb } = useTheme();
 const pillSizer = ref(null);
 const pillWidth = ref(0);
+const animatedProgress = ref(0);
 let pillResizeObserver = null;
+let progressRaf = null;
+let progressTickLastAt = 0;
+
+function clampProgress(progress) {
+  return Math.max(0, Math.min(1, Number(progress) || 0));
+}
 
 const progressPct = computed(() => {
   if (!props.track) return 0;
   if (props.phase !== 'counting') return 100;
   if (state.currentTrack?._id !== props.track._id) return 0;
-  return Math.round(Math.max(0, Math.min(1, state.currentTrackPlayProgress || 0)) * 100);
+  return animatedProgress.value * 100;
 });
 
 const isCompleting = computed(() => props.phase === 'completed' || props.phase === 'fading');
@@ -39,7 +46,7 @@ const remainingPlayLabel = computed(() => {
   if (props.phase !== 'counting') return formatTime(0);
 
   const progress = state.currentTrack?._id === props.track?._id
-    ? Math.max(0, Math.min(1, state.currentTrackPlayProgress || 0))
+    ? clampProgress(state.currentTrackPlayProgress)
     : 0;
   const remaining = Math.max(0, threshold * (1 - progress));
   return formatTime(remaining);
@@ -50,6 +57,54 @@ async function updatePillWidth() {
   pillWidth.value = pillSizer.value ? Math.ceil(pillSizer.value.offsetWidth) : 0;
 }
 
+function stopProgressAnimation() {
+  if (progressRaf !== null) {
+    cancelAnimationFrame(progressRaf);
+    progressRaf = null;
+  }
+  progressTickLastAt = 0;
+}
+
+function syncAnimatedProgress() {
+  if (!props.track || props.phase !== 'counting' || state.currentTrack?._id !== props.track._id) {
+    animatedProgress.value = props.phase === 'counting' ? 0 : 1;
+    stopProgressAnimation();
+    return;
+  }
+
+  animatedProgress.value = clampProgress(state.currentTrackPlayProgress);
+  if (!state.isPlaying || playThresholdSeconds.value <= 0) {
+    stopProgressAnimation();
+    return;
+  }
+
+  stopProgressAnimation();
+
+  const tick = (now) => {
+    if (props.phase !== 'counting' || state.currentTrack?._id !== props.track?._id) {
+      syncAnimatedProgress();
+      return;
+    }
+
+    const baseProgress = clampProgress(state.currentTrackPlayProgress);
+    if (!state.isPlaying || playThresholdSeconds.value <= 0 || baseProgress >= 1) {
+      animatedProgress.value = baseProgress;
+      stopProgressAnimation();
+      return;
+    }
+
+    if (!progressTickLastAt) progressTickLastAt = now;
+    const elapsedSeconds = Math.max(0, now - progressTickLastAt) / 1000;
+    progressTickLastAt = now;
+
+    const estimatedProgress = animatedProgress.value + (elapsedSeconds / playThresholdSeconds.value);
+    animatedProgress.value = clampProgress(Math.max(baseProgress, estimatedProgress));
+    progressRaf = requestAnimationFrame(tick);
+  };
+
+  progressRaf = requestAnimationFrame(tick);
+}
+
 const pillStyle = computed(() => ({
   width: isCompleting.value ? '2rem' : (pillWidth.value > 0 ? `${pillWidth.value}px` : undefined),
   minWidth: isCompleting.value ? '2rem' : (pillWidth.value > 0 ? `${pillWidth.value}px` : undefined),
@@ -58,6 +113,7 @@ const pillStyle = computed(() => ({
 
 onMounted(async () => {
   await updatePillWidth();
+  syncAnimatedProgress();
   if (typeof ResizeObserver !== 'undefined' && pillSizer.value) {
     pillResizeObserver = new ResizeObserver(() => {
       updatePillWidth();
@@ -67,6 +123,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  stopProgressAnimation();
   pillResizeObserver?.disconnect();
 });
 
@@ -76,7 +133,22 @@ watch(remainingPlayLabel, () => {
 
 watch(() => props.phase, () => {
   if (!isCompleting.value) updatePillWidth();
+  syncAnimatedProgress();
 });
+
+watch(
+  [
+    () => props.track?._id,
+    () => state.currentTrack?._id,
+    () => state.currentTrackPlayProgress,
+    () => state.isPlaying,
+    playThresholdSeconds,
+  ],
+  () => {
+    syncAnimatedProgress();
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
