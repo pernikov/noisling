@@ -290,8 +290,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <!-- Loved color -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm font-medium text-zinc-200">Loved track color</p>
             <p class="text-xs text-zinc-500 mt-0.5">Always rose/pink, or follow the accent color.</p>
           </div>
@@ -328,6 +328,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             @update:model-value="setDensity"
             :tabs="DENSITY_TABS"
             size="sm"
+            full
           />
         </div>
 
@@ -342,14 +343,15 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             @update:model-value="setFontSize"
             :tabs="FONT_SIZE_TABS"
             size="sm"
+            full
           />
         </div>
 
         <div class="border-t border-zinc-800" />
 
         <!-- Sharp corners -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm font-medium text-zinc-200">Sharp corners</p>
             <p class="text-xs text-zinc-500 mt-0.5">Remove all border radius for a flat, angular look.</p>
           </div>
@@ -370,8 +372,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <!-- Reduce motion -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm font-medium text-zinc-200">Reduce motion</p>
             <p class="text-xs text-zinc-500 mt-0.5">Disable all transitions and animations.</p>
           </div>
@@ -400,8 +402,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <!-- Wide layout -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm font-medium text-zinc-200">Wide layout</p>
             <p class="text-xs text-zinc-500 mt-0.5">Remove the width cap and use the full browser window.</p>
           </div>
@@ -422,8 +424,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <!-- Artists nav link -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm font-medium text-zinc-200">Artists in navigation</p>
             <p class="text-xs text-zinc-500 mt-0.5">Show the Artists link in the navigation bar.</p>
           </div>
@@ -444,8 +446,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <!-- Playlists nav link -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm font-medium text-zinc-200">Playlists</p>
             <p class="text-xs text-zinc-500 mt-0.5">Show the Playlists link in the navigation bar.</p>
           </div>
@@ -474,8 +476,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
               :key="section.key"
               class="space-y-3"
             >
-              <div class="flex items-center justify-between">
-                <div>
+              <div class="flex items-center justify-between gap-4">
+                <div class="min-w-0 flex-1 pr-2">
                   <p class="text-sm text-zinc-200">{{ section.label }}</p>
                   <p class="text-xs text-zinc-500 mt-0.5">{{ section.desc }}</p>
                 </div>
@@ -496,10 +498,10 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
 
               <div
                 v-if="section.key === 'recent'"
-                class="flex items-center justify-between transition-opacity"
+                class="flex items-center justify-between gap-4 transition-opacity"
                 :class="homeShowRecent ? 'opacity-100' : 'opacity-45'"
               >
-                <div>
+                <div class="min-w-0 flex-1 pr-2">
                   <p class="text-sm text-zinc-200">Pending play status</p>
                   <p class="text-xs text-zinc-500 mt-0.5">Show the home-page status card while a track is being counted as played.</p>
                 </div>
@@ -520,17 +522,18 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
 
               <div
                 v-if="section.key === 'albums'"
-                class="space-y-2 transition-opacity"
+                class="space-y-3 transition-opacity"
                 :class="homeShowAlbums ? 'opacity-100' : 'opacity-45'"
               >
                 <div>
-                  <p class="text-sm text-zinc-200">Album section mode</p>
-                  <p class="text-xs text-zinc-500 mt-0.5">Choose what the home page album grid shows by default.</p>
+                  <p class="text-sm text-zinc-200 mb-1">Album section mode</p>
+                  <p class="text-xs text-zinc-500">Choose what the home page album grid shows by default.</p>
                 </div>
                 <TabBar
                   :model-value="homeAlbumsMode"
                   :tabs="HOME_ALBUM_MODE_TABS"
                   size="sm"
+                  full
                   @update:model-value="homeShowAlbums && setHomeAlbumsMode($event)"
                 />
               </div>
@@ -549,8 +552,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <!-- Cover art toggle -->
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-4">
+          <div class="min-w-0 flex-1 pr-2">
             <p class="text-sm text-zinc-200">Cover art</p>
             <p class="text-xs text-zinc-500 mt-0.5">Show album thumbnails in track lists, the queue, and search results.</p>
           </div>
@@ -572,9 +575,9 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           <div
             v-for="col in TRACK_COLUMN_OPTIONS"
             :key="col.key"
-            class="flex items-center justify-between"
+            class="flex items-center justify-between gap-4"
           >
-            <div>
+            <div class="min-w-0 flex-1 pr-2">
               <p class="text-sm text-zinc-200">{{ col.label }}</p>
               <p class="text-xs text-zinc-500 mt-0.5">{{ col.desc }}</p>
             </div>

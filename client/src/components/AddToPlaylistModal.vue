@@ -111,7 +111,7 @@ async function confirmCreate() {
             v-model="newName"
             type="text"
             placeholder="Playlist name"
-            class="flex-1 px-3 py-1.5"
+            class="flex-1 px-3 py-2"
             @keydown.enter="confirmCreate"
             @keydown.esc="creating = false"
           />
@@ -119,14 +119,14 @@ async function confirmCreate() {
             :disabled="!newName.trim()"
             @click="confirmCreate"
             :class="`bg-${accentColor}-500 hover:bg-${accentColor}-400`"
-            class="px-3 py-1.5 text-sm rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            class="min-h-11 px-3.5 py-2 text-sm rounded-lg text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
           >Create</button>
-          <button @click="creating = false" class="text-xs text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">Cancel</button>
+          <button @click="creating = false" class="min-h-11 px-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors shrink-0">Cancel</button>
         </div>
         <button
           v-else
           @click="startCreating"
-          class="flex items-center gap-3 w-full px-5 py-3 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors rounded-b-xl"
+          class="flex min-h-12 items-center gap-3 w-full px-5 py-3 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors rounded-b-xl"
         >
           <Icon :path="mdiPlus" class="w-4 h-4 shrink-0" />
           New playlist

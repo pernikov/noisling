@@ -135,10 +135,6 @@ async function onTrackUpdated() {
     <NotFoundPage v-if="!loading && notFound" type="album" :name="albumName" />
 
     <template v-else>
-    <button class="text-zinc-500 hover:text-zinc-300 mb-4 text-sm" @click="router.back()">
-      &larr; Back
-    </button>
-
     <div v-if="loading" class="animate-pulse">
       <!-- Album header -->
       <div class="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 mb-8">

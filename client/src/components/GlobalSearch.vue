@@ -33,8 +33,8 @@ const resultsRef = ref(null);
 
 let debounceTimer = null;
 
-const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
-const coverSize = computed(() => density.value === 'compact' ? 'w-6 h-6' : 'w-9 h-9');
+const rowPy = computed(() => density.value === 'compact' ? 'py-2 sm:py-1' : 'py-3 sm:py-2');
+const coverSize = computed(() => density.value === 'compact' ? 'w-8 h-8 sm:w-6 sm:h-6' : 'w-10 h-10 sm:w-9 sm:h-9');
 
 function openSearch() {
   open.value = true;
@@ -167,7 +167,7 @@ function flatIndex(type, i) {
               v-model="query"
               type="text"
               placeholder="Search tracks, albums, artists..."
-              class="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-500 text-sm py-4"
+              class="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-500 text-sm py-5 sm:py-4"
               @keydown="onInputKeydown"
             />
             <button
@@ -183,7 +183,7 @@ function flatIndex(type, i) {
 
             <!-- Loading -->
             <div v-if="loading" class="p-3 space-y-1.5">
-              <div v-for="n in 5" :key="n" class="h-11 rounded-lg bg-zinc-800/60 animate-pulse" />
+              <div v-for="n in 5" :key="n" class="h-14 sm:h-11 rounded-lg bg-zinc-800/60 animate-pulse" />
             </div>
 
             <!-- Results list -->
@@ -289,7 +289,7 @@ function flatIndex(type, i) {
           </div>
 
           <!-- Footer hints -->
-          <div class="flex items-center gap-4 px-4 py-2 border-t border-zinc-800/80 text-[11px] text-zinc-600">
+          <div class="hidden sm:flex items-center gap-4 px-4 py-2 border-t border-zinc-800/80 text-[11px] text-zinc-600">
             <span><KbdKey>↑↓</KbdKey> navigate</span>
             <span><KbdKey>↵</KbdKey> select</span>
             <span><KbdKey>esc</KbdKey> close</span>

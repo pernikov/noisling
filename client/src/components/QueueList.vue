@@ -12,15 +12,25 @@ const props = defineProps({
     type: String,
     default: 'px-4',
   },
+  roomyMobile: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const emit = defineEmits(['play', 'navigate']);
 
 const { state, moveTrack, playFromQueue } = usePlayer();
 const { accentColor, density, showCoverArt, tracksColumns } = useTheme();
+const isMobile = ref(false);
+let mediaQuery = null;
+let mediaQueryListener = null;
 
 // --- Virtual scrolling ---
-const ITEM_HEIGHT = computed(() => density.value === 'compact' ? 36 : 52);
+const ITEM_HEIGHT = computed(() => {
+  if (props.roomyMobile && isMobile.value) return density.value === 'compact' ? 52 : 64;
+  return density.value === 'compact' ? 36 : 52;
+});
 const OVERSCAN = 10;
 const scrollContainer = ref(null);
 const scrollTop = ref(0);
@@ -42,6 +52,12 @@ const scrollMask = computed(() => {
 });
 
 onMounted(() => {
+  mediaQuery = window.matchMedia('(max-width: 639px)');
+  mediaQueryListener = () => { isMobile.value = mediaQuery.matches; };
+  mediaQueryListener();
+  if (mediaQuery.addEventListener) mediaQuery.addEventListener('change', mediaQueryListener);
+  else mediaQuery.addListener(mediaQueryListener);
+
   if (scrollContainer.value) {
     containerHeight.value = scrollContainer.value.clientHeight;
   }
@@ -168,6 +184,10 @@ onUnmounted(() => {
   // Clean up if component unmounts mid-drag
   document.removeEventListener('touchmove', onTouchDragMove);
   document.removeEventListener('touchend', onTouchDragEnd);
+  if (mediaQuery && mediaQueryListener) {
+    if (mediaQuery.removeEventListener) mediaQuery.removeEventListener('change', mediaQueryListener);
+    else mediaQuery.removeListener(mediaQueryListener);
+  }
 });
 
 // --- Play ---
@@ -220,7 +240,7 @@ function formatDuration(seconds) {
             @dragend="onDragEnd"
           >
             <div v-if="showCoverArt" class="relative flex-shrink-0 group/cover" @click.stop="handlePlay(i)">
-              <CoverArt :cover="track.cover" :size="density === 'compact' ? 'w-6 h-6' : 'w-8 h-8'" />
+              <CoverArt :cover="track.cover" :size="props.roomyMobile && isMobile ? (density === 'compact' ? 'w-9 h-9' : 'w-10 h-10') : (density === 'compact' ? 'w-6 h-6' : 'w-8 h-8')" />
               <div class="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
                 <Icon :path="mdiPlay" class="w-4 h-4 text-white" />
               </div>
@@ -228,11 +248,18 @@ function formatDuration(seconds) {
 
             <div class="flex-1 min-w-0">
               <div
-                class="text-sm truncate cursor-pointer hover:underline"
-                :class="i === state.queueIndex ? `text-${accentColor}-400 font-medium` : ''"
+                class="truncate cursor-pointer hover:underline"
+                :class="[
+                  props.roomyMobile && isMobile ? 'text-[15px]' : 'text-sm',
+                  i === state.queueIndex ? `text-${accentColor}-400 font-medium` : '',
+                ]"
                 @click.stop="handlePlay(i)"
               >{{ track.title }}</div>
-              <span v-if="density !== 'compact' && tracksColumns.artist" class="text-xs text-zinc-500 truncate block">
+              <span
+                v-if="density !== 'compact' && tracksColumns.artist"
+                class="text-zinc-500 truncate block"
+                :class="props.roomyMobile && isMobile ? 'text-[13px] mt-0.5' : 'text-xs'"
+              >
                 <template v-for="(artist, ai) in track.artists" :key="ai">
                   <span v-if="ai > 0">, </span>
                   <router-link
@@ -250,7 +277,10 @@ function formatDuration(seconds) {
               class="w-3.5 h-3.5 flex-shrink-0 animate-pulse"
               :class="`text-${accentColor}-400`"
             />
-            <span class="text-xs text-zinc-500 flex-shrink-0">{{ formatDuration(track.duration) }}</span>
+            <span
+              class="text-zinc-500 flex-shrink-0"
+              :class="props.roomyMobile && isMobile ? 'text-[13px]' : 'text-xs'"
+            >{{ formatDuration(track.duration) }}</span>
 
             <!-- Touch drag handle (mobile only — desktop uses HTML5 drag on the full row) -->
             <div

@@ -59,7 +59,7 @@ async function save() {
         v-model="name"
         type="text"
         placeholder="Playlist name"
-        class="w-full px-3 py-2"
+        class="w-full px-3 py-2.5"
         autofocus
         @keydown.enter="save"
       />

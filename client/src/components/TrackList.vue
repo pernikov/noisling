@@ -115,6 +115,20 @@ function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;
 }
 
+function mobileMeta(track) {
+  const bits = [];
+  if (showArtistValue.value && track.artists?.length) bits.push(track.artists.join(', '));
+  if (showAlbumValue.value && track.album) bits.push(track.album);
+  if (showPlaysValue.value) bits.push(`${track.playCount || 0} play${(track.playCount || 0) === 1 ? '' : 's'}`);
+  if (showLastPlayedValue.value && (track.playedAt ?? track.lastPlayedAt)) bits.push(timeAgo(track.playedAt ?? track.lastPlayedAt));
+  return bits.join(' · ');
+}
+
+const showArtistValue = computed(() => props.showArtist);
+const showAlbumValue = computed(() => props.showAlbum);
+const showPlaysValue = computed(() => props.showPlays);
+const showLastPlayedValue = computed(() => props.showLastPlayed);
+
 // --- Drag and drop reordering (playlist mode) ---
 const dragIndex = ref(null);
 const dragOverIndex = ref(null);
@@ -207,7 +221,75 @@ defineExpose({ playAll, playShuffle });
       <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
     </div>
 
-    <table class="w-full table-fixed text-sm border-separate border-spacing-0">
+    <div class="sm:hidden space-y-2">
+      <div
+        v-for="(track, i) in tracks"
+        :key="`mobile-${track.historyId ?? track._id}`"
+        class="group rounded-2xl bg-zinc-900/45 transition-colors"
+        :class="[
+          track.deleted
+            ? 'opacity-40'
+            : 'active:bg-zinc-800/65',
+          isCurrentTrack(track) ? 'bg-zinc-800/65' : 'bg-zinc-900/35',
+        ]"
+      >
+        <div
+          class="flex items-center gap-3 px-3 py-3.5"
+          :class="track.deleted ? 'cursor-default' : 'cursor-pointer'"
+          @click="!track.deleted && playTrack(i)"
+        >
+          <div class="relative shrink-0">
+            <CoverArt
+              v-if="showCover && showCoverArt"
+              :cover="track.deleted ? '' : track.cover"
+              :size="density === 'compact' ? 'w-10 h-10' : 'w-11 h-11'"
+            />
+            <div
+              v-else
+              class="flex items-center justify-center rounded-lg bg-zinc-800/80 text-zinc-500"
+              :class="density === 'compact' ? 'w-10 h-10' : 'w-11 h-11'"
+            >
+              <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
+            </div>
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2">
+              <p class="truncate text-sm font-medium" :class="isCurrentTrack(track) ? `text-${accentColor}-200` : 'text-zinc-100'">
+                {{ track.title }}
+              </p>
+            </div>
+            <p v-if="mobileMeta(track)" class="mt-0.5 truncate text-xs text-zinc-500">
+              {{ mobileMeta(track) }}
+            </p>
+          </div>
+
+          <div class="flex items-center gap-0.5 shrink-0">
+            <button
+              v-if="!track.deleted"
+              class="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
+              :class="track.isLoved
+                ? (lovedUseAccent ? `text-${accentColor}-400 bg-zinc-800/60` : 'text-rose-400 bg-zinc-800/60')
+                : 'text-zinc-500 hover:text-zinc-300'"
+              @click.stop="toggleLove(track)"
+              :aria-label="track.isLoved ? 'Unlove track' : 'Love track'"
+            >
+              <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-4 h-4" />
+            </button>
+            <button
+              v-if="!track.deleted"
+              class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition-colors hover:text-zinc-300"
+              @click.stop="openMenu($event, i, track)"
+              aria-label="Track actions"
+            >
+              <Icon :path="mdiDotsVertical" class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <table class="hidden sm:table w-full table-fixed text-sm border-separate border-spacing-0">
       <thead>
         <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800 select-none">
           <th class="text-center py-2 px-1 w-8 hidden sm:table-cell">#</th>
@@ -288,7 +370,7 @@ defineExpose({ playAll, playShuffle });
               ? 'cursor-default opacity-40'
               : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
             { [`text-${accentColor}-400`]: isCurrentTrack(track) },
-            { 'max-sm:[&>td]:bg-zinc-800/50': isCurrentTrack(track) },
+            { 'max-sm:[&>td]:bg-zinc-800/50 sm:[&>td]:bg-zinc-800/50': isCurrentTrack(track) },
             { '[&>td]:bg-zinc-800/50': menuRowIndex === i },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
@@ -352,7 +434,7 @@ defineExpose({ playAll, playShuffle });
               class="flex items-center justify-center w-full transition-opacity"
               :class="track.isLoved
                 ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-rose-400')
-                : 'opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-zinc-400'"
+                : 'text-zinc-500 hover:text-zinc-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:pointer-events-none sm:group-hover:pointer-events-auto'"
               @click.stop="toggleLove(track)"
             >
               <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />

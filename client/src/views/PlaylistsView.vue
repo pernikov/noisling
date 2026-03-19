@@ -156,7 +156,7 @@ function onCreated(playlist) {
             <div class="font-medium font-display truncate text-sm">{{ playlist.name }}</div>
             <div class="text-xs text-zinc-500 mt-0.5">{{ playlist.trackCount }} track{{ playlist.trackCount !== 1 ? 's' : '' }}</div>
           </div>
-          <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 shrink-0">
+          <div class="hidden sm:flex items-center gap-1 shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
             <button
               @click.stop="shufflePlaylist(playlist, $event)"
               class="flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 active:scale-95 transition-all duration-150"

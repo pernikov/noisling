@@ -121,10 +121,10 @@ function prevPage() {
       </div>
     </div>
 
-    <div v-if="loading" class="space-y-1 animate-pulse">
-      <div v-for="i in 15" :key="i" class="flex items-center gap-3 px-1 py-2">
+    <div v-if="loading" class="space-y-2 sm:space-y-1 animate-pulse">
+      <div v-for="i in 15" :key="i" class="flex items-center gap-3 px-1 py-3 sm:py-2">
         <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
-        <div class="w-8 h-8 bg-zinc-800 rounded shrink-0"></div>
+        <div class="w-10 h-10 sm:w-8 sm:h-8 bg-zinc-800 rounded shrink-0"></div>
         <div class="flex-1 min-w-0 space-y-1.5">
           <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${55 + (i * 13) % 30}%` }"></div>
           <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${30 + (i * 17) % 25}%` }"></div>

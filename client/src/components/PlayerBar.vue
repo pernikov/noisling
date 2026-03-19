@@ -7,10 +7,7 @@ import { useProgressScrub, formatTime } from "../composables/useProgressScrub.js
 import CoverArt from "./CoverArt.vue";
 import QueueDrawer from "./QueueDrawer.vue";
 import {
-  mdiSkipPrevious,
-  mdiSkipNext,
-  mdiPlay,
-  mdiPause,
+  mdiChevronUp,
   mdiVolumeHigh,
   mdiVolumeOff,
   mdiRepeat,
@@ -20,20 +17,14 @@ import {
   mdiEyeOutline,
   mdiHeart,
   mdiHeartOutline,
-  mdiPlaylistPlus,
 } from "@mdi/js";
 import Icon from "./Icon.vue";
 import Tooltip from "./Tooltip.vue";
-import AddToPlaylistModal from "./AddToPlaylistModal.vue";
-import { useToast } from "../composables/useToast.js";
 
 const {
   state,
-  toggle,
   pause,
   resume,
-  next,
-  prev,
   seek,
   setVolume,
   toggleMute,
@@ -41,16 +32,11 @@ const {
   toggleVisualizer,
   toggleNowPlaying,
   toggleQueue,
-  openAddToPlaylist,
-  closeAddToPlaylist,
   toggleLove,
   cycleRepeat,
-  hasNext,
-  hasPrev,
 } = usePlayer();
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor, lovedUseAccent, showPlaylists } = useTheme();
-const { show: showToast } = useToast();
+const { accentColor, lovedUseAccent } = useTheme();
 
 const barStyle = computed(() => {
   if (!albumAccentColor.value) return {};
@@ -103,11 +89,6 @@ const hoverTime = computed(() => {
   if (pct === null || !state.duration) return null;
   return formatTime(pct / 100 * state.duration);
 });
-
-function onPlaylistAdded(playlistName) {
-  if (playlistName) showToast(`Added to "${playlistName}"`);
-  else showToast("Failed to add to playlist");
-}
 </script>
 
 <template>
@@ -119,14 +100,14 @@ function onPlaylistAdded(playlistName) {
     :style="barStyle"
     @click="toggleNowPlaying"
   >
-    <div class="flex items-center gap-3 px-4 py-2">
-      <div class="relative w-10 h-10 flex-shrink-0">
+    <div class="flex items-center gap-3 px-4 py-3">
+      <div class="relative w-11 h-11 flex-shrink-0">
         <Transition name="cover-fade">
-          <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-10 h-10" show-spinner />
+          <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-11 h-11" show-spinner />
         </Transition>
       </div>
       <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1 min-w-0 text-sm font-medium">
+        <div class="flex items-center gap-1 min-w-0 text-[15px] font-medium">
           <span class="truncate">{{ state.currentTrack.title }}</span>
           <span
             v-if="state.transcodeWaiting || state.transcodeActive"
@@ -136,45 +117,14 @@ function onPlaylistAdded(playlistName) {
             :title="state.transcodeWaiting ? 'Transcoding' : 'Transcoded'"
           />
         </div>
-        <span class="text-xs text-zinc-400 truncate block">
+        <span class="text-[13px] text-zinc-400 truncate block mt-0.5">
           <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
             <span v-if="ai > 0">, </span>{{ artist }}
           </template>
         </span>
       </div>
-      <div class="flex items-center gap-1 flex-shrink-0">
-        <button
-          v-if="showPlaylists"
-          class="text-zinc-400 hover:text-zinc-100 transition-colors p-1"
-          @click.stop="openAddToPlaylist"
-          aria-label="Add to playlist"
-          title="Add to playlist"
-        >
-          <Icon :path="mdiPlaylistPlus" class="w-5 h-5" />
-        </button>
-        <button
-          :disabled="!hasPrev"
-          class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
-          @click.stop="prev"
-        >
-          <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
-        </button>
-        <button
-          class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center"
-          @click.stop="toggle"
-        >
-          <Transition name="icon-swap" mode="out-in">
-            <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-mobile'" />
-            <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-mobile'" />
-          </Transition>
-        </button>
-        <button
-          :disabled="!hasNext"
-          class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors p-1"
-          @click.stop="next"
-        >
-          <Icon :path="mdiSkipNext" class="w-5 h-5" />
-        </button>
+      <div class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500/90">
+        <Icon :path="mdiChevronUp" class="h-4 w-4" aria-hidden="true" />
       </div>
     </div>
   </div>
@@ -354,18 +304,6 @@ function onPlaylistAdded(playlistName) {
           </Transition>
         </button>
       </Tooltip>
-
-      <!-- Add to playlist -->
-      <Tooltip v-if="showPlaylists" label="Add to playlist" shortcut="A">
-        <button
-          class="text-zinc-400 hover:text-zinc-100 transition-colors"
-          @click="openAddToPlaylist"
-          aria-label="Add to playlist"
-        >
-          <Icon :path="mdiPlaylistPlus" class="w-4 h-4" />
-        </button>
-      </Tooltip>
-
       <!-- Queue toggle -->
       <Tooltip :label="'Queue (' + state.queue.length + ')'" shortcut="Q">
         <button
@@ -426,13 +364,6 @@ function onPlaylistAdded(playlistName) {
 
   <!-- Queue drawer -->
   <QueueDrawer :open="state.showQueue" @close="toggleQueue" />
-
-  <AddToPlaylistModal
-    v-if="state.showAddToPlaylist && state.currentTrack"
-    :track="state.currentTrack"
-    @close="closeAddToPlaylist"
-    @added="onPlaylistAdded"
-  />
 </template>
 
 <style scoped>

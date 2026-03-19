@@ -60,11 +60,63 @@ function onTrackSaved(updatedTrack) {
 
 <template>
   <Teleport to="body">
-    <div v-if="track && showBackdrop" class="fixed inset-0 z-[60]" @click="emit('close')" />
+    <div
+      v-if="track"
+      class="fixed inset-0 z-[90] bg-black/45 sm:bg-transparent"
+      :class="showBackdrop ? '' : 'sm:hidden'"
+      @click="emit('close')"
+    />
+
+    <Transition name="sheet">
+      <div
+        v-if="track"
+        class="fixed inset-x-3 bottom-3 z-[95] rounded-2xl border border-zinc-800 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-xl sm:hidden"
+      >
+        <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-zinc-700" />
+        <button
+          class="flex min-h-12 items-center gap-3 w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-zinc-800 transition-colors"
+          @click="onPlayNext"
+        >
+          <Icon :path="mdiPlaylistPlay" class="w-4 h-4 text-zinc-400" />
+          Play next
+        </button>
+        <button
+          class="flex min-h-12 items-center gap-3 w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-zinc-800 transition-colors"
+          @click="onAddToQueue"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
+          Add to queue
+        </button>
+        <button
+          v-if="showPlaylists"
+          class="flex min-h-12 items-center gap-3 w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-zinc-800 transition-colors"
+          @click="openAddToPlaylist"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
+          Add to playlist
+        </button>
+        <button
+          class="flex min-h-12 items-center gap-3 w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-zinc-800 transition-colors"
+          @click="openEditMetadata"
+        >
+          <Icon :path="mdiPencil" class="w-4 h-4 text-zinc-400" />
+          Edit metadata
+        </button>
+        <button
+          v-if="playlistId"
+          class="flex min-h-12 items-center gap-3 w-full rounded-xl px-3 py-3 text-left text-sm text-red-400 hover:bg-zinc-800 transition-colors"
+          @click="emit('remove-from-playlist', track._id); emit('close')"
+        >
+          <Icon :path="mdiPlaylistMinus" class="w-4 h-4" />
+          Remove from playlist
+        </button>
+      </div>
+    </Transition>
+
     <Transition name="menu">
       <div
         v-if="track"
-        class="fixed z-[70] bg-zinc-900 border border-zinc-700 rounded-md shadow-xl py-1 min-w-[160px]"
+        class="fixed z-[95] hidden min-w-[160px] rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-xl sm:block"
         :style="style"
         @mouseenter="emit('cancel-close')"
         @mouseleave="emit('close')"
@@ -126,6 +178,14 @@ function onTrackSaved(updatedTrack) {
 </template>
 
 <style scoped>
+.sheet-enter-active, .sheet-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.sheet-enter-from, .sheet-leave-to {
+  opacity: 0;
+  transform: translateY(16px);
+}
+
 .menu-enter-active, .menu-leave-active {
   transition: opacity 0.15s ease, transform 0.15s ease;
   transform-origin: top left;

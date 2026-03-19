@@ -5,7 +5,7 @@ import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import CoverArt from '../components/CoverArt.vue';
-import { mdiPlay, mdiShuffle, mdiChevronLeft, mdiChevronRight } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiChevronRight } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import IconButton from '../components/IconButton.vue';
 import NotFoundPage from '../components/NotFoundPage.vue';
@@ -73,10 +73,6 @@ function formatDuration(seconds) {
     <NotFoundPage v-if="!loading && notFound" type="artist" :name="artistName" />
 
     <template v-else>
-      <button class="text-zinc-500 hover:text-zinc-300 mb-4 text-sm" @click="router.back()">
-        &larr; Back
-      </button>
-
       <div class="flex items-center justify-between mb-6">
         <h1 class="text-2xl font-bold font-display">{{ artistName }}</h1>
         <div class="flex items-center gap-2">

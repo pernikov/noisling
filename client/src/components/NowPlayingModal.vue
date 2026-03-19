@@ -9,6 +9,8 @@ import Icon from './Icon.vue';
 import Spinner from './Spinner.vue';
 import QueueList from './QueueList.vue';
 import QueueActions from './QueueActions.vue';
+import AddToPlaylistModal from './AddToPlaylistModal.vue';
+import { useToast } from '../composables/useToast.js';
 import {
   mdiChevronDown,
   mdiSkipPrevious,
@@ -20,6 +22,7 @@ import {
   mdiRepeatOnce,
   mdiHeart,
   mdiHeartOutline,
+  mdiPlaylistPlus,
 } from '@mdi/js';
 
 const {
@@ -31,17 +34,25 @@ const {
   toggleShuffle,
   toggleNowPlaying,
   cycleRepeat,
+  openAddToPlaylist,
+  closeAddToPlaylist,
   toggleLove,
   hasNext,
   hasPrev,
 } = usePlayer();
 
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor, lovedUseAccent } = useTheme();
+const { accentColor, lovedUseAccent, showPlaylists } = useTheme();
+const { show: showToast } = useToast();
 const api = useApi();
 const coverUrl = computed(() =>
   state.currentTrack?.cover ? api.coverUrl(state.currentTrack.cover) : null
 );
+
+function onPlaylistAdded(playlistName) {
+  if (playlistName) showToast(`Added to "${playlistName}"`);
+  else showToast('Failed to add to playlist');
+}
 
 // --- Tab state ---
 const activeTab = ref('nowplaying');
@@ -408,7 +419,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Top bar -->
-          <div class="flex items-center justify-between py-3 flex-shrink-0">
+          <div class="relative flex items-center justify-between py-3 flex-shrink-0">
             <button
               class="text-zinc-300 hover:text-white transition-colors p-1 -ml-1 rounded-full hover:bg-white/10"
               @click="toggleNowPlaying"
@@ -418,36 +429,45 @@ onUnmounted(() => {
             </button>
 
             <!-- Tab switcher (mobile only — desktop has the queue drawer) -->
-            <div class="sm:hidden flex bg-white/10 rounded-full p-0.5">
+            <div class="sm:hidden absolute left-1/2 -translate-x-1/2 flex bg-white/10 rounded-full p-1">
               <button
-                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                class="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors"
                 :class="activeTab === 'nowplaying' ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white'"
                 @click="activeTab = 'nowplaying'"
               >Playing</button>
               <button
-                class="px-3 py-1 rounded-full text-xs font-medium transition-colors"
+                class="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors"
                 :class="activeTab === 'queue' ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white'"
                 @click="activeTab = 'queue'"
               >Queue</button>
             </div>
             <span class="hidden sm:block text-xs uppercase tracking-widest text-zinc-400 font-medium">Now Playing</span>
 
-            <!-- Love button (hidden in queue tab) -->
-            <button
-              v-if="activeTab === 'nowplaying'"
-              class="p-1 -mr-1 rounded-full hover:bg-white/10 transition-colors"
-              :class="state.currentTrack.isLoved
-                ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-red-400')
-                : 'text-zinc-300 hover:text-white'"
-              @click="toggleLove()"
-              aria-label="Love track"
-            >
-              <Transition name="icon-swap" mode="out-in">
-                <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-6 h-6" :key="'loved'" />
-                <Icon v-else :path="mdiHeartOutline" class="w-6 h-6" :key="'unloved'" />
-              </Transition>
-            </button>
-            <div v-else class="w-8 h-8 flex-shrink-0" aria-hidden="true" />
+            <!-- Track actions (hidden in queue tab) -->
+            <div v-if="activeTab === 'nowplaying'" class="flex items-center gap-0.5 -mr-1">
+              <button
+                v-if="showPlaylists"
+                class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
+                @click="openAddToPlaylist"
+                aria-label="Add to playlist"
+              >
+                <Icon :path="mdiPlaylistPlus" class="h-5 w-5" />
+              </button>
+              <button
+                class="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:scale-95"
+                :class="state.currentTrack.isLoved
+                  ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-red-400')
+                  : 'text-zinc-300 hover:text-white'"
+                @click="toggleLove()"
+                aria-label="Love track"
+              >
+                <Transition name="icon-swap" mode="out-in">
+                  <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-6 h-6" :key="'loved'" />
+                  <Icon v-else :path="mdiHeartOutline" class="w-6 h-6" :key="'unloved'" />
+                </Transition>
+              </button>
+            </div>
+            <div v-else class="w-[5.5rem] h-11 flex-shrink-0" aria-hidden="true" />
           </div>
 
           <!-- Tab content: both panels always mounted, crossfade via CSS opacity -->
@@ -606,7 +626,7 @@ onUnmounted(() => {
 
               <button
                 :disabled="!hasPrev"
-                class="text-white disabled:text-zinc-600 transition-colors p-2 rounded-full hover:bg-white/10 disabled:hover:bg-transparent"
+                class="flex h-11 w-11 items-center justify-center rounded-full p-2 text-white transition-colors hover:bg-white/10 disabled:text-zinc-600 disabled:hover:bg-transparent"
                 @click="prev"
                 aria-label="Previous"
               >
@@ -626,7 +646,7 @@ onUnmounted(() => {
 
               <button
                 :disabled="!hasNext"
-                class="text-white disabled:text-zinc-600 transition-colors p-2 rounded-full hover:bg-white/10 disabled:hover:bg-transparent"
+                class="flex h-11 w-11 items-center justify-center rounded-full p-2 text-white transition-colors hover:bg-white/10 disabled:text-zinc-600 disabled:hover:bg-transparent"
                 @click="next"
                 aria-label="Next"
               >
@@ -664,7 +684,7 @@ onUnmounted(() => {
                 icon-class="w-5 h-5"
               />
             </div>
-            <QueueList ref="queueList" rowPaddingClass="px-3" @navigate="toggleNowPlaying" />
+            <QueueList ref="queueList" rowPaddingClass="px-3" roomy-mobile @navigate="toggleNowPlaying" />
           </div>
 
           </div><!-- end tab panels wrapper -->
@@ -673,6 +693,13 @@ onUnmounted(() => {
       </div>
     </Transition>
   </Teleport>
+
+  <AddToPlaylistModal
+    v-if="state.showAddToPlaylist && state.currentTrack"
+    :track="state.currentTrack"
+    @close="closeAddToPlaylist"
+    @added="onPlaylistAdded"
+  />
 </template>
 
 <style scoped>
