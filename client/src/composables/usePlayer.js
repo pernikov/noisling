@@ -288,7 +288,14 @@ function play(track) {
   const trackId = track._id;
   audio.play().catch(err => {
     console.error('[player] play() failed:', err);
-    if (err.name === 'NotAllowedError') return;
+    if (err.name === 'NotAllowedError') {
+      // iOS denied the play() call — audio session window was missed or there was no
+      // user gesture. Mark as paused so the UI and lock screen reflect reality; the
+      // user can resume via the lock screen play button or by foregrounding the app.
+      state.isPlaying = false;
+      setPlaybackState(false);
+      return;
+    }
 
     let retryDone = false;
     const retryPlay = () => {
