@@ -51,6 +51,28 @@ const navStyle = computed(() => {
     backgroundImage: `linear-gradient(to right, rgba(${accentColor.value}, 0.25), rgba(${accentColor.value}, 0.1) 60%, transparent), ${baseBg}`,
   };
 });
+
+function buildToastStyle({ borderRgb, overlayStrength = [0.3, 0.14] } = {}) {
+  const isDefaultTheme = themeColor.value === "none";
+  const baseBg = isDefaultTheme
+    ? `linear-gradient(to bottom, rgba(9, 9, 11, 0.9), rgba(9, 9, 11, 0.96))`
+    : `linear-gradient(to bottom, rgba(${themeBgRgb.value}, 0.78), rgba(${themeBgDarkRgb.value}, 0.9))`;
+  const accentOverlay = accentColor.value
+    ? `linear-gradient(135deg, rgba(${accentColor.value}, ${overlayStrength[0]}), rgba(${accentColor.value}, ${overlayStrength[1]}) 60%, transparent)`
+    : null;
+
+  return {
+    backgroundImage: accentOverlay ? `${accentOverlay}, ${baseBg}` : baseBg,
+    borderColor: borderRgb
+      ? `rgba(${borderRgb}, 0.45)`
+      : accentColor.value
+        ? `rgba(${accentColor.value}, 0.28)`
+        : "rgba(63, 63, 70, 0.9)",
+  };
+}
+
+const successToastStyle = computed(() => buildToastStyle());
+const errorToastStyle = computed(() => buildToastStyle({ borderRgb: "127, 29, 29", overlayStrength: [0.26, 0.12] }));
 useKeyboardShortcuts();
 
 const { items: toastItems, toasts: successToasts } = useToast();
@@ -201,7 +223,8 @@ watch(
           <div
             v-for="item in successToasts"
             :key="item.id"
-            class="flex items-center gap-2 px-4 py-2 bg-zinc-900/95 backdrop-blur-xl border border-zinc-800 rounded-full text-sm shadow-lg whitespace-nowrap"
+            class="flex items-center gap-2 px-4 py-2 backdrop-blur-xl border rounded-full text-sm shadow-lg whitespace-nowrap"
+            :style="successToastStyle"
           >
             <Icon :path="mdiCheck" class="w-4 h-4 text-green-400 shrink-0" />
             <span class="text-zinc-200">{{ item.message }}</span>
@@ -219,7 +242,8 @@ watch(
           <div
             v-for="item in toastItems"
             :key="item.id"
-            class="flex items-center gap-2.5 px-4 py-2.5 bg-zinc-900/95 backdrop-blur-xl border border-red-900/60 rounded-lg shadow-xl text-sm max-w-xs"
+            class="flex items-center gap-2.5 px-4 py-2.5 backdrop-blur-xl border rounded-lg shadow-xl text-sm max-w-xs"
+            :style="errorToastStyle"
           >
             <Icon
               :path="mdiAlertCircleOutline"

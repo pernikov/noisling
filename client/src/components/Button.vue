@@ -40,7 +40,7 @@ const accentBg = computed(() => `rgb(${accentRgb.value})`)
 <template>
   <button
     :disabled="disabled || loading"
-    class="min-h-11 text-sm rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
+    class="min-h-11 sm:min-h-10 text-sm rounded-lg transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 active:scale-[0.98]"
     :class="[
       size === 'sm' ? 'px-3.5 py-2 sm:min-h-10' : 'px-4 py-2.5',
       {
