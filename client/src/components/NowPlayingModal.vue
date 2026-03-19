@@ -46,6 +46,10 @@ const coverUrl = computed(() =>
 // --- Tab state ---
 const activeTab = ref('nowplaying');
 const queueList = ref(null);
+const modalRoot = ref(null);
+const coverDragEl = ref(null);
+const prevHintEl = ref(null);
+const nextHintEl = ref(null);
 
 watch(activeTab, async (tab) => {
   if (tab === 'queue') {
@@ -131,15 +135,84 @@ function onProgressTouchEnd() {
 }
 
 // Swipe-down to close / swipe left-right to skip
-const dragY = ref(0);
-const dragX = ref(0);
-const isDragging = ref(false);
-const isReleasingHorizontal = ref(false);
-const isClosingByDrag = ref(false);
 let touchStartY = 0;
 let touchStartX = 0;
 let swipeActive = false;
 let swipeDirection = null; // 'vertical' | 'horizontal' | null — locked after first 10px
+let dragX = 0;
+let dragY = 0;
+let gestureFrame = 0;
+const isClosingByDrag = ref(false);
+let verticalPeakY = 0;
+let verticalCloseCancelled = false;
+
+function setHintOpacity(el, opacity) {
+  if (!el) return;
+  el.style.opacity = String(opacity);
+}
+
+function applyGestureFrame() {
+  gestureFrame = 0;
+
+  if (swipeDirection === 'vertical') {
+    if (modalRoot.value) {
+      modalRoot.value.style.transform = dragY > 0 ? `translateY(${dragY}px)` : '';
+    }
+    if (coverDragEl.value) {
+      coverDragEl.value.style.transform = '';
+      coverDragEl.value.style.transition = '';
+    }
+    setHintOpacity(prevHintEl.value, 0);
+    setHintOpacity(nextHintEl.value, 0);
+    return;
+  }
+
+  if (swipeDirection === 'horizontal') {
+    if (coverDragEl.value) {
+      const translateX = dragX * 0.45;
+      const rotate = Math.max(-12, Math.min(12, dragX * 0.08));
+      const scale = 1 + Math.min(Math.abs(dragX) * 0.0003, 0.03);
+      coverDragEl.value.style.transition = 'none';
+      coverDragEl.value.style.transform = `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`;
+    }
+
+    const threshold = 60;
+    const opacity = Math.min(1, Math.max(0, (Math.abs(dragX) - 15) / (threshold - 15)));
+    setHintOpacity(prevHintEl.value, dragX > 0 && hasPrev.value ? opacity : 0);
+    setHintOpacity(nextHintEl.value, dragX < 0 && hasNext.value ? opacity : 0);
+    return;
+  }
+
+  if (modalRoot.value) modalRoot.value.style.transform = '';
+  if (coverDragEl.value) {
+    coverDragEl.value.style.transform = '';
+    coverDragEl.value.style.transition = '';
+  }
+  setHintOpacity(prevHintEl.value, 0);
+  setHintOpacity(nextHintEl.value, 0);
+}
+
+function scheduleGestureFrame() {
+  if (gestureFrame) return;
+  gestureFrame = window.requestAnimationFrame(applyGestureFrame);
+}
+
+function resetGestureStyles() {
+  if (gestureFrame) {
+    window.cancelAnimationFrame(gestureFrame);
+    gestureFrame = 0;
+  }
+  if (modalRoot.value) {
+    modalRoot.value.style.transform = '';
+    modalRoot.value.style.transition = '';
+  }
+  if (coverDragEl.value) {
+    coverDragEl.value.style.transform = '';
+    coverDragEl.value.style.transition = '';
+  }
+  setHintOpacity(prevHintEl.value, 0);
+  setHintOpacity(nextHintEl.value, 0);
+}
 
 function onTouchStart(e) {
   if (activeTab.value === 'queue') { swipeActive = false; return; }
@@ -147,10 +220,12 @@ function onTouchStart(e) {
   touchStartY = e.touches[0].clientY;
   touchStartX = e.touches[0].clientX;
   swipeActive = true;
-  isDragging.value = true;
-  dragY.value = 0;
-  dragX.value = 0;
+  dragY = 0;
+  dragX = 0;
+  verticalPeakY = 0;
+  verticalCloseCancelled = false;
   swipeDirection = null;
+  resetGestureStyles();
 }
 
 function onTouchMove(e) {
@@ -164,85 +239,88 @@ function onTouchMove(e) {
   }
 
   if (swipeDirection === 'vertical') {
-    if (deltaY > 0) dragY.value = deltaY;
+    const nextDragY = Math.max(0, deltaY);
+    if (nextDragY > verticalPeakY) {
+      verticalPeakY = nextDragY;
+      verticalCloseCancelled = false;
+    } else if (verticalPeakY > 80 && nextDragY < verticalPeakY - 14) {
+      // Let a deliberate upward reversal cancel the close gesture.
+      verticalCloseCancelled = true;
+    }
+    dragY = nextDragY;
+    scheduleGestureFrame();
   } else if (swipeDirection === 'horizontal') {
-    dragX.value = deltaX;
+    dragX = deltaX;
+    scheduleGestureFrame();
   }
 }
 
 function onTouchEnd() {
   if (!swipeActive) return;
   swipeActive = false;
-  isDragging.value = false;
 
   if (swipeDirection === 'vertical') {
-    if (dragY.value > 80) {
+    if (dragY > 80 && !verticalCloseCancelled) {
       isClosingByDrag.value = true;
-      dragY.value = window.innerHeight;
+      if (modalRoot.value) {
+        modalRoot.value.style.transition = 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)';
+        modalRoot.value.style.transform = `translateY(${window.innerHeight}px)`;
+      }
       setTimeout(() => {
-        isClosingByDrag.value = false;
-        dragY.value = 0;
+        dragY = 0;
         toggleNowPlaying();
       }, 280);
     } else {
-      dragY.value = 0;
+      dragY = 0;
+      resetGestureStyles();
     }
   } else if (swipeDirection === 'horizontal') {
     const THRESHOLD = 60;
-    const triggered = (dragX.value < -THRESHOLD && hasNext.value) || (dragX.value > THRESHOLD && hasPrev.value);
+    const triggered = (dragX < -THRESHOLD && hasNext.value) || (dragX > THRESHOLD && hasPrev.value);
     if (!triggered) {
-      isReleasingHorizontal.value = true;
-      setTimeout(() => { isReleasingHorizontal.value = false; }, 450);
+      if (coverDragEl.value) {
+        coverDragEl.value.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        coverDragEl.value.style.transform = '';
+      }
+      setHintOpacity(prevHintEl.value, 0);
+      setHintOpacity(nextHintEl.value, 0);
+      setTimeout(() => {
+        if (coverDragEl.value) coverDragEl.value.style.transition = '';
+      }, 450);
     }
-    if (dragX.value < -THRESHOLD && hasNext.value) next();
-    else if (dragX.value > THRESHOLD && hasPrev.value) prev();
-    dragX.value = 0;
+    if (dragX < -THRESHOLD && hasNext.value) next();
+    else if (dragX > THRESHOLD && hasPrev.value) prev();
+    dragX = 0;
+    if (triggered) resetGestureStyles();
+  } else {
+    resetGestureStyles();
   }
 
   swipeDirection = null;
+  verticalPeakY = 0;
+  verticalCloseCancelled = false;
 }
 
-const outerStyle = computed(() => {
-  const base = { zIndex: 60, touchAction: activeTab.value === 'queue' ? 'pan-y' : 'none' };
-  if (isClosingByDrag.value) return { ...base, transform: `translateY(${dragY.value}px)`, transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)' };
-  if (dragY.value > 0) return { ...base, transform: `translateY(${dragY.value}px)`, transition: 'none' };
-  return base;
-});
-
-// Cover-specific drag physics: slide + tilt + slight scale-up while dragging horizontally
-const coverDragStyle = computed(() => {
-  const x = dragX.value;
-  if (x !== 0) {
-    const translateX = x * 0.45;
-    const rotate = Math.max(-12, Math.min(12, x * 0.08));
-    const scale = 1 + Math.min(Math.abs(x) * 0.0003, 0.03);
-    return { transform: `translateX(${translateX}px) rotate(${rotate}deg) scale(${scale})`, transition: 'none' };
-  }
-  if (isReleasingHorizontal.value) {
-    // Snap-back spring when swipe was rejected
-    return { transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' };
-  }
-  return {};
-});
-
-// Floating skip badge that fades in as you drag past 15px toward a valid target
-const swipeHint = computed(() => {
-  const x = dragX.value;
-  if (!isDragging.value || x === 0) return null;
-  const THRESHOLD = 60;
-  const opacity = Math.min(1, Math.max(0, (Math.abs(x) - 15) / (THRESHOLD - 15)));
-  if (opacity <= 0) return null;
-  const direction = x < 0 ? 'next' : 'prev';
-  if (direction === 'next' && !hasNext.value) return null;
-  if (direction === 'prev' && !hasPrev.value) return null;
-  return { direction, opacity };
-});
+const outerStyle = computed(() => ({
+  zIndex: 60,
+  touchAction: activeTab.value === 'queue' ? 'pan-y' : 'none',
+}));
 
 watch(
   () => state.showNowPlaying,
   (open) => {
     document.body.style.overflow = open ? 'hidden' : '';
-    if (open) activeTab.value = 'nowplaying';
+    if (open) {
+      activeTab.value = 'nowplaying';
+      isClosingByDrag.value = false;
+      resetGestureStyles();
+      return;
+    }
+
+    nextTick(() => {
+      resetGestureStyles();
+      isClosingByDrag.value = false;
+    });
   }
 );
 
@@ -259,6 +337,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeyDown, { capture: true });
+  resetGestureStyles();
   if (state.showNowPlaying) {
     document.body.style.overflow = '';
   }
@@ -267,9 +346,10 @@ onUnmounted(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="slide-up">
+    <Transition :name="isClosingByDrag ? '' : 'slide-up'">
       <div
         v-if="state.showNowPlaying && state.currentTrack"
+        ref="modalRoot"
         class="fixed inset-0 z-[40] flex flex-col overflow-hidden"
         :style="outerStyle"
         role="dialog"
@@ -370,15 +450,15 @@ onUnmounted(() => {
             <!-- Album art -->
             <div class="flex-1 flex items-center justify-center py-2 min-h-0">
             <div
+              ref="coverDragEl"
               class="relative w-full"
               style="max-width: min(100%, 60vh, 400px);"
-              :style="coverDragStyle"
             >
               <!-- Swipe-to-prev hint (dragging right) -->
               <div
-                v-if="swipeHint?.direction === 'prev'"
+                ref="prevHintEl"
                 class="absolute inset-y-0 left-0 flex items-center pointer-events-none z-10"
-                :style="{ opacity: swipeHint.opacity }"
+                style="opacity: 0;"
               >
                 <div class="bg-black/70 rounded-full p-3 shadow-lg -translate-x-1/2 backdrop-blur-sm">
                   <Icon :path="mdiSkipPrevious" class="w-7 h-7 text-white" />
@@ -386,9 +466,9 @@ onUnmounted(() => {
               </div>
               <!-- Swipe-to-next hint (dragging left) -->
               <div
-                v-if="swipeHint?.direction === 'next'"
+                ref="nextHintEl"
                 class="absolute inset-y-0 right-0 flex items-center pointer-events-none z-10"
-                :style="{ opacity: swipeHint.opacity }"
+                style="opacity: 0;"
               >
                 <div class="bg-black/70 rounded-full p-3 shadow-lg translate-x-1/2 backdrop-blur-sm">
                   <Icon :path="mdiSkipNext" class="w-7 h-7 text-white" />
@@ -548,8 +628,8 @@ onUnmounted(() => {
 
           <!-- Queue tab (mobile only, always mounted) -->
           <div
-            class="sm:hidden absolute inset-0 flex flex-col pb-[env(safe-area-inset-bottom)] transition-opacity duration-200"
-            :class="activeTab === 'queue' ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+            v-if="activeTab === 'queue'"
+            class="sm:hidden absolute inset-0 flex flex-col pb-[env(safe-area-inset-bottom)] transition-opacity duration-200 opacity-100"
           >
             <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
               <div class="text-xs uppercase tracking-[0.18em] text-white/60">

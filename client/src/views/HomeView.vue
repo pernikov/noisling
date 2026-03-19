@@ -296,45 +296,45 @@ function goToAlbum(album) {
     <!-- Quick Actions -->
     <section v-if="homeShowQuickPlay">
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Quick Play</h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
         <!-- Shuffle All -->
         <button
           @click="playShuffleAll"
           :disabled="loadingShuffleAll"
-          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingShuffleAll" class="absolute inset-0 flex items-center justify-center bg-black/20">
             <Spinner class="w-8 h-8 text-white" />
           </div>
-          <Icon :path="mdiShuffle" class="w-8 h-8 mb-3 text-white/90" />
-          <div class="text-lg font-bold font-display text-white">Shuffle All</div>
-          <div class="text-sm text-white/70 mt-0.5">Play your entire library in random order</div>
+          <Icon :path="mdiShuffle" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
+          <div class="text-base sm:text-lg font-bold font-display text-white">Shuffle All</div>
+          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Play your entire library in random order</div>
         </button>
 
         <!-- Top Tracks -->
         <button
           @click="playTopTracks"
           :disabled="loadingTopTracks"
-          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingTopTracks" class="absolute inset-0 flex items-center justify-center bg-black/20">
             <Spinner class="w-8 h-8 text-white" />
           </div>
-          <Icon :path="mdiFire" class="w-8 h-8 mb-3 text-white/90" />
-          <div class="text-lg font-bold font-display text-white">Top Tracks</div>
-          <div class="text-sm text-white/70 mt-0.5">Your 50 most listened-to tracks</div>
+          <Icon :path="mdiFire" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
+          <div class="text-base sm:text-lg font-bold font-display text-white">Top Tracks</div>
+          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Your 50 most listened-to tracks</div>
         </button>
 
         <!-- Loved Tracks -->
         <button
           @click="playLovedTracks"
           :disabled="loadingLoved || lovedTracks.length === 0"
-          class="relative overflow-hidden rounded-xl p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
+          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
           :style="lovedUseAccent ? { backgroundImage: `linear-gradient(to bottom right, rgb(${accentRgb}), rgb(${accentDarkRgb}))` } : undefined"
         >
-          <Icon :path="mdiHeart" class="w-8 h-8 mb-3 text-white/90" />
-          <div class="text-lg font-bold font-display text-white">Loved Tracks</div>
-          <div class="text-sm text-white/70 mt-0.5 relative h-5 overflow-hidden">
+          <Icon :path="mdiHeart" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
+          <div class="text-base sm:text-lg font-bold font-display text-white">Loved Tracks</div>
+          <div class="hidden sm:block text-sm text-white/70 mt-0.5 relative h-5 overflow-hidden">
             <Transition
               enter-active-class="transition-opacity duration-300"
               leave-active-class="transition-opacity duration-150 absolute inset-0"
