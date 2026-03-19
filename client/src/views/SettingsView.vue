@@ -466,7 +466,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <div
               v-for="item in LIBRARY_HEALTH_ITEMS"
               :key="item.key"
-              class="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3"
+              class="flex items-start justify-between gap-3 sm:items-center sm:gap-4 rounded-lg border border-zinc-800 bg-zinc-800/30 px-4 py-3"
             >
               <div class="flex items-start gap-3 min-w-0">
                 <div class="w-9 h-9 rounded-lg bg-zinc-800 flex items-center justify-center shrink-0">
@@ -488,7 +488,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
                 :label="loadingLibraryHealth && !showLibraryHealthModal ? 'Loading...' : 'View'"
                 :loading="loadingLibraryHealth && !showLibraryHealthModal"
                 :disabled="libraryHealthInitialLoad"
-                class="shrink-0"
+                class="shrink-0 self-start sm:self-center"
                 @click="openLibraryHealth(item.key)"
               />
             </div>

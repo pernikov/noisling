@@ -42,13 +42,13 @@ const { accentColor } = useAccentColor();
 const navStyle = computed(() => {
   const isDefaultTheme = themeColor.value === "none";
   const baseBg = isDefaultTheme
-    ? `linear-gradient(to bottom, rgba(9, 9, 11, 0.95), rgba(9, 9, 11, 0.95))`
-    : `linear-gradient(to bottom, rgba(${themeBgRgb.value}, 0.9), rgba(${themeBgDarkRgb.value}, 0.95))`;
+    ? `linear-gradient(to bottom, rgba(9, 9, 11, 0.62), rgba(9, 9, 11, 0.78))`
+    : `linear-gradient(to bottom, rgba(${themeBgRgb.value}, 0.5), rgba(${themeBgDarkRgb.value}, 0.72))`;
   if (!accentColor.value) {
-    return { backgroundImage: baseBg };
+    return { background: baseBg };
   }
   return {
-    backgroundImage: `linear-gradient(to right, rgba(${accentColor.value}, 0.25), rgba(${accentColor.value}, 0.1) 60%, transparent), ${baseBg}`,
+    background: `linear-gradient(to right, rgba(${accentColor.value}, 0.28), rgba(${accentColor.value}, 0.12) 60%, transparent), ${baseBg}`,
   };
 });
 
