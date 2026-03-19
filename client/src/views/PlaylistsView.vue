@@ -95,9 +95,15 @@ function onCreated(playlist) {
     <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
       <div v-for="i in 8" :key="i" class="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
         <div class="aspect-square bg-zinc-800" />
-        <div class="p-3 space-y-1.5">
-          <div class="h-3.5 bg-zinc-800 rounded w-3/4" />
-          <div class="h-2.5 bg-zinc-700 rounded w-1/3" />
+        <div class="px-3 py-2.5 flex items-center gap-2">
+          <div class="min-w-0 flex-1 space-y-1.5">
+            <div class="h-3.5 bg-zinc-800 rounded" :style="{ width: `${50 + (i * 13) % 30}%` }" />
+            <div class="h-2.5 bg-zinc-700 rounded w-1/3" />
+          </div>
+          <div class="hidden sm:flex items-center gap-1 shrink-0">
+            <div class="w-7 h-7 rounded-md bg-zinc-800/70" />
+            <div class="w-7 h-7 rounded-md bg-zinc-700/80" />
+          </div>
         </div>
       </div>
     </div>

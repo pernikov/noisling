@@ -182,8 +182,30 @@ function flatIndex(type, i) {
           <div ref="resultsRef" class="max-h-[28rem] overflow-y-auto overscroll-contain">
 
             <!-- Loading -->
-            <div v-if="loading" class="p-3 space-y-1.5">
-              <div v-for="n in 5" :key="n" class="h-14 sm:h-11 rounded-lg bg-zinc-800/60 animate-pulse" />
+            <div v-if="loading" class="p-3 space-y-3 animate-pulse">
+              <div>
+                <div class="h-2.5 bg-zinc-800/70 rounded w-12 ml-1 mb-2"></div>
+                <div v-for="n in 2" :key="`track-${n}`" class="flex items-center gap-3 px-1 py-2.5 sm:py-2">
+                  <div class="w-10 h-10 sm:w-8 sm:h-8 bg-zinc-800 rounded shrink-0"></div>
+                  <div class="min-w-0 flex-1 space-y-1.5">
+                    <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${55 + (n * 13) % 25}%` }"></div>
+                    <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${35 + (n * 17) % 25}%` }"></div>
+                  </div>
+                  <div class="h-2.5 bg-zinc-800/60 rounded w-10 shrink-0"></div>
+                </div>
+              </div>
+
+              <div>
+                <div class="h-2.5 bg-zinc-800/70 rounded w-12 ml-1 mb-2"></div>
+                <div v-for="n in 2" :key="`entity-${n}`" class="flex items-center gap-3 px-1 py-2.5 sm:py-2">
+                  <div class="w-10 h-10 sm:w-8 sm:h-8 bg-zinc-800 rounded shrink-0"></div>
+                  <div class="min-w-0 flex-1 space-y-1.5">
+                    <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${50 + (n * 15) % 30}%` }"></div>
+                    <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${40 + (n * 11) % 25}%` }"></div>
+                  </div>
+                  <div class="h-2.5 bg-zinc-800/60 rounded w-14 shrink-0"></div>
+                </div>
+              </div>
             </div>
 
             <!-- Results list -->

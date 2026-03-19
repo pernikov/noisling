@@ -73,40 +73,52 @@ function formatDuration(seconds) {
     <NotFoundPage v-if="!loading && notFound" type="artist" :name="artistName" />
 
     <template v-else>
-      <div class="flex items-center justify-between mb-6">
-        <h1 class="text-2xl font-bold font-display">{{ artistName }}</h1>
-        <div class="flex items-center gap-2">
-          <IconButton :icon="mdiPlay" label="Play All" @click="playAll" />
-          <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
+      <div v-if="loading" class="animate-pulse">
+        <div class="flex items-center justify-between mb-6 gap-4">
+          <div class="h-8 bg-zinc-800 rounded w-48 max-w-[60%]"></div>
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="h-10 w-24 bg-zinc-800 rounded-lg"></div>
+            <div class="h-10 w-24 bg-zinc-800 rounded-lg"></div>
+          </div>
         </div>
-      </div>
 
-      <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4 animate-pulse">
-        <div v-for="i in 8" :key="i" class="rounded-lg p-2 sm:p-4">
-          <div class="aspect-square bg-zinc-800 rounded-lg mb-3"></div>
-          <div class="h-3.5 bg-zinc-800 rounded mb-1.5" :style="{ width: `${50 + (i * 11) % 35}%` }"></div>
-          <div class="h-2.5 bg-zinc-800/60 rounded w-2/3"></div>
-        </div>
-      </div>
-
-      <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
-        <div
-          v-for="album in albums"
-          :key="album.name"
-          class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors"
-          @click="goToAlbum(album)"
-        >
-          <CoverArt :cover="album.cover" size="w-full aspect-square mb-3" />
-          <div class="font-medium font-display truncate">{{ album.name }}</div>
-          <div class="text-xs text-zinc-500">
-            {{ album.year || '' }}
-            {{ album.year ? '·' : '' }}
-            {{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}
-            &middot;
-            {{ formatDuration(album.duration) }}
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+          <div v-for="i in 8" :key="i" class="rounded-lg p-2 sm:p-4">
+            <div class="aspect-square bg-zinc-800 rounded-lg mb-3"></div>
+            <div class="h-3.5 bg-zinc-800 rounded mb-1.5" :style="{ width: `${50 + (i * 11) % 35}%` }"></div>
+            <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${40 + (i * 9) % 35}%` }"></div>
           </div>
         </div>
       </div>
+
+      <template v-else>
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="text-2xl font-bold font-display">{{ artistName }}</h1>
+          <div class="flex items-center gap-2">
+            <IconButton :icon="mdiPlay" label="Play All" @click="playAll" />
+            <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
+          <div
+            v-for="album in albums"
+            :key="album.name"
+            class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors"
+            @click="goToAlbum(album)"
+          >
+            <CoverArt :cover="album.cover" size="w-full aspect-square mb-3" />
+            <div class="font-medium font-display truncate">{{ album.name }}</div>
+            <div class="text-xs text-zinc-500">
+              {{ album.year || '' }}
+              {{ album.year ? '·' : '' }}
+              {{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}
+              &middot;
+              {{ formatDuration(album.duration) }}
+            </div>
+          </div>
+        </div>
+      </template>
 
       <!-- Pagination -->
       <div v-if="totalPages > 1" class="flex items-center justify-center gap-3 mt-8">
