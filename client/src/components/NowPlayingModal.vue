@@ -63,16 +63,22 @@ watch(activeTab, async (tab) => {
 const displayedCoverUrl = ref(null);
 const prevCoverUrl = ref(null);
 const currLoaded = ref(false);
+let coverSwapToken = 0;
 
 watch(coverUrl, (newUrl) => {
-  prevCoverUrl.value = null; // immediately hide old cover; show skeleton instead
+  const previousUrl = displayedCoverUrl.value;
+  prevCoverUrl.value = previousUrl && previousUrl !== newUrl ? previousUrl : null;
   displayedCoverUrl.value = newUrl;
   currLoaded.value = !newUrl; // no image → nothing to wait for
+  coverSwapToken += 1;
 }, { immediate: true });
 
 function onCoverLoad() {
   currLoaded.value = true;
-  setTimeout(() => { prevCoverUrl.value = null; }, 350);
+  const swapToken = coverSwapToken;
+  window.setTimeout(() => {
+    if (swapToken === coverSwapToken) prevCoverUrl.value = null;
+  }, 350);
 }
 
 const accentOverlay = computed(() => {
@@ -263,30 +269,36 @@ function onTouchEnd() {
     if (dragY > 80 && !verticalCloseCancelled) {
       isClosingByDrag.value = true;
       if (modalRoot.value) {
-        modalRoot.value.style.transition = 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)';
+        modalRoot.value.style.transition = 'transform 0.38s cubic-bezier(0.22, 0.78, 0, 1)';
         modalRoot.value.style.transform = `translateY(${window.innerHeight}px)`;
       }
       setTimeout(() => {
         dragY = 0;
         toggleNowPlaying();
-      }, 280);
+      }, 380);
     } else {
       dragY = 0;
-      resetGestureStyles();
+      if (modalRoot.value) {
+        modalRoot.value.style.transition = 'transform 0.34s cubic-bezier(0.22, 1, 0.36, 1)';
+        modalRoot.value.style.transform = '';
+      }
+      setTimeout(() => {
+        if (modalRoot.value) modalRoot.value.style.transition = '';
+      }, 340);
     }
   } else if (swipeDirection === 'horizontal') {
     const THRESHOLD = 60;
     const triggered = (dragX < -THRESHOLD && hasNext.value) || (dragX > THRESHOLD && hasPrev.value);
     if (!triggered) {
       if (coverDragEl.value) {
-        coverDragEl.value.style.transition = 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        coverDragEl.value.style.transition = 'transform 0.48s cubic-bezier(0.22, 1, 0.36, 1)';
         coverDragEl.value.style.transform = '';
       }
       setHintOpacity(prevHintEl.value, 0);
       setHintOpacity(nextHintEl.value, 0);
       setTimeout(() => {
         if (coverDragEl.value) coverDragEl.value.style.transition = '';
-      }, 450);
+      }, 480);
     }
     if (dragX < -THRESHOLD && hasNext.value) next();
     else if (dragX > THRESHOLD && hasPrev.value) prev();
@@ -497,9 +509,21 @@ onUnmounted(() => {
                   <Spinner class="w-10 h-10 text-white/60" />
                 </div>
 
+                <!-- Previous cover stays mounted until the new one is ready -->
+                <img
+                  v-if="prevCoverUrl"
+                  :key="`prev-${prevCoverUrl}`"
+                  :src="prevCoverUrl"
+                  alt=""
+                  aria-hidden="true"
+                  class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
+                  :class="currLoaded ? 'opacity-0' : 'opacity-100'"
+                />
+
                 <!-- Current cover fading in when loaded -->
                 <img
                   v-if="displayedCoverUrl"
+                  :key="displayedCoverUrl"
                   :src="displayedCoverUrl"
                   alt="Album art"
                   class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
