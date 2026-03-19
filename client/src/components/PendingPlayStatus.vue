@@ -13,7 +13,7 @@ const props = defineProps({
 });
 
 const { state } = usePlayer();
-const { density, showCoverArt, accentRgb } = useTheme();
+const { accentRgb } = useTheme();
 const pillSizer = ref(null);
 const pillWidth = ref(0);
 const animatedProgress = ref(0);
@@ -156,7 +156,7 @@ watch(
     v-if="track"
     class="pending-play-status relative overflow-hidden rounded-2xl px-4 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.85)]"
     :class="[
-      density === 'compact' ? 'py-2.5' : 'py-3',
+      'py-3',
       {
         'pending-play-status--counting': phase === 'counting',
         'pending-play-status--completing': phase === 'completed',
@@ -170,11 +170,7 @@ watch(
     <span class="pending-play-status__sheen"></span>
 
     <div class="relative z-10 flex items-center gap-3 min-w-0">
-      <CoverArt
-        v-if="showCoverArt"
-        :cover="track.cover"
-        :size="density === 'compact' ? 'w-8 h-8 shrink-0 rounded-md' : 'w-10 h-10 shrink-0 rounded-md'"
-      />
+      <CoverArt :cover="track.cover" size="w-10 h-10 shrink-0 rounded-md" />
 
       <div class="min-w-0 flex-1">
         <div class="truncate text-sm font-medium text-zinc-100">{{ track.title }}</div>

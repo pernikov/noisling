@@ -1,10 +1,8 @@
 import { onMounted, onUnmounted } from 'vue';
 import { usePlayer } from './usePlayer.js';
-import { useTheme } from './useTheme.js';
 
 export function useKeyboardShortcuts() {
   const { state, toggle, next, prev, seek, setVolume, toggleShuffle, toggleMute, cycleRepeat, toggleVisualizer, toggleQueue, toggleShortcuts, toggleLove, openAddToPlaylist } = usePlayer();
-  const { showPlaylists } = useTheme();
 
   function isTyping(e) {
     const tag = e.target.tagName;
@@ -71,7 +69,6 @@ export function useKeyboardShortcuts() {
         toggleLove();
         break;
       case 'KeyA':
-        if (!showPlaylists.value) break;
         openAddToPlaylist();
         break;
     }

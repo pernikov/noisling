@@ -17,7 +17,6 @@ const route = useRoute();
 const router = useRouter();
 const api = useApi();
 const { playAlbum, playShuffled, state: playerState } = usePlayer();
-const { tracksColumns, showCoverArt } = useTheme();
 
 const playlist = ref(null);
 const tracks = ref([]);
@@ -193,7 +192,6 @@ async function deletePlaylist() {
       <div class="flex flex-col sm:flex-row sm:items-end gap-5 mb-8">
         <!-- Cover mosaic -->
         <div
-          v-if="showCoverArt"
           class="shrink-0 w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto rounded-xl overflow-hidden bg-zinc-800"
         >
           <TransitionGroup
@@ -251,9 +249,9 @@ async function deletePlaylist() {
         v-else
         :tracks="tracks"
         show-cover
-        :show-artist="tracksColumns.artist"
-        :show-album="tracksColumns.album"
-        :show-plays="tracksColumns.plays"
+        show-artist
+        show-album
+        show-plays
         hide-controls
         draggable
         :playlist-id="playlist._id"

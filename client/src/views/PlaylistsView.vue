@@ -13,7 +13,7 @@ import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
 const api = useApi();
 const router = useRouter();
 const { playAlbum, playShuffled } = usePlayer();
-const { showCoverArt, accentColor, accentRgb } = useTheme();
+const { accentColor, accentRgb } = useTheme();
 
 const ACCENT_RGB = {
   rose:    [244, 63,  94 ],
@@ -133,7 +133,7 @@ function onCreated(playlist) {
         <!-- Cover art collage / fallback -->
         <div class="aspect-square relative overflow-hidden bg-zinc-800">
           <!-- Cover mosaic -->
-          <template v-if="showCoverArt && playlist.covers?.length">
+          <template v-if="playlist.covers?.length">
             <div
               class="w-full h-full grid"
               :style="mosaicFromCovers(playlist.covers).style"
@@ -147,7 +147,7 @@ function onCreated(playlist) {
               </div>
             </div>
           </template>
-          <!-- No covers / cover art disabled -->
+          <!-- No covers -->
           <template v-else>
             <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-900">
               <Icon :path="mdiPlaylistMusic" class="w-12 h-12 text-zinc-600" />

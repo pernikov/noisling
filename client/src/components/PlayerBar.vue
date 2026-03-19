@@ -8,12 +8,17 @@ import CoverArt from "./CoverArt.vue";
 import QueueDrawer from "./QueueDrawer.vue";
 import {
   mdiChevronUp,
+  mdiSkipPrevious,
+  mdiSkipNext,
+  mdiPlay,
+  mdiPause,
   mdiVolumeHigh,
   mdiVolumeOff,
   mdiRepeat,
   mdiRepeatOnce,
   mdiShuffle,
   mdiPlaylistMusic,
+  mdiPlaylistPlus,
   mdiEyeOutline,
   mdiHeart,
   mdiHeartOutline,
@@ -23,8 +28,11 @@ import Tooltip from "./Tooltip.vue";
 
 const {
   state,
+  toggle,
   pause,
   resume,
+  next,
+  prev,
   seek,
   setVolume,
   toggleMute,
@@ -32,11 +40,14 @@ const {
   toggleVisualizer,
   toggleNowPlaying,
   toggleQueue,
+  openAddToPlaylist,
   toggleLove,
   cycleRepeat,
+  hasNext,
+  hasPrev,
 } = usePlayer();
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor, lovedUseAccent } = useTheme();
+const { accentColor } = useTheme();
 
 const barStyle = computed(() => {
   if (!albumAccentColor.value) return {};
@@ -293,7 +304,7 @@ const hoverTime = computed(() => {
         <button
           class="transition-colors"
           :class="state.currentTrack.isLoved
-            ? (lovedUseAccent ? `text-${accentColor}-400 hover:text-${accentColor}-300` : 'text-red-400 hover:text-red-300')
+            ? 'text-red-400 hover:text-red-300'
             : 'text-zinc-400 hover:text-zinc-100'"
           @click="toggleLove()"
           aria-label="Love track"
@@ -302,6 +313,16 @@ const hoverTime = computed(() => {
             <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-4 h-4" :key="'loved'" />
             <Icon v-else :path="mdiHeartOutline" class="w-4 h-4" :key="'unloved'" />
           </Transition>
+        </button>
+      </Tooltip>
+
+      <Tooltip label="Add to playlist" shortcut="A">
+        <button
+          class="text-zinc-400 hover:text-zinc-100 transition-colors"
+          @click="openAddToPlaylist"
+          aria-label="Add to playlist"
+        >
+          <Icon :path="mdiPlaylistPlus" class="w-4 h-4" />
         </button>
       </Tooltip>
       <!-- Queue toggle -->

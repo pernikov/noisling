@@ -4,6 +4,8 @@ import { useApi } from '../composables/useApi.js';
 
 const props = defineProps({
   covers: { type: Array, default: () => [] },
+  size: { type: String, default: 'w-full aspect-square' },
+  wrapperClass: { type: String, default: 'mb-3' },
 });
 
 const api = useApi();
@@ -30,7 +32,7 @@ const displayCovers = computed(() => Array.isArray(props.covers) ? props.covers.
 </script>
 
 <template>
-  <div class="w-full aspect-square rounded overflow-hidden bg-zinc-800 mb-3 relative">
+  <div :class="[props.size, 'rounded overflow-hidden bg-zinc-800 relative', props.wrapperClass]">
     <!-- No covers -->
     <img
       v-if="layout === 'empty'"

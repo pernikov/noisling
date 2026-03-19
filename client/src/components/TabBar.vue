@@ -5,6 +5,7 @@ defineProps({
   tabs: { type: Array, required: true }, // [{ value, label, icon? }]
   modelValue: { type: String, required: true },
   full: { type: Boolean, default: false },
+  mobileFull: { type: Boolean, default: false },
   size: { type: String, default: 'md' }, // 'md' | 'sm'
 });
 
@@ -16,8 +17,8 @@ const emit = defineEmits(['update:modelValue']);
     class="p-1 border"
     :class="[
       full
-        ? (size === 'sm' ? 'flex w-full sm:inline-flex sm:w-auto' : 'flex w-full')
-        : 'inline-flex',
+        ? 'flex w-full'
+        : (mobileFull ? 'flex w-full sm:inline-flex sm:w-auto' : 'inline-flex'),
       size === 'sm'
         ? 'bg-zinc-800 rounded-lg border-zinc-700 gap-1'
         : 'bg-zinc-800/50 rounded-xl border-zinc-800',
@@ -30,8 +31,8 @@ const emit = defineEmits(['update:modelValue']);
       class="flex items-center justify-center gap-2 text-sm font-medium transition-all"
       :class="[
         size === 'sm'
-          ? (full ? 'flex-1 sm:flex-none px-3 py-2 rounded-md' : 'px-3 py-1.5 rounded-md')
-          : (full ? 'flex-1 px-2 py-1.5 rounded-lg' : 'px-4 py-2 rounded-lg'),
+          ? ((full || mobileFull) ? 'flex-1 sm:flex-none px-3 py-2 rounded-md' : 'px-3 py-1.5 rounded-md')
+          : ((full || mobileFull) ? 'flex-1 sm:flex-none px-4 py-2 rounded-lg' : 'px-4 py-2 rounded-lg'),
         modelValue === tab.value ? 'bg-zinc-700 text-zinc-100 shadow-sm' : 'text-zinc-500 hover:text-zinc-300',
       ]"
     >

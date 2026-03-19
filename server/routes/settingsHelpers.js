@@ -1,14 +1,12 @@
 export const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 export const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 export const VALID_REPEAT = ['off', 'all', 'one'];
-export const VALID_DENSITY = ['comfortable', 'compact'];
 export const VALID_FONT = ['small', 'medium', 'large'];
 export const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
 export const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
 export const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to the sherwin maxawow';
 export const VALID_SORT_DIRS = ['asc', 'desc'];
 export const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
-export const VALID_COL_KEYS = ['artist', 'album', 'plays', 'lastPlayed'];
 export const VALID_HOME_ALBUM_MODES = ['recent', 'random', 'top'];
 
 export function buildSettingsResponse(settings) {
@@ -25,27 +23,16 @@ export function buildSettingsResponse(settings) {
     volume: settings.volume,
     shuffle: settings.shuffle,
     repeatMode: settings.repeatMode,
-    density: settings.density ?? 'comfortable',
-    showCoverArt: settings.showCoverArt ?? true,
     fontSize: settings.fontSize ?? 'medium',
-    tracksColumns: settings.tracksColumns ?? { artist: true, album: true, plays: true, lastPlayed: true },
     tracksSort: { field: tracksSortField, dir: tracksSortDir },
-    lovedAccent: settings.lovedAccent ?? false,
-    showArtistsNav: settings.showArtistsNav ?? true,
     wideLayout: settings.wideLayout ?? false,
-    homeShowQuickPlay: settings.homeShowQuickPlay ?? true,
-    homeShowRecent: settings.homeShowRecent ?? true,
-    homeShowAlbums: settings.homeShowAlbums ?? true,
     homeAlbumsMode: VALID_HOME_ALBUM_MODES.includes(settings.homeAlbumsMode) ? settings.homeAlbumsMode : 'recent',
-    homeShowPendingPlay: settings.homeShowPendingPlay ?? true,
     vizMode: normalizeVizMode(settings.vizMode ?? 'pills'),
     randomizeOnNewTrack: settings.randomizeOnNewTrack ?? false,
     butterchurnPresetMode: settings.butterchurnPresetMode === 'random' ? 'random' : 'single',
     butterchurnPreset: typeof settings.butterchurnPreset === 'string' && settings.butterchurnPreset.trim()
       ? settings.butterchurnPreset
       : DEFAULT_BUTTERCHURN_PRESET,
-    showPlaylists: settings.showPlaylists ?? true,
-    sharpCorners: settings.sharpCorners ?? false,
     reduceMotion: settings.reduceMotion ?? false,
   };
 }
@@ -58,11 +45,10 @@ export function normalizeVizMode(value) {
 
 export function buildSettingsUpdate(body = {}) {
   const {
-    accentColor, themeColor, volume, shuffle, repeatMode, density,
-    showCoverArt, fontSize, tracksColumns, tracksSort,
-    lovedAccent, showArtistsNav, wideLayout, homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeShowPendingPlay,
+    accentColor, themeColor, volume, shuffle, repeatMode,
+    fontSize, tracksSort, wideLayout,
     homeAlbumsMode,
-    vizMode, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, showPlaylists, sharpCorners, reduceMotion,
+    vizMode, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, reduceMotion,
   } = body;
 
   const update = {};
@@ -86,24 +72,9 @@ export function buildSettingsUpdate(body = {}) {
     if (!VALID_REPEAT.includes(repeatMode)) return { error: 'Invalid repeatMode' };
     update.repeatMode = repeatMode;
   }
-  if (density !== undefined) {
-    if (!VALID_DENSITY.includes(density)) return { error: 'Invalid density' };
-    update.density = density;
-  }
-  if (showCoverArt !== undefined) {
-    update.showCoverArt = Boolean(showCoverArt);
-  }
   if (fontSize !== undefined) {
     if (!VALID_FONT.includes(fontSize)) return { error: 'Invalid fontSize' };
     update.fontSize = fontSize;
-  }
-  if (tracksColumns !== undefined) {
-    if (typeof tracksColumns !== 'object' || tracksColumns === null) return { error: 'Invalid tracksColumns' };
-    const cols = {};
-    for (const key of VALID_COL_KEYS) {
-      if (key in tracksColumns) cols[key] = Boolean(tracksColumns[key]);
-    }
-    update.tracksColumns = cols;
   }
   if (tracksSort !== undefined) {
     if (typeof tracksSort !== 'object' || tracksSort === null) return { error: 'Invalid tracksSort' };
@@ -116,30 +87,12 @@ export function buildSettingsUpdate(body = {}) {
     }
     update.tracksSort = { field: tracksSort.field, dir: tracksSort.dir };
   }
-  if (lovedAccent !== undefined) {
-    update.lovedAccent = Boolean(lovedAccent);
-  }
-  if (showArtistsNav !== undefined) {
-    update.showArtistsNav = Boolean(showArtistsNav);
-  }
   if (wideLayout !== undefined) {
     update.wideLayout = Boolean(wideLayout);
-  }
-  if (homeShowQuickPlay !== undefined) {
-    update.homeShowQuickPlay = Boolean(homeShowQuickPlay);
-  }
-  if (homeShowRecent !== undefined) {
-    update.homeShowRecent = Boolean(homeShowRecent);
-  }
-  if (homeShowAlbums !== undefined) {
-    update.homeShowAlbums = Boolean(homeShowAlbums);
   }
   if (homeAlbumsMode !== undefined) {
     if (!VALID_HOME_ALBUM_MODES.includes(homeAlbumsMode)) return { error: 'Invalid homeAlbumsMode' };
     update.homeAlbumsMode = homeAlbumsMode;
-  }
-  if (homeShowPendingPlay !== undefined) {
-    update.homeShowPendingPlay = Boolean(homeShowPendingPlay);
   }
   if (vizMode !== undefined) {
     const normalizedVizMode = normalizeVizMode(vizMode);
@@ -160,12 +113,6 @@ export function buildSettingsUpdate(body = {}) {
       return { error: 'Invalid butterchurnPreset' };
     }
     update.butterchurnPreset = butterchurnPreset;
-  }
-  if (showPlaylists !== undefined) {
-    update.showPlaylists = Boolean(showPlaylists);
-  }
-  if (sharpCorners !== undefined) {
-    update.sharpCorners = Boolean(sharpCorners);
   }
   if (reduceMotion !== undefined) {
     update.reduceMotion = Boolean(reduceMotion);

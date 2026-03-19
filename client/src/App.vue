@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 import { mdiCog, mdiHelpCircleOutline, mdiAlertCircleOutline, mdiCheck } from "@mdi/js";
 import { useToast } from "./composables/useToast.js";
 import Icon from "./components/Icon.vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import PlayerBar from "./components/PlayerBar.vue";
 import NowPlayingModal from "./components/NowPlayingModal.vue";
 import ShortcutsModal from "./components/ShortcutsModal.vue";
@@ -16,26 +16,18 @@ import { useUpdateCheck } from "./composables/useUpdateCheck.js";
 import GlobalSearch from "./components/GlobalSearch.vue";
 import UpdateModal from "./components/UpdateModal.vue";
 
-const { loadTheme, showArtistsNav, showPlaylists, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
+const { loadTheme, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
 loadTheme();
 
 const { loadPlayerPrefs } = usePlayer();
 loadPlayerPrefs();
 
 const route = useRoute();
-const router = useRouter();
 const { state: playerState, toggleShortcuts } = usePlayer();
 
 function closeVisualizer() {
   playerState.showVisualizer = false;
 }
-
-// Redirect away from /artists* if the nav link is hidden
-watch(showArtistsNav, (visible) => {
-  if (!visible && route.path.startsWith("/artists")) {
-    router.replace("/");
-  }
-});
 
 watch(
   () => route.path,
@@ -118,7 +110,6 @@ watch(
               Tracks
             </router-link>
             <router-link
-              v-if="showArtistsNav"
               to="/artists"
               class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"
@@ -127,7 +118,6 @@ watch(
               Artists
             </router-link>
             <router-link
-              v-if="showPlaylists"
               to="/playlists"
               class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
               active-class="nav-active"

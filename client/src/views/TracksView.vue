@@ -12,7 +12,7 @@ import Icon from '../components/Icon.vue';
 import IconButton from '../components/IconButton.vue';
 
 const api = useApi();
-const { tracksColumns, tracksSort, setTracksSort } = useTheme();
+const { tracksSort, setTracksSort } = useTheme();
 const { state: playerState, playAlbum, playShuffled } = usePlayer();
 const { error: toastError } = useToast();
 const route = useRoute();
@@ -174,10 +174,10 @@ function prevPage() {
       <TrackList
         :tracks="allTracks"
         show-cover
-        :show-artist="tracksColumns.artist"
-        :show-album="tracksColumns.album"
-        :show-plays="tracksColumns.plays"
-        :show-last-played="tracksColumns.lastPlayed"
+        show-artist
+        show-album
+        show-plays
+        show-last-played
         sortable
         :sort-by="tracksSort.field"
         :sort-dir="tracksSort.dir"

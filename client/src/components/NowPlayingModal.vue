@@ -42,7 +42,7 @@ const {
 } = usePlayer();
 
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor, lovedUseAccent, showPlaylists } = useTheme();
+const { accentColor } = useTheme();
 const { show: showToast } = useToast();
 const api = useApi();
 const coverUrl = computed(() =>
@@ -446,7 +446,6 @@ onUnmounted(() => {
             <!-- Track actions (hidden in queue tab) -->
             <div v-if="activeTab === 'nowplaying'" class="flex items-center gap-0.5 -mr-1">
               <button
-                v-if="showPlaylists"
                 class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
                 @click="openAddToPlaylist"
                 aria-label="Add to playlist"
@@ -456,7 +455,7 @@ onUnmounted(() => {
               <button
                 class="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:scale-95"
                 :class="state.currentTrack.isLoved
-                  ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-red-400')
+                  ? 'text-red-400'
                   : 'text-zinc-300 hover:text-white'"
                 @click="toggleLove()"
                 aria-label="Love track"

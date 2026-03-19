@@ -71,8 +71,8 @@ function onMenuTrackUpdated(updatedTrack) {
   emit('track-updated', updatedTrack);
 }
 
-const { accentColor, accentRgb, density, showCoverArt, lovedUseAccent } = useTheme();
-const rowPy = computed(() => density.value === 'compact' ? 'py-1' : 'py-2');
+const { accentColor, accentRgb } = useTheme();
+const rowPy = computed(() => 'py-2');
 
 // When any track's love status changes (from PlayerBar or another TrackList instance),
 // keep the matching track object in this list in sync.
@@ -155,7 +155,7 @@ function onDragStart(e, index) {
     fontSize: '14px', fontWeight: '500', color: '#e4e4e7',
   });
 
-  if (showCoverArt.value && track.cover) {
+  if (track.cover) {
     const imgSize = rowH - 16;
     const img = document.createElement('img');
     img.src = api.coverUrl(track.cover);
@@ -240,14 +240,13 @@ defineExpose({ playAll, playShuffle });
         >
           <div class="relative shrink-0">
             <CoverArt
-              v-if="showCover && showCoverArt"
+              v-if="showCover"
               :cover="track.deleted ? '' : track.cover"
-              :size="density === 'compact' ? 'w-10 h-10' : 'w-11 h-11'"
+              size="w-11 h-11"
             />
             <div
               v-else
-              class="flex items-center justify-center rounded-lg bg-zinc-800/80 text-zinc-500"
-              :class="density === 'compact' ? 'w-10 h-10' : 'w-11 h-11'"
+              class="flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-800/80 text-zinc-500"
             >
               <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
             </div>
@@ -269,7 +268,7 @@ defineExpose({ playAll, playShuffle });
               v-if="!track.deleted"
               class="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
               :class="track.isLoved
-                ? (lovedUseAccent ? `text-${accentColor}-400 bg-zinc-800/60` : 'text-rose-400 bg-zinc-800/60')
+                ? 'text-rose-400 bg-zinc-800/60'
                 : 'text-zinc-500 hover:text-zinc-300'"
               @click.stop="toggleLove(track)"
               :aria-label="track.isLoved ? 'Unlove track' : 'Love track'"
@@ -401,7 +400,7 @@ defineExpose({ playAll, playShuffle });
           </td>
           <td :class="[rowPy, 'px-3 font-medium overflow-hidden max-sm:rounded-l-md']">
             <div class="flex items-center gap-2 min-w-0">
-              <CoverArt v-if="showCover && showCoverArt" :cover="track.deleted ? '' : track.cover" :size="density === 'compact' ? 'w-6 h-6 shrink-0' : 'w-8 h-8 shrink-0'" />
+              <CoverArt v-if="showCover" :cover="track.deleted ? '' : track.cover" size="w-8 h-8 shrink-0" />
               <span class="truncate">{{ track.title }}</span>
             </div>
           </td>
@@ -433,7 +432,7 @@ defineExpose({ playAll, playShuffle });
               v-if="!track.deleted"
               class="flex items-center justify-center w-full transition-opacity"
               :class="track.isLoved
-                ? (lovedUseAccent ? `text-${accentColor}-400` : 'text-rose-400')
+                ? 'text-rose-400'
                 : 'text-zinc-500 hover:text-zinc-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:pointer-events-none sm:group-hover:pointer-events-auto'"
               @click.stop="toggleLove(track)"
             >

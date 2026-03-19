@@ -5,7 +5,6 @@ import Icon from './Icon.vue';
 import AddToPlaylistModal from './AddToPlaylistModal.vue';
 import EditTrackMetadataModal from './EditTrackMetadataModal.vue';
 import { usePlayer } from '../composables/usePlayer.js';
-import { useTheme } from '../composables/useTheme.js';
 import { useToast } from '../composables/useToast.js';
 
 const props = defineProps({
@@ -18,7 +17,6 @@ const props = defineProps({
 const emit = defineEmits(['close', 'cancel-close', 'remove-from-playlist', 'track-updated']);
 
 const { playNext, addToQueue } = usePlayer();
-const { showPlaylists } = useTheme();
 const { show: showToast } = useToast();
 
 const addToPlaylistTrack = ref(null);
@@ -88,7 +86,6 @@ function onTrackSaved(updatedTrack) {
           Add to queue
         </button>
         <button
-          v-if="showPlaylists"
           class="flex min-h-12 items-center gap-3 w-full rounded-xl px-3 py-3 text-left text-sm hover:bg-zinc-800 transition-colors"
           @click="openAddToPlaylist"
         >
@@ -136,7 +133,6 @@ function onTrackSaved(updatedTrack) {
           Add to queue
         </button>
         <button
-          v-if="showPlaylists"
           class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
           @click="openAddToPlaylist"
         >

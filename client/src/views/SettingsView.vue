@@ -12,10 +12,7 @@ import {
   mdiContentDuplicate,
   mdiTextBoxSearchOutline,
   mdiPalette,
-  mdiHeadphones,
   mdiChartBar,
-  mdiViewAgenda,
-  mdiViewHeadline,
   mdiClose,
   mdiChevronDown,
 } from '@mdi/js';
@@ -28,7 +25,7 @@ import { useSettingsLibrary } from '../composables/useSettingsLibrary.js';
 import { useSettingsStats } from '../composables/useSettingsStats.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import BaseModal from '../components/BaseModal.vue';
-import TrackList from '../components/TrackList.vue';
+import ArtistCover from '../components/ArtistCover.vue';
 import CoverArt from '../components/CoverArt.vue';
 import IconButton from '../components/IconButton.vue';
 import EditTrackMetadataModal from '../components/EditTrackMetadataModal.vue';
@@ -39,15 +36,9 @@ const router = useRouter();
 const appVersion = __APP_VERSION__;
 const {
   accentColor, accentRgb, themeColor, VALID_COLORS,
-  density, showCoverArt, fontSize, sharpCorners, reduceMotion,
-  lovedUseAccent, setLovedUseAccent,
-  tracksColumns, setTracksColumn,
-  showArtistsNav, wideLayout,
-  homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeAlbumsMode, homeShowPendingPlay, homeVisibleCount,
-  showPlaylists,
-  setAccentColor, setThemeColor, setDensity, setShowCoverArt, setFontSize,
-  setShowArtistsNav, setWideLayout, setHomeSection, setShowPlaylists, setSharpCorners, setReduceMotion,
-  setHomeAlbumsMode, setHomePendingPlay,
+  fontSize, reduceMotion, wideLayout, homeAlbumsMode,
+  setAccentColor, setThemeColor, setFontSize,
+  setWideLayout, setReduceMotion, setHomeAlbumsMode,
 } = useTheme();
 
 const VALID_TABS = ['appearance', 'library', 'stats'];
@@ -56,10 +47,6 @@ const TABS = [
   { value: 'appearance', label: 'Appearance', icon: mdiPalette },
   { value: 'library', label: 'Library', icon: mdiFolderOpen },
   { value: 'stats', label: 'Stats', icon: mdiChartBar },
-];
-const DENSITY_TABS = [
-  { value: 'comfortable', label: 'Comfortable', icon: mdiViewAgenda },
-  { value: 'compact', label: 'Compact', icon: mdiViewHeadline },
 ];
 const FONT_SIZE_TABS = [
   { value: 'small', label: 'Small' },
@@ -71,22 +58,6 @@ const HOME_ALBUM_MODE_TABS = [
   { value: 'random', label: 'Random Albums' },
   { value: 'top', label: 'Top Albums' },
 ];
-const HOME_SECTION_OPTIONS = computed(() => [
-  { key: 'quickPlay', label: 'Quick Play', desc: 'Shuffle All, Top Tracks, and Loved Tracks cards.' },
-  { key: 'recent', label: 'Recently Played', desc: 'Your last 10 played tracks.' },
-  {
-    key: 'albums',
-    label: HOME_ALBUM_MODE_TABS.find((tab) => tab.value === homeAlbumsMode.value)?.label ?? 'Recently Added',
-    desc: 'Album section shown on the home page.',
-  },
-]);
-const TRACK_COLUMN_OPTIONS = [
-  { key: 'artist', label: 'Artist', desc: 'Primary artist column. Shown in Tracks, Recents, the home page, the queue, and search results.' },
-  { key: 'album', label: 'Album', desc: 'Album column. Shown in Tracks, Recents, the home page, and search results.' },
-  { key: 'plays', label: 'Plays', desc: 'Play count column. Shown in Tracks, Recents, and the home page.' },
-  { key: 'lastPlayed', label: 'Last Played', desc: 'Last listened column. Shown in Tracks, Recents, and the home page.' },
-];
-
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
 
@@ -95,7 +66,7 @@ watch(activeTab, (tab) => {
   }
 });
 
-const { state: playerState } = usePlayer();
+const { state: playerState, playAlbum } = usePlayer();
 const playerStateRef = computed(() => playerState);
 
 const {
@@ -160,11 +131,38 @@ const {
   playerState: playerStateRef,
 });
 
-const homeSectionValues = computed(() => ({
-  quickPlay: homeShowQuickPlay.value,
-  recent: homeShowRecent.value,
-  albums: homeShowAlbums.value,
-}));
+const TOP_SECTION_PREVIEW_COUNT = 5;
+const expandedTopSections = ref({
+  topTracks: false,
+  topArtists: false,
+  topAlbums: false,
+});
+
+function visibleTopItems(key, items = []) {
+  return expandedTopSections.value[key] ? items : items.slice(0, TOP_SECTION_PREVIEW_COUNT);
+}
+
+function toggleTopSectionExpanded(key) {
+  expandedTopSections.value[key] = !expandedTopSections.value[key];
+}
+
+function hasTopSectionOverflow(items = []) {
+  return items.length > TOP_SECTION_PREVIEW_COUNT;
+}
+
+function topSectionToggleLabel(key, items = []) {
+  const hiddenCount = Math.max(items.length - TOP_SECTION_PREVIEW_COUNT, 0);
+  if (expandedTopSections.value[key]) return 'Show less';
+  return `Show ${hiddenCount} more`;
+}
+
+function formatPlaysLabel(plays) {
+  return `${plays.toLocaleString()} play${plays === 1 ? '' : 's'}`;
+}
+
+function playTopTrack(index) {
+  if (stats.value?.topTracks?.length) playAlbum(stats.value.topTracks, index);
+}
 
 const LIBRARY_HEALTH_ITEMS = [
   {
@@ -227,7 +225,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
     <h1 class="text-2xl font-bold mb-6 font-display">Settings</h1>
 
     <!-- Segmented Nav -->
-    <TabBar v-model="activeTab" :tabs="TABS" class="mb-8" />
+    <TabBar v-model="activeTab" :tabs="TABS" mobile-full class="mb-8" />
 
     <!-- Appearance tab -->
     <div v-if="activeTab === 'appearance'" class="space-y-6">
@@ -287,49 +285,13 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           </div>
         </div>
 
-        <div class="border-t border-zinc-800" />
-
-        <!-- Loved color -->
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0 flex-1 pr-2">
-            <p class="text-sm font-medium text-zinc-200">Loved track color</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Always rose/pink, or follow the accent color.</p>
-          </div>
-          <button
-            @click="setLovedUseAccent(!lovedUseAccent)"
-            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-            :class="lovedUseAccent ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-            role="switch"
-            :aria-checked="lovedUseAccent"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-              :class="lovedUseAccent ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
       </section>
 
       <!-- Display section -->
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
         <div>
           <p class="text-sm font-medium text-zinc-200">Display</p>
-          <p class="text-xs text-zinc-500 mt-1">Density, scale, and text sizing.</p>
-        </div>
-
-        <div class="border-t border-zinc-800" />
-
-        <!-- Density -->
-        <div>
-          <p class="text-sm font-medium text-zinc-200 mb-1">List density</p>
-          <p class="text-xs text-zinc-500 mb-3">Control how compact track lists and search results appear.</p>
-          <TabBar
-            :model-value="density"
-            @update:model-value="setDensity"
-            :tabs="DENSITY_TABS"
-            size="sm"
-            full
-          />
+          <p class="text-xs text-zinc-500 mt-1">Scale and motion controls.</p>
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -343,33 +305,9 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             @update:model-value="setFontSize"
             :tabs="FONT_SIZE_TABS"
             size="sm"
-            full
+            mobile-full
           />
         </div>
-
-        <div class="border-t border-zinc-800" />
-
-        <!-- Sharp corners -->
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0 flex-1 pr-2">
-            <p class="text-sm font-medium text-zinc-200">Sharp corners</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Remove all border radius for a flat, angular look.</p>
-          </div>
-          <button
-            @click="setSharpCorners(!sharpCorners)"
-            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-            :class="sharpCorners ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-            role="switch"
-            :aria-checked="sharpCorners"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-              :class="sharpCorners ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
-
-        <div class="border-t border-zinc-800" />
 
         <!-- Reduce motion -->
         <div class="flex items-center justify-between gap-4">
@@ -396,7 +334,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
       <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
         <div>
           <p class="text-sm font-medium text-zinc-200">Layout</p>
-          <p class="text-xs text-zinc-500 mt-1">Choose which sections and navigation links are visible.</p>
+          <p class="text-xs text-zinc-500 mt-1">One layout toggle and one home-content preference.</p>
         </div>
 
         <div class="border-t border-zinc-800" />
@@ -421,179 +359,16 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           </button>
         </div>
 
-        <div class="border-t border-zinc-800" />
-
-        <!-- Artists nav link -->
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0 flex-1 pr-2">
-            <p class="text-sm font-medium text-zinc-200">Artists in navigation</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Show the Artists link in the navigation bar.</p>
-          </div>
-          <button
-            @click="setShowArtistsNav(!showArtistsNav)"
-            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-            :class="showArtistsNav ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-            role="switch"
-            :aria-checked="showArtistsNav"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-              :class="showArtistsNav ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
-
-        <div class="border-t border-zinc-800" />
-
-        <!-- Playlists nav link -->
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0 flex-1 pr-2">
-            <p class="text-sm font-medium text-zinc-200">Playlists</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Show the Playlists link in the navigation bar.</p>
-          </div>
-          <button
-            @click="setShowPlaylists(!showPlaylists)"
-            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-            :class="showPlaylists ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-            role="switch"
-            :aria-checked="showPlaylists"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-              :class="showPlaylists ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
-
-        <div class="border-t border-zinc-800" />
-
-        <!-- Home sections -->
         <div>
-          <p class="text-sm font-medium text-zinc-200 mb-3">Home page sections</p>
-          <div class="space-y-3">
-            <div
-              v-for="section in HOME_SECTION_OPTIONS"
-              :key="section.key"
-              class="space-y-3"
-            >
-              <div class="flex items-center justify-between gap-4">
-                <div class="min-w-0 flex-1 pr-2">
-                  <p class="text-sm text-zinc-200">{{ section.label }}</p>
-                  <p class="text-xs text-zinc-500 mt-0.5">{{ section.desc }}</p>
-                </div>
-                <button
-                  @click="setHomeSection(section.key, !homeSectionValues[section.key])"
-                  :disabled="homeSectionValues[section.key] && homeVisibleCount <= 1"
-                  class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="homeSectionValues[section.key] ? `bg-${accentColor}-500` : 'bg-zinc-700 cursor-pointer'"
-                  role="switch"
-                  :aria-checked="homeSectionValues[section.key]"
-                >
-                  <span
-                    class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-                    :class="homeSectionValues[section.key] ? 'translate-x-5' : 'translate-x-0'"
-                  />
-                </button>
-              </div>
-
-              <div
-                v-if="section.key === 'recent'"
-                class="flex items-center justify-between gap-4 transition-opacity"
-                :class="homeShowRecent ? 'opacity-100' : 'opacity-45'"
-              >
-                <div class="min-w-0 flex-1 pr-2">
-                  <p class="text-sm text-zinc-200">Pending play status</p>
-                  <p class="text-xs text-zinc-500 mt-0.5">Show the home-page status card while a track is being counted as played.</p>
-                </div>
-                <button
-                  @click="homeShowRecent && setHomePendingPlay(!homeShowPendingPlay)"
-                  :disabled="!homeShowRecent"
-                  class="relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
-                  :class="homeShowPendingPlay ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-                  role="switch"
-                  :aria-checked="homeShowPendingPlay"
-                >
-                  <span
-                    class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-                    :class="homeShowPendingPlay ? 'translate-x-5' : 'translate-x-0'"
-                  />
-                </button>
-              </div>
-
-              <div
-                v-if="section.key === 'albums'"
-                class="space-y-3 transition-opacity"
-                :class="homeShowAlbums ? 'opacity-100' : 'opacity-45'"
-              >
-                <div>
-                  <p class="text-sm text-zinc-200 mb-1">Album section mode</p>
-                  <p class="text-xs text-zinc-500">Choose what the home page album grid shows by default.</p>
-                </div>
-                <TabBar
-                  :model-value="homeAlbumsMode"
-                  :tabs="HOME_ALBUM_MODE_TABS"
-                  size="sm"
-                  full
-                  @update:model-value="homeShowAlbums && setHomeAlbumsMode($event)"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Tracks columns section -->
-      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
-        <div>
-          <p class="text-sm font-medium text-zinc-200">Tracks view</p>
-          <p class="text-xs text-zinc-500 mt-1">Customize what's visible in track lists and queues. Click any column header in Tracks to sort.</p>
-        </div>
-
-        <div class="border-t border-zinc-800" />
-
-        <!-- Cover art toggle -->
-        <div class="flex items-center justify-between gap-4">
-          <div class="min-w-0 flex-1 pr-2">
-            <p class="text-sm text-zinc-200">Cover art</p>
-            <p class="text-xs text-zinc-500 mt-0.5">Show album thumbnails in track lists, the queue, and search results.</p>
-          </div>
-          <button
-            @click="setShowCoverArt(!showCoverArt)"
-            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-            :class="showCoverArt ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-            role="switch"
-            :aria-checked="showCoverArt"
-          >
-            <span
-              class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-              :class="showCoverArt ? 'translate-x-5' : 'translate-x-0'"
-            />
-          </button>
-        </div>
-
-        <div class="space-y-3">
-          <div
-            v-for="col in TRACK_COLUMN_OPTIONS"
-            :key="col.key"
-            class="flex items-center justify-between gap-4"
-          >
-            <div class="min-w-0 flex-1 pr-2">
-              <p class="text-sm text-zinc-200">{{ col.label }}</p>
-              <p class="text-xs text-zinc-500 mt-0.5">{{ col.desc }}</p>
-            </div>
-            <button
-              @click="setTracksColumn(col.key, !tracksColumns[col.key])"
-              class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none"
-              :class="tracksColumns[col.key] ? `bg-${accentColor}-500` : 'bg-zinc-700'"
-              role="switch"
-              :aria-checked="tracksColumns[col.key]"
-            >
-              <span
-                class="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform transition duration-200"
-                :class="tracksColumns[col.key] ? 'translate-x-5' : 'translate-x-0'"
-              />
-            </button>
-          </div>
+          <p class="text-sm font-medium text-zinc-200 mb-1">Home album section</p>
+          <p class="text-xs text-zinc-500 mb-3">Choose what the album grid on Home shows by default.</p>
+          <TabBar
+            :model-value="homeAlbumsMode"
+            :tabs="HOME_ALBUM_MODE_TABS"
+            size="sm"
+            mobile-full
+            @update:model-value="setHomeAlbumsMode"
+          />
         </div>
       </section>
     </div>
@@ -765,17 +540,26 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <!-- Library Overview + Formats skeleton -->
         <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
           <div class="h-3 bg-zinc-800 rounded w-36 mb-4"></div>
-          <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
-            <div v-for="i in 7" :key="i" class="bg-zinc-800/50 rounded-lg p-4">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div v-for="i in 4" :key="`primary-${i}`" class="bg-zinc-800/50 rounded-lg p-4">
               <div class="h-7 bg-zinc-800 rounded w-16 mb-2"></div>
               <div class="h-2.5 bg-zinc-800/60 rounded w-12"></div>
             </div>
           </div>
-          <div class="border-t border-zinc-800 mt-6 pt-6 space-y-2 max-w-md">
+          <div class="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-3">
+            <div v-for="i in 3" :key="`secondary-${i}`" class="bg-zinc-800/30 rounded-lg p-4">
+              <div class="h-6 bg-zinc-800 rounded w-20 mb-2"></div>
+              <div class="h-2.5 bg-zinc-800/60 rounded w-16"></div>
+            </div>
+          </div>
+          <div class="border-t border-zinc-800 mt-6 pt-6">
+            <div class="h-2.5 bg-zinc-800 rounded w-20 mb-4"></div>
+            <div class="space-y-3">
             <div v-for="i in 3" :key="i" class="flex items-center gap-3">
               <div class="h-2.5 bg-zinc-800 rounded w-14"></div>
               <div class="flex-1 h-2 bg-zinc-800 rounded"></div>
               <div class="h-2.5 bg-zinc-800 rounded w-8"></div>
+            </div>
             </div>
           </div>
         </div>
@@ -833,9 +617,9 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.overview ? '' : '-rotate-90'" />
           </button>
           <div v-show="statsOpen.overview" class="mt-4">
-          <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-7 gap-3">
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display" :class="lovedUseAccent ? `text-${accentColor}-400` : 'text-rose-400'">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
+              <div class="text-2xl font-bold font-display text-rose-400">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Loved</div>
             </div>
             <div class="bg-zinc-800/50 rounded-lg p-4">
@@ -850,31 +634,40 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
               <div class="text-2xl font-bold font-display">{{ stats.totalAlbums.toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Albums</div>
             </div>
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display">{{ formatDuration(stats.totalDuration) }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Total Duration</div>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-3">
+            <div class="bg-zinc-800/30 rounded-lg p-4">
+              <div class="text-xl font-bold font-display">{{ formatDuration(stats.totalDuration) }}</div>
+              <div class="text-xs text-zinc-400 mt-1">Duration</div>
             </div>
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display">{{ formatSize(stats.totalFileSize) }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Library Size</div>
+            <div class="bg-zinc-800/30 rounded-lg p-4">
+              <div class="text-xl font-bold font-display">{{ formatSize(stats.totalFileSize) }}</div>
+              <div class="text-xs text-zinc-400 mt-1">Size</div>
             </div>
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display">{{ stats.totalPlays.toLocaleString() }}</div>
+            <div class="bg-zinc-800/30 rounded-lg p-4">
+              <div class="text-xl font-bold font-display">{{ stats.totalPlays.toLocaleString() }}</div>
               <div class="text-xs text-zinc-400 mt-1">Total Plays</div>
             </div>
           </div>
 
           <!-- Format Breakdown -->
-          <div v-if="stats.formats.length > 0" class="border-t border-zinc-800 mt-6 pt-6 space-y-2 max-w-md">
+          <div v-if="stats.formats.length > 0" class="border-t border-zinc-800 mt-6 pt-6">
+            <div class="flex items-center justify-between gap-3 mb-4">
+              <h3 class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">File Types</h3>
+              <span class="text-xs text-zinc-600">{{ stats.formats.length }} format{{ stats.formats.length === 1 ? '' : 's' }}</span>
+            </div>
+            <div class="space-y-3">
             <div v-for="f in stats.formats" :key="f.format" class="flex items-center gap-3">
-              <span class="text-sm text-zinc-300 w-14 text-right uppercase">{{ f.format || '?' }}</span>
-              <div class="flex-1 h-2 bg-zinc-800 rounded overflow-hidden">
+              <span class="text-sm text-zinc-300 w-14 text-left uppercase">{{ f.format || '?' }}</span>
+              <div class="flex-1 h-2.5 bg-zinc-800 rounded-full overflow-hidden">
                 <div
-                  class="h-full rounded"
+                  class="h-full rounded-full"
                   :style="{ width: (f.count / stats.totalTracks * 100) + '%', backgroundColor: `rgba(${accentRgb}, 0.6)` }"
                 />
               </div>
-              <span class="text-xs text-zinc-500 w-12">{{ f.count }}</span>
+              <span class="text-xs text-zinc-500 w-24 text-right">{{ Math.round((f.count / stats.totalTracks) * 100) }}% · {{ f.count }}</span>
+            </div>
             </div>
           </div>
           </div>
@@ -886,8 +679,30 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Most Played Tracks</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topTracks ? '' : '-rotate-90'" />
           </button>
-          <div v-show="statsOpen.topTracks" class="mt-4">
-            <TrackList :tracks="stats.topTracks" show-cover show-artist show-album show-plays hide-controls />
+          <div v-show="statsOpen.topTracks" class="mt-4 space-y-2">
+            <button
+              v-for="(track, i) in visibleTopItems('topTracks', stats.topTracks)"
+              :key="`${track.title}-${track.artists?.[0] ?? 'unknown'}-${track.album ?? 'unknown'}`"
+              class="group flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-3 text-left transition-colors hover:bg-zinc-800/60"
+              type="button"
+              @click="playTopTrack(i)"
+            >
+              <CoverArt :cover="track.cover" size="w-10 h-10 shrink-0 rounded-md" />
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium text-zinc-100">{{ track.title }}</div>
+                <div class="truncate text-xs text-zinc-500">{{ track.artists?.join(', ') }}<template v-if="track.album"> • {{ track.album }}</template></div>
+              </div>
+              <div class="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                {{ formatPlaysLabel(track.playCount) }}
+              </div>
+            </button>
+            <button
+              v-if="hasTopSectionOverflow(stats.topTracks)"
+              class="pt-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+              @click="toggleTopSectionExpanded('topTracks')"
+            >
+              {{ topSectionToggleLabel('topTracks', stats.topTracks) }}
+            </button>
           </div>
         </section>
 
@@ -897,31 +712,30 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Artists</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topArtists ? '' : '-rotate-90'" />
           </button>
-          <div v-show="statsOpen.topArtists" class="mt-4">
-          <table class="w-full text-sm border-separate border-spacing-0">
-            <thead>
-              <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
-                <th class="text-center py-2 px-1 w-8">#</th>
-                <th class="text-left py-2 px-3">Artist</th>
-                <th class="text-right py-2 px-3 w-16">Plays</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(artist, i) in stats.topArtists"
-                :key="artist.name"
-                class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
-                @click="router.push({ name: 'artist', params: { name: artist.name } })"
-              >
-                <td class="py-2 px-1 text-zinc-500 text-center">{{ i + 1 }}</td>
-                <td class="py-2 px-3 max-w-0 overflow-hidden">
-                  <div class="font-medium truncate">{{ artist.name }}</div>
-                  <div class="text-xs text-zinc-500">{{ artist.trackCount }} track{{ artist.trackCount !== 1 ? 's' : '' }}</div>
-                </td>
-                <td class="py-2 px-3 text-right text-zinc-500">{{ artist.plays }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-show="statsOpen.topArtists" class="mt-4 space-y-2">
+            <button
+              v-for="(artist, i) in visibleTopItems('topArtists', stats.topArtists)"
+              :key="artist.name"
+              class="group flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-3 text-left transition-colors hover:bg-zinc-800/60"
+              type="button"
+              @click="router.push({ name: 'artist', params: { name: artist.name } })"
+            >
+              <ArtistCover :covers="artist.covers || []" size="w-10 h-10 shrink-0" wrapper-class="mb-0" />
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium text-zinc-100">{{ artist.name }}</div>
+                <div class="text-xs text-zinc-500">{{ artist.trackCount.toLocaleString() }} track{{ artist.trackCount !== 1 ? 's' : '' }}</div>
+              </div>
+              <div class="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                {{ formatPlaysLabel(artist.plays) }}
+              </div>
+            </button>
+            <button
+              v-if="hasTopSectionOverflow(stats.topArtists)"
+              class="pt-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+              @click="toggleTopSectionExpanded('topArtists')"
+            >
+              {{ topSectionToggleLabel('topArtists', stats.topArtists) }}
+            </button>
           </div>
         </section>
 
@@ -931,36 +745,30 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Albums</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topAlbums ? '' : '-rotate-90'" />
           </button>
-          <div v-show="statsOpen.topAlbums" class="mt-4">
-          <table class="w-full text-sm border-separate border-spacing-0">
-            <thead>
-              <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800">
-                <th class="text-center py-2 px-1 w-8">#</th>
-                <th class="text-left py-2 px-3">Album</th>
-                <th class="text-right py-2 px-3 w-16">Plays</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="(album, i) in stats.topAlbums"
-                :key="album.name"
-                class="cursor-pointer [&:hover>td]:bg-zinc-800/50 [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
-                @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
-              >
-                <td class="py-2 px-1 text-zinc-500 text-center">{{ i + 1 }}</td>
-                <td class="py-2 px-3 max-w-0 overflow-hidden">
-                  <div class="flex items-center gap-2">
-                    <CoverArt :cover="album.cover" size="w-8 h-8 shrink-0" />
-                    <div class="min-w-0">
-                      <div class="font-medium truncate">{{ album.name }}</div>
-                      <div class="text-xs text-zinc-500 truncate">{{ album.artists?.join(', ') }}</div>
-                    </div>
-                  </div>
-                </td>
-                <td class="py-2 px-3 text-right text-zinc-500">{{ album.plays }}</td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-show="statsOpen.topAlbums" class="mt-4 space-y-2">
+            <button
+              v-for="(album, i) in visibleTopItems('topAlbums', stats.topAlbums)"
+              :key="`${album.name}-${album.artists?.[0] ?? 'unknown'}`"
+              class="group flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-3 text-left transition-colors hover:bg-zinc-800/60"
+              type="button"
+              @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
+            >
+              <CoverArt :cover="album.cover" size="w-10 h-10 shrink-0 rounded-md" />
+              <div class="min-w-0 flex-1">
+                <div class="truncate text-sm font-medium text-zinc-100">{{ album.name }}</div>
+                <div class="truncate text-xs text-zinc-500">{{ album.artists?.join(', ') }}</div>
+              </div>
+              <div class="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
+                {{ formatPlaysLabel(album.plays) }}
+              </div>
+            </button>
+            <button
+              v-if="hasTopSectionOverflow(stats.topAlbums)"
+              class="pt-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+              @click="toggleTopSectionExpanded('topAlbums')"
+            >
+              {{ topSectionToggleLabel('topAlbums', stats.topAlbums) }}
+            </button>
           </div>
         </section>
 

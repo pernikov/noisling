@@ -15,7 +15,7 @@ import Spinner from '../components/Spinner.vue';
 const api = useApi();
 const router = useRouter();
 const { state: playerState, playAlbum, shuffleAll } = usePlayer();
-const { homeShowQuickPlay, homeShowRecent, homeShowAlbums, homeAlbumsMode, homeShowPendingPlay, tracksColumns, accentRgb, accentDarkRgb, lovedUseAccent } = useTheme();
+const { homeAlbumsMode } = useTheme();
 
 const lovedTracks = ref([]);
 const recentTracks = ref([]);
@@ -242,9 +242,9 @@ async function loadAlbums(mode = homeAlbumsMode.value, { force = false } = {}) {
 }
 
 onMounted(() => {
-  if (homeShowQuickPlay.value) loadLoved();
-  if (homeShowRecent.value)    loadRecent();
-  if (homeShowAlbums.value)    loadAlbums();
+  loadLoved();
+  loadRecent();
+  loadAlbums();
 });
 
 onBeforeUnmount(() => {
@@ -252,12 +252,12 @@ onBeforeUnmount(() => {
 });
 
 useLibraryEvents(() => {
-  if (homeShowRecent.value)  loadRecent();
-  if (homeShowAlbums.value)  loadAlbums(homeAlbumsMode.value, { force: true });
+  loadRecent();
+  loadAlbums(homeAlbumsMode.value, { force: true });
 });
 
 watch(() => playerState.playReportCount, async (count) => {
-  if (count > 0 && homeShowRecent.value) {
+  if (count > 0) {
     stageCompletedPendingRow(playerState.lastReportedTrackId);
     await loadRecent();
   }
@@ -271,7 +271,7 @@ watch(() => playerState.currentTrack?._id?.toString?.() ?? playerState.currentTr
 });
 
 watch(() => playerState.loveToggled, (change) => {
-  if (!change || !homeShowQuickPlay.value) return;
+  if (!change) return;
   if (change.isLoved) {
     loadLoved(); // reload to get the full track object
   } else {
@@ -280,7 +280,6 @@ watch(() => playerState.loveToggled, (change) => {
 });
 
 watch(homeAlbumsMode, (mode) => {
-  if (!homeShowAlbums.value) return;
   loadAlbums(mode);
 });
 
@@ -294,7 +293,7 @@ function goToAlbum(album) {
     <h1 class="text-2xl font-bold font-display">{{ greeting }}</h1>
 
     <!-- Quick Actions -->
-    <section v-if="homeShowQuickPlay">
+    <section>
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Quick Play</h2>
       <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
         <!-- Shuffle All -->
@@ -330,7 +329,6 @@ function goToAlbum(album) {
           @click="playLovedTracks"
           :disabled="loadingLoved || lovedTracks.length === 0"
           class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
-          :style="lovedUseAccent ? { backgroundImage: `linear-gradient(to bottom right, rgb(${accentRgb}), rgb(${accentDarkRgb}))` } : undefined"
         >
           <Icon :path="mdiHeart" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
           <div class="text-base sm:text-lg font-bold font-display text-white">Loved Tracks</div>
@@ -356,7 +354,7 @@ function goToAlbum(album) {
     </section>
 
     <!-- Recently Played -->
-    <section v-if="homeShowRecent">
+    <section>
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">Recently Played</h2>
 
       <div v-if="loadingRecent" class="animate-pulse">
@@ -415,7 +413,7 @@ function goToAlbum(album) {
           @leave="animatePendingStatusLeave"
         >
           <div
-            v-if="pendingPlayStatus && homeShowPendingPlay"
+            v-if="pendingPlayStatus"
             class="overflow-hidden transition-[height,opacity,transform] duration-350 ease-[cubic-bezier(0.22,1,0.36,1)]"
           >
             <PendingPlayStatus
@@ -428,17 +426,16 @@ function goToAlbum(album) {
         <TrackList
           :tracks="recentTracksForDisplay"
           show-cover
-          :show-artist="tracksColumns.artist"
-          :show-album="tracksColumns.album"
-          :show-plays="tracksColumns.plays"
-          :show-last-played="tracksColumns.lastPlayed"
+          show-artist
+          show-album
+          show-last-played
           hide-controls
         />
       </div>
     </section>
 
     <!-- Recently Added Albums -->
-    <section v-if="homeShowAlbums">
+    <section>
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-4">{{ currentAlbumModeLabel }}</h2>
 
       <div v-if="currentAlbumLoading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4 animate-pulse">

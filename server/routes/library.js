@@ -517,18 +517,55 @@ router.get('/stats', async (req, res) => {
           { $project: { title: 1, artists: 1, album: 1, cover: 1, duration: 1, playCount: 1, isLoved: 1 } },
         ],
         topArtists: [
-          { $match: { playCount: { $gt: 0 } } },
-          { $unwind: '$artists' },
           {
-            $group: {
-              _id: '$artists',
-              plays: { $sum: '$playCount' },
-              trackCount: { $sum: 1 },
+            $project: {
+              effectiveArtists: effectiveField('artists'),
+              effectiveArtistsNorm: effectiveField('artistsNorm'),
+              effectiveCover: effectiveField('cover'),
+              playCount: { $ifNull: ['$playCount', 0] },
             },
           },
+          {
+            $unwind: {
+              path: '$effectiveArtists',
+              includeArrayIndex: 'artistIndex',
+              preserveNullAndEmptyArrays: false,
+            },
+          },
+          {
+            $group: {
+              _id: {
+                name: '$effectiveArtists',
+                artistNorm: {
+                  $ifNull: [
+                    { $arrayElemAt: ['$effectiveArtistsNorm', '$artistIndex'] },
+                    { $toLower: '$effectiveArtists' },
+                  ],
+                },
+              },
+              plays: { $sum: '$playCount' },
+              trackCount: { $sum: 1 },
+              coverSet: { $addToSet: '$effectiveCover' },
+            },
+          },
+          { $match: { plays: { $gt: 0 } } },
           { $sort: { plays: -1 } },
           { $limit: 10 },
-          { $project: { _id: 0, name: '$_id', plays: 1, trackCount: 1 } },
+          {
+            $project: {
+              _id: 0,
+              name: '$_id.name',
+              plays: 1,
+              trackCount: 1,
+              covers: {
+                $filter: {
+                  input: '$coverSet',
+                  as: 'cover',
+                  cond: { $and: [{ $ne: ['$$cover', null] }, { $ne: ['$$cover', ''] }] },
+                },
+              },
+            },
+          },
         ],
         topAlbums: [
           { $match: { playCount: { $gt: 0 } } },

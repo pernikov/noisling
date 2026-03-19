@@ -21,15 +21,15 @@ const props = defineProps({
 const emit = defineEmits(['play', 'navigate']);
 
 const { state, moveTrack, playFromQueue } = usePlayer();
-const { accentColor, density, showCoverArt, tracksColumns } = useTheme();
+const { accentColor } = useTheme();
 const isMobile = ref(false);
 let mediaQuery = null;
 let mediaQueryListener = null;
 
 // --- Virtual scrolling ---
 const ITEM_HEIGHT = computed(() => {
-  if (props.roomyMobile && isMobile.value) return density.value === 'compact' ? 52 : 64;
-  return density.value === 'compact' ? 36 : 52;
+  if (props.roomyMobile && isMobile.value) return 64;
+  return 52;
 });
 const OVERSCAN = 10;
 const scrollContainer = ref(null);
@@ -239,8 +239,8 @@ function formatDuration(seconds) {
             @drop="onDrop($event, i)"
             @dragend="onDragEnd"
           >
-            <div v-if="showCoverArt" class="relative flex-shrink-0 group/cover" @click.stop="handlePlay(i)">
-              <CoverArt :cover="track.cover" :size="props.roomyMobile && isMobile ? (density === 'compact' ? 'w-9 h-9' : 'w-10 h-10') : (density === 'compact' ? 'w-6 h-6' : 'w-8 h-8')" />
+            <div class="relative flex-shrink-0 group/cover" @click.stop="handlePlay(i)">
+              <CoverArt :cover="track.cover" :size="props.roomyMobile && isMobile ? 'w-10 h-10' : 'w-8 h-8'" />
               <div class="absolute inset-0 bg-black/60 rounded flex items-center justify-center opacity-0 group-hover/cover:opacity-100 transition-opacity cursor-pointer">
                 <Icon :path="mdiPlay" class="w-4 h-4 text-white" />
               </div>
@@ -256,7 +256,6 @@ function formatDuration(seconds) {
                 @click.stop="handlePlay(i)"
               >{{ track.title }}</div>
               <span
-                v-if="density !== 'compact' && tracksColumns.artist"
                 class="text-zinc-500 truncate block"
                 :class="props.roomyMobile && isMobile ? 'text-[13px] mt-0.5' : 'text-xs'"
               >

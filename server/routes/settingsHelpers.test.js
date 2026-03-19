@@ -15,10 +15,9 @@ test('buildSettingsResponse fills defaults for missing optional settings', () =>
   });
 
   assert.equal(response.themeColor, 'none');
-  assert.equal(response.density, 'comfortable');
+  assert.equal(response.fontSize, 'medium');
   assert.deepEqual(response.tracksSort, { field: 'artist', dir: 'asc' });
   assert.equal(response.vizMode, 'pills');
-  assert.equal(response.showPlaylists, true);
   assert.equal(response.homeAlbumsMode, 'recent');
 });
 
@@ -51,12 +50,12 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
   const result = buildSettingsUpdate({
     accentColor: 'amber',
     volume: 0.4,
-    tracksColumns: { artist: 0, album: 1, plays: true, ignored: true },
+    fontSize: 'large',
     tracksSort: { field: 'title', dir: 'desc' },
     homeAlbumsMode: 'random',
     vizMode: 'nebula',
     butterchurnPresetMode: 'random',
-    showPlaylists: 1,
+    wideLayout: 1,
     reduceMotion: 0,
   });
 
@@ -64,12 +63,12 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
     update: {
       accentColor: 'amber',
       volume: 0.4,
-      tracksColumns: { artist: false, album: true, plays: true },
+      fontSize: 'large',
       tracksSort: { field: 'title', dir: 'desc' },
       homeAlbumsMode: 'random',
       vizMode: 'pills',
       butterchurnPresetMode: 'random',
-      showPlaylists: true,
+      wideLayout: true,
       reduceMotion: false,
     },
   });

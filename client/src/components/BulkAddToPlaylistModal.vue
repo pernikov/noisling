@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { useApi } from '../composables/useApi.js';
-import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
 import Button from './Button.vue';
 import CoverArt from './CoverArt.vue';
@@ -16,7 +15,6 @@ const props = defineProps({
 const emit = defineEmits(['close', 'added']);
 
 const api = useApi();
-const { showCoverArt } = useTheme();
 
 const TABS = ['Track', 'Album', 'Artist', 'Genre'];
 const TAB_ITEMS = TABS.map(t => ({ value: t, label: t }));
@@ -263,7 +261,7 @@ async function addTracks() {
                 <SelectionCheckbox :checked="isSelected(item)" />
                 <!-- Cover -->
                 <CoverArt
-                  v-if="showCoverArt && activeTab !== 'Genre'"
+                  v-if="activeTab !== 'Genre'"
                   :cover="itemCover(item)"
                   size="w-8 h-8"
                   class="shrink-0"

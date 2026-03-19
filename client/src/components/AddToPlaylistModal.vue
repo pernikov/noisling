@@ -1,14 +1,13 @@
 <script setup>
 import { computed, ref, onMounted, nextTick } from 'vue';
-import { mdiPlaylistMusic, mdiPlus } from '@mdi/js';
+import { mdiPlus } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { useTheme } from '../composables/useTheme.js';
 import BaseModal from './BaseModal.vue';
 import CoverArt from './CoverArt.vue';
 import FormInput from './FormInput.vue';
-import Icon from './Icon.vue';
 import LoadingState from './LoadingState.vue';
-import Spinner from './Spinner.vue';
+import Icon from './Icon.vue';
 
 const props = defineProps({
   track: { type: Object, required: true },
@@ -16,7 +15,7 @@ const props = defineProps({
 const emit = defineEmits(['close', 'added']);
 
 const api = useApi();
-const { showCoverArt, accentColor } = useTheme();
+const { accentColor } = useTheme();
 const playlists = ref([]);
 const loading = ref(true);
 const adding = ref(null); // playlist._id currently being added
@@ -74,12 +73,10 @@ async function confirmCreate() {
       <!-- Header with track info -->
       <div class="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-zinc-800">
         <CoverArt
-          v-if="showCoverArt"
           :cover="track.cover"
           size="w-10 h-10"
           class="rounded shrink-0"
         />
-        <Icon v-else :path="mdiPlaylistMusic" class="w-5 h-5 text-zinc-400 shrink-0" />
         <div class="min-w-0">
           <p class="text-xs text-zinc-500 mb-0.5">Add to playlist</p>
           <p class="text-sm font-semibold truncate leading-tight">{{ track.title }}</p>

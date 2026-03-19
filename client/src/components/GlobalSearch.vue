@@ -10,14 +10,12 @@ import KbdKey from './KbdKey.vue';
 import TrackContextMenu from './TrackContextMenu.vue';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
-import { useTheme } from '../composables/useTheme.js';
 import { useContextMenu } from '../composables/useContextMenu.js';
 import { formatTime } from '../composables/useProgressScrub.js';
 
 const router = useRouter();
 const api = useApi();
 const { playAlbum } = usePlayer();
-const { showCoverArt, density, tracksColumns } = useTheme();
 
 // Track context menu
 const { menuTrack, menuStyle, openMenu: openTrackMenu, closeMenu: closeTrackMenu, cancelClose: cancelCloseTrackMenu } = useContextMenu({ menuWidth: 160, menuHeight: 72 });
@@ -33,8 +31,8 @@ const resultsRef = ref(null);
 
 let debounceTimer = null;
 
-const rowPy = computed(() => density.value === 'compact' ? 'py-2 sm:py-1' : 'py-3 sm:py-2');
-const coverSize = computed(() => density.value === 'compact' ? 'w-8 h-8 sm:w-6 sm:h-6' : 'w-10 h-10 sm:w-9 sm:h-9');
+const rowPy = computed(() => 'py-3 sm:py-2');
+const coverSize = computed(() => 'w-10 h-10 sm:w-9 sm:h-9');
 
 function openSearch() {
   open.value = true;
@@ -223,13 +221,11 @@ function flatIndex(type, i) {
                   @click="selectItem({ type: 'track', data: track })"
                   @mouseenter="focusedIndex = flatIndex('track', i)"
                 >
-                  <CoverArt v-if="showCoverArt" :cover="track.cover" :size="`${coverSize} shrink-0`" />
+                  <CoverArt :cover="track.cover" :size="`${coverSize} shrink-0`" />
                   <div class="min-w-0 flex-1">
                     <div class="text-sm text-zinc-100 truncate">{{ track.title }}</div>
                     <div class="text-xs text-zinc-500 truncate">
-                      <template v-if="tracksColumns.artist && tracksColumns.album">{{ track.artists?.join(', ') }} · {{ track.album }}</template>
-                      <template v-else-if="tracksColumns.artist">{{ track.artists?.join(', ') }}</template>
-                      <template v-else-if="tracksColumns.album">{{ track.album }}</template>
+                      {{ track.artists?.join(', ') }}<template v-if="track.album"> · {{ track.album }}</template>
                     </div>
                   </div>
                   <span
@@ -273,7 +269,7 @@ function flatIndex(type, i) {
                 </button>
               </template>
 
-              <!-- Albums — cover always shown regardless of showCoverArt preference -->
+              <!-- Albums -->
               <template v-if="results.albums.length">
                 <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Albums</p>
                 <button
