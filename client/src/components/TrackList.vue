@@ -51,7 +51,7 @@ function sortIcon(field) {
 const { state, playAlbum, playAll: _playAll, playShuffled: _playShuffled, playFromQueue, queueMatches, toggleLove } = usePlayer();
 
 const menuRowIndex = ref(null);
-const { menuTrack, menuStyle, openMenu: _openMenu, closeMenu: _closeMenu, scheduleClose: scheduleCloseMenu, cancelClose: cancelCloseMenu } = useContextMenu({ menuWidth: 176, menuHeight: 208, align: 'left' });
+const { menuTrack, menuStyle, openMenu: _openMenu, closeMenu: _closeMenu, scheduleClose: scheduleCloseMenu, cancelClose: cancelCloseMenu } = useContextMenu({ menuWidth: 196, menuHeight: 208, align: 'left' });
 
 // Keep menuRowIndex in sync with the composable's menuTrack
 watch(menuTrack, (val) => { if (!val) menuRowIndex.value = null; });

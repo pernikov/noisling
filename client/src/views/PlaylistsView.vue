@@ -39,6 +39,11 @@ const playlists = ref([]);
 const loading = ref(true);
 const showCreate = ref(false);
 
+function playlistDetail(playlist) {
+  if (!playlist.trackCount) return 'Empty';
+  return `${playlist.trackCount} track${playlist.trackCount !== 1 ? 's' : ''}`;
+}
+
 async function load() {
   try {
     playlists.value = await api.getPlaylists();
@@ -92,17 +97,19 @@ function onCreated(playlist) {
     </div>
 
     <!-- Loading skeleton -->
-    <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
-      <div v-for="i in 8" :key="i" class="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden">
-        <div class="aspect-square bg-zinc-800" />
-        <div class="px-3 py-2.5 flex items-center gap-2">
-          <div class="min-w-0 flex-1 space-y-1.5">
-            <div class="h-3.5 bg-zinc-800 rounded" :style="{ width: `${50 + (i * 13) % 30}%` }" />
-            <div class="h-2.5 bg-zinc-700 rounded w-1/3" />
-          </div>
-          <div class="hidden sm:flex items-center gap-1 shrink-0">
-            <div class="w-7 h-7 rounded-md bg-zinc-800/70" />
-            <div class="w-7 h-7 rounded-md bg-zinc-700/80" />
+    <div v-if="loading" class="animate-pulse">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div v-for="i in 12" :key="`card-${i}`" class="overflow-hidden rounded-lg bg-zinc-900/35">
+          <div class="aspect-square bg-zinc-800" />
+          <div class="flex items-center gap-2 bg-zinc-900 px-3 py-2.5">
+            <div class="min-w-0 flex-1">
+              <div class="h-3 rounded bg-zinc-800" :style="{ width: `${42 + (i * 9) % 30}%` }" />
+              <div class="mt-2 h-2.5 rounded bg-zinc-800/60" :style="{ width: `${22 + (i * 7) % 18}%` }" />
+            </div>
+            <div class="ml-2 flex items-center gap-1 shrink-0">
+              <div class="hidden sm:block h-8 w-8 rounded-full bg-zinc-800/80" />
+              <div class="h-8 w-8 rounded-full bg-zinc-800/80" />
+            </div>
           </div>
         </div>
       </div>
@@ -122,65 +129,70 @@ function onCreated(playlist) {
       </button>
     </div>
 
-    <!-- Cards grid -->
-    <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      <div
-        v-for="playlist in playlists"
-        :key="playlist._id"
-        class="bg-zinc-900 rounded-xl border border-zinc-800 overflow-hidden cursor-pointer hover:border-zinc-700 hover:bg-zinc-800/60 transition-colors group"
-        @click="goToPlaylist(playlist._id)"
-      >
-        <!-- Cover art collage / fallback -->
-        <div class="aspect-square relative overflow-hidden bg-zinc-800">
-          <!-- Cover mosaic -->
-          <template v-if="playlist.covers?.length">
-            <div
-              class="w-full h-full grid"
-              :style="mosaicFromCovers(playlist.covers).style"
-            >
-              <div
-                v-for="(cover, i) in mosaicFromCovers(playlist.covers).cells"
-                :key="i"
-                class="overflow-hidden bg-zinc-700"
-              >
-                <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" @load="e => e.target.style.opacity='1'" alt="" />
+    <div v-else>
+      <section class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div
+          v-for="playlist in playlists"
+          :key="playlist._id"
+          class="group cursor-pointer"
+          @click="goToPlaylist(playlist._id)"
+        >
+          <div class="overflow-hidden rounded-lg bg-zinc-900/35">
+            <div class="relative aspect-square overflow-hidden bg-zinc-800">
+              <template v-if="playlist.covers?.length">
+                <div
+                  class="h-full w-full grid transition-transform duration-500 group-hover:scale-[1.03]"
+                  :style="mosaicFromCovers(playlist.covers).style"
+                >
+                  <div
+                    v-for="(cover, i) in mosaicFromCovers(playlist.covers).cells"
+                    :key="i"
+                    class="overflow-hidden bg-zinc-700"
+                  >
+                    <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" @load="e => e.target.style.opacity='1'" alt="" />
+                  </div>
+                </div>
+              </template>
+              <template v-else>
+                <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-950">
+                  <Icon :path="mdiPlaylistMusic" class="w-14 h-14 text-zinc-600" />
+                </div>
+              </template>
+
+              <div class="absolute inset-0 bg-gradient-to-t from-black/45 via-transparent to-transparent opacity-80 transition-opacity duration-200 group-hover:opacity-100" />
+            </div>
+
+            <div class="flex items-center gap-2 bg-zinc-900 px-3 py-2.5">
+              <div class="min-w-0 flex-1">
+                <div class="truncate font-display text-sm font-medium text-zinc-100">
+                  {{ playlist.name }}
+                </div>
+                <div class="mt-0.5 truncate whitespace-nowrap text-xs text-zinc-500">
+                  {{ playlistDetail(playlist) }}
+                </div>
+              </div>
+
+              <div class="ml-2 flex items-center gap-1 shrink-0">
+                <button
+                  @click.stop="shufflePlaylist(playlist, $event)"
+                  class="hidden sm:flex items-center justify-center w-8 h-8 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 transition-colors"
+                  title="Shuffle"
+                >
+                  <Icon :path="mdiShuffle" class="w-3.5 h-3.5" />
+                </button>
+                <button
+                  @click.stop="playPlaylist(playlist, $event)"
+                  class="flex items-center justify-center w-8 h-8 rounded-full transition-all duration-150 hover:brightness-110"
+                  :style="{ backgroundColor: `rgb(${accentRgb})`, color: accentTextColor }"
+                  title="Play"
+                >
+                  <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
+                </button>
               </div>
             </div>
-          </template>
-          <!-- No covers -->
-          <template v-else>
-            <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-700 to-zinc-900">
-              <Icon :path="mdiPlaylistMusic" class="w-12 h-12 text-zinc-600" />
-            </div>
-          </template>
-
-        </div>
-
-        <!-- Info -->
-        <div class="px-3 py-2.5 flex items-center gap-2">
-          <div class="min-w-0 flex-1">
-            <div class="font-medium font-display truncate text-sm">{{ playlist.name }}</div>
-            <div class="text-xs text-zinc-500 mt-0.5">{{ playlist.trackCount }} track{{ playlist.trackCount !== 1 ? 's' : '' }}</div>
-          </div>
-          <div class="hidden sm:flex items-center gap-1 shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto">
-            <button
-              @click.stop="shufflePlaylist(playlist, $event)"
-              class="flex items-center justify-center w-7 h-7 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/60 active:scale-95 transition-all duration-150"
-              title="Shuffle"
-            >
-              <Icon :path="mdiShuffle" class="w-3.5 h-3.5" />
-            </button>
-            <button
-              @click.stop="playPlaylist(playlist, $event)"
-              class="flex items-center justify-center w-7 h-7 rounded-md active:scale-95 hover:brightness-110 transition-all duration-150"
-              :style="{ backgroundColor: `rgb(${accentRgb})`, color: accentTextColor }"
-              title="Play"
-            >
-              <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
-            </button>
           </div>
         </div>
-      </div>
+      </section>
     </div>
 
     <CreatePlaylistModal

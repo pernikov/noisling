@@ -113,34 +113,34 @@ function onTrackSaved(updatedTrack) {
     <Transition name="menu">
       <div
         v-if="track"
-        class="fixed z-[95] hidden min-w-[160px] rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-xl sm:block"
+        class="fixed z-[95] hidden min-w-[196px] rounded-md border border-zinc-700 bg-zinc-900 py-1 shadow-xl sm:block"
         :style="style"
         @mouseenter="emit('cancel-close')"
         @mouseleave="emit('close')"
       >
         <button
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          class="flex w-full items-center gap-2.5 whitespace-nowrap px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
           @click="onPlayNext"
         >
           <Icon :path="mdiPlaylistPlay" class="w-4 h-4 text-zinc-400" />
           Play next
         </button>
         <button
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          class="flex w-full items-center gap-2.5 whitespace-nowrap px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
           @click="onAddToQueue"
         >
           <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
           Add to queue
         </button>
         <button
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          class="flex w-full items-center gap-2.5 whitespace-nowrap px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
           @click="openAddToPlaylist"
         >
           <Icon :path="mdiPlaylistPlus" class="w-4 h-4 text-zinc-400" />
           Add to playlist
         </button>
         <button
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
+          class="flex w-full items-center gap-2.5 whitespace-nowrap px-3 py-2 text-sm hover:bg-zinc-800 transition-colors"
           @click="openEditMetadata"
         >
           <Icon :path="mdiPencil" class="w-4 h-4 text-zinc-400" />
@@ -148,7 +148,7 @@ function onTrackSaved(updatedTrack) {
         </button>
         <button
           v-if="playlistId"
-          class="flex items-center gap-2.5 w-full px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 transition-colors"
+          class="flex w-full items-center gap-2.5 whitespace-nowrap px-3 py-2 text-sm text-red-400 hover:bg-zinc-800 transition-colors"
           @click="emit('remove-from-playlist', track._id); emit('close')"
         >
           <Icon :path="mdiPlaylistMinus" class="w-4 h-4" />
