@@ -22,6 +22,7 @@ const props = defineProps({
   showLastPlayed: { type: Boolean, default: false },
   startIndex: { type: Number, default: 0 },
   getAllTracks: { type: Function, default: null }, // () => Promise<Track[]> for full library play/shuffle
+  playTracks: { type: Array, default: null },
   hideControls: { type: Boolean, default: false },
   useTrackNumber: { type: Boolean, default: false },
   sortable: { type: Boolean, default: false },
@@ -72,14 +73,30 @@ function onMenuTrackUpdated(updatedTrack) {
 }
 
 const { accentColor, accentRgb } = useTheme();
-const rowPy = computed(() => 'py-2');
-
 // When any track's love status changes (from PlayerBar or another TrackList instance),
 // keep the matching track object in this list in sync.
 watch(() => state.loveToggled, (change) => {
   if (!change) return;
   const match = props.tracks.find(t => t._id === change.id);
   if (match) match.isLoved = change.isLoved;
+});
+
+watch(() => state.playReportCount, (count) => {
+  if (!count) return;
+  const reportedId = state.lastReportedTrackId?.toString?.() ?? state.lastReportedTrackId;
+  if (!reportedId) return;
+
+  const match = props.tracks.find((track) => {
+    const trackId = track._id?.toString?.() ?? track._id;
+    return trackId === reportedId;
+  });
+
+  if (!match) return;
+
+  const playedAt = new Date().toISOString();
+  match.playCount = (match.playCount || 0) + 1;
+  match.lastPlayedAt = playedAt;
+  match.playedAt = playedAt;
 });
 
 function timeAgo(date) {
@@ -97,22 +114,36 @@ function timeAgo(date) {
 
 
 function playTrack(index) {
-  if (queueMatches(props.tracks)) {
+  const sourceTracks = Array.isArray(props.playTracks) && props.playTracks.length ? props.playTracks : props.tracks;
+  const sourceTrack = sourceTracks[index];
+  if (!sourceTrack) return;
+
+  if (queueMatches(sourceTracks)) {
     const queueIdx = state.shuffle
-      ? state.queue.findIndex(t => t._id === props.tracks[index]._id)
+      ? state.queue.findIndex(t => t._id === sourceTrack._id)
       : index;
     playFromQueue(queueIdx);
   } else {
-    playAlbum(props.tracks, index);
+    playAlbum(sourceTracks, index);
   }
 }
 
-function playAll() { _playAll(props.tracks, props.getAllTracks); }
-function playShuffle() { _playShuffled(props.tracks, props.getAllTracks); }
+function playAll() {
+  const sourceTracks = Array.isArray(props.playTracks) && props.playTracks.length ? props.playTracks : props.tracks;
+  _playAll(sourceTracks, props.getAllTracks);
+}
+function playShuffle() {
+  const sourceTracks = Array.isArray(props.playTracks) && props.playTracks.length ? props.playTracks : props.tracks;
+  _playShuffled(sourceTracks, props.getAllTracks);
+}
 
 
 function isCurrentTrack(track) {
   return state.currentTrack?._id === track._id;
+}
+
+function isPlayingTrack(track) {
+  return isCurrentTrack(track) && state.isPlaying;
 }
 
 function mobileMeta(track) {
@@ -221,156 +252,18 @@ defineExpose({ playAll, playShuffle });
       <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
     </div>
 
-    <div class="sm:hidden space-y-2">
-      <div
-        v-for="(track, i) in tracks"
-        :key="`mobile-${track.historyId ?? track._id}`"
-        class="group rounded-2xl bg-zinc-900/45 transition-colors"
-        :class="[
-          track.deleted
-            ? 'opacity-40'
-            : 'active:bg-zinc-800/65',
-          isCurrentTrack(track) ? 'bg-zinc-800/65' : 'bg-zinc-900/35',
-        ]"
-      >
+    <div class="space-y-2">
         <div
-          class="flex items-center gap-3 px-3 py-3.5"
-          :class="track.deleted ? 'cursor-default' : 'cursor-pointer'"
-          @click="!track.deleted && playTrack(i)"
-        >
-          <div class="relative shrink-0">
-            <CoverArt
-              v-if="showCover"
-              :cover="track.deleted ? '' : track.cover"
-              size="w-11 h-11"
-            />
-            <div
-              v-else
-              class="flex h-11 w-11 items-center justify-center rounded-lg bg-zinc-800/80 text-zinc-500"
-            >
-              <Icon :path="mdiPlay" class="w-3.5 h-3.5" />
-            </div>
-          </div>
-
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2">
-              <p class="truncate text-sm font-medium" :class="isCurrentTrack(track) ? `text-${accentColor}-200` : 'text-zinc-100'">
-                {{ track.title }}
-              </p>
-            </div>
-            <p v-if="mobileMeta(track)" class="mt-0.5 truncate text-xs text-zinc-500">
-              {{ mobileMeta(track) }}
-            </p>
-          </div>
-
-          <div class="flex items-center gap-0.5 shrink-0">
-            <button
-              v-if="!track.deleted"
-              class="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-              :class="track.isLoved
-                ? 'text-rose-400 bg-zinc-800/60'
-                : 'text-zinc-500 hover:text-zinc-300'"
-              @click.stop="toggleLove(track)"
-              :aria-label="track.isLoved ? 'Unlove track' : 'Love track'"
-            >
-              <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-4 h-4" />
-            </button>
-            <button
-              v-if="!track.deleted"
-              class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition-colors hover:text-zinc-300"
-              @click.stop="openMenu($event, i, track)"
-              aria-label="Track actions"
-            >
-              <Icon :path="mdiDotsVertical" class="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <table class="hidden sm:table w-full table-fixed text-sm border-separate border-spacing-0">
-      <thead>
-        <tr class="text-zinc-500 [&>th]:border-b [&>th]:border-zinc-800 select-none">
-          <th class="text-center py-2 px-1 w-8 hidden sm:table-cell">#</th>
-          <th
-            class="text-left py-2 px-3"
-            :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
-            @click="sortable && handleSort('title')"
-          >
-            <span class="inline-flex items-center gap-0.5">
-              Title
-              <Icon v-if="sortable" :path="sortIcon('title')" class="w-3 h-3 transition-opacity" :class="sortBy === 'title' ? 'opacity-70' : 'opacity-0'" />
-            </span>
-          </th>
-          <th
-            v-if="showArtist"
-            class="text-left py-2 px-3 w-1/4 hidden sm:table-cell"
-            :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
-            @click="sortable && handleSort('artist')"
-          >
-            <span class="inline-flex items-center gap-0.5">
-              Artist
-              <Icon v-if="sortable" :path="sortIcon('artist')" class="w-3 h-3 transition-opacity" :class="sortBy === 'artist' ? 'opacity-70' : 'opacity-0'" />
-            </span>
-          </th>
-          <th
-            v-if="showAlbum"
-            class="text-left py-2 px-3 w-1/4 hidden md:table-cell"
-            :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
-            @click="sortable && handleSort('album')"
-          >
-            <span class="inline-flex items-center gap-0.5">
-              Album
-              <Icon v-if="sortable" :path="sortIcon('album')" class="w-3 h-3 transition-opacity" :class="sortBy === 'album' ? 'opacity-70' : 'opacity-0'" />
-            </span>
-          </th>
-          <th
-            v-if="showPlays"
-            class="text-center py-2 px-3 w-16 hidden sm:table-cell"
-            :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
-            @click="sortable && handleSort('plays')"
-          >
-            <span class="inline-flex items-center justify-center gap-0.5">
-              Plays
-              <Icon v-if="sortable" :path="sortIcon('plays')" class="w-3 h-3 transition-opacity" :class="sortBy === 'plays' ? 'opacity-70' : 'opacity-0'" />
-            </span>
-          </th>
-          <th
-            v-if="showLastPlayed"
-            class="text-center py-2 px-3 w-24 hidden sm:table-cell"
-            :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
-            @click="sortable && handleSort('lastPlayed')"
-          >
-            <span class="inline-flex items-center justify-center gap-0.5">
-              Played
-              <Icon v-if="sortable" :path="sortIcon('lastPlayed')" class="w-3 h-3 transition-opacity" :class="sortBy === 'lastPlayed' ? 'opacity-70' : 'opacity-0'" />
-            </span>
-          </th>
-          <th class="w-8"></th>
-          <th
-            class="text-right py-2 px-3 w-16"
-            :class="{ 'cursor-pointer hover:text-zinc-300': sortable }"
-            @click="sortable && handleSort('duration')"
-          >
-            <span class="inline-flex items-center justify-end gap-0.5">
-              <Icon v-if="sortable" :path="sortIcon('duration')" class="w-3 h-3 transition-opacity" :class="sortBy === 'duration' ? 'opacity-70' : 'opacity-0'" />
-              <span class="hidden sm:inline">Time</span>
-            </span>
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
-          class="group [&>td]:transition-colors [&>td:first-child]:rounded-l-md [&>td:last-child]:rounded-r-md [&:first-child>td:first-child]:rounded-tl-none [&:first-child>td:last-child]:rounded-tr-none"
+          class="group grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-2xl px-3 py-3 transition-all"
           :class="[
             track.deleted
               ? 'cursor-default opacity-40'
-              : 'cursor-pointer [&:hover>td]:bg-zinc-800/50',
-            { [`text-${accentColor}-400`]: isCurrentTrack(track) },
-            { 'max-sm:[&>td]:bg-zinc-800/50 sm:[&>td]:bg-zinc-800/50': isCurrentTrack(track) },
-            { '[&>td]:bg-zinc-800/50': menuRowIndex === i },
+              : 'cursor-pointer hover:bg-zinc-800/55',
+            isCurrentTrack(track) ? 'bg-zinc-800/65 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]' : 'bg-zinc-800/35',
+            { [`text-${accentColor}-300`]: isCurrentTrack(track) },
+            { 'bg-zinc-800/75': menuRowIndex === i },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
             { 'drop-below': draggable && dragOverIndex === i && dragIndex !== null && dragIndex < i },
@@ -385,74 +278,163 @@ defineExpose({ playAll, playShuffle });
           @drop="draggable && onDrop($event, i)"
           @dragend="draggable && onDragEnd()"
         >
-          <td :class="[rowPy, 'px-1 text-zinc-500 text-center hidden sm:table-cell']">
-            <span v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'" class="flex items-center justify-center animate-pulse" :class="`text-${accentColor}-400`">
-              <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
-            </span>
-            <span v-else-if="isCurrentTrack(track) && state.isPlaying" class="flex items-center justify-center" :class="`text-${accentColor}-400`">
-              <Icon :path="mdiPlay" class="w-3 h-3" />
-            </span>
-            <template v-else-if="useTrackNumber">
-              <span v-if="track.trackNumber">{{ track.trackNumber }}</span>
-              <span v-else class="opacity-30">{{ startIndex + i + 1 }}</span>
-            </template>
-            <span v-else>{{ startIndex + i + 1 }}</span>
-          </td>
-          <td :class="[rowPy, 'px-3 font-medium overflow-hidden max-sm:rounded-l-md']">
-            <div class="flex items-center gap-2 min-w-0">
-              <CoverArt v-if="showCover" :cover="track.deleted ? '' : track.cover" size="w-8 h-8 shrink-0" />
-              <span class="truncate">{{ track.title }}</span>
+          <div class="grid min-w-0 items-center gap-3" :class="useTrackNumber ? 'grid-cols-[2rem,minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'">
+            <div
+              v-if="useTrackNumber"
+              class="text-center text-xs tabular-nums"
+              :class="isCurrentTrack(track) ? `text-${accentColor}-400` : 'text-zinc-500'"
+            >
+              <Transition name="track-indicator" mode="out-in">
+                <span
+                  v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'"
+                  key="repeat"
+                  class="flex items-center justify-center animate-pulse"
+                >
+                  <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
+                </span>
+                <span
+                  v-else-if="isCurrentTrack(track) && state.isPlaying"
+                  key="play"
+                  class="flex items-center justify-center"
+                >
+                  <Icon :path="mdiPlay" class="w-3 h-3" />
+                </span>
+                <span v-else-if="track.trackNumber" key="track-number">{{ track.trackNumber }}</span>
+                <span v-else key="fallback-number" class="opacity-30">{{ startIndex + i + 1 }}</span>
+              </Transition>
             </div>
-          </td>
-          <td v-if="showArtist" :class="[rowPy, 'px-3 text-zinc-400 hidden sm:table-cell overflow-hidden']">
-            <div class="truncate">
-              <template v-for="(artist, ai) in track.artists" :key="ai">
-                <span v-if="ai > 0">, </span>
-                <router-link
-                  :to="{ name: 'artist', params: { name: artist } }"
-                  class="hover:text-zinc-100 hover:underline"
-                  @click.stop
-                >{{ artist }}</router-link>
-              </template>
+
+            <div class="min-w-0">
+              <div class="flex items-center gap-3 min-w-0">
+                <div v-if="showCover" class="relative shrink-0">
+                  <CoverArt
+                    :cover="track.deleted ? '' : track.cover"
+                    size="w-10 h-10 shrink-0"
+                    :class="isPlayingTrack(track) && !useTrackNumber ? 'opacity-45' : ''"
+                  />
+                  <Transition name="cover-indicator">
+                    <div
+                      v-if="isPlayingTrack(track) && !useTrackNumber"
+                      class="absolute inset-0 flex items-center justify-center"
+                      :class="`text-${accentColor}-100`"
+                    >
+                      <Icon :path="state.repeat === 'one' ? mdiRepeatOnce : mdiPlay" class="w-4 h-4 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]" />
+                    </div>
+                  </Transition>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate text-sm font-medium" :class="isCurrentTrack(track) ? `text-${accentColor}-200` : 'text-zinc-100'">
+                    {{ track.title }}
+                  </p>
+
+                  <div class="mt-1 min-w-0 text-xs text-zinc-500">
+                    <div class="flex min-w-0 items-center gap-x-1 whitespace-nowrap overflow-hidden sm:hidden">
+                      <template v-if="showArtist || showAlbum">
+                        <div v-if="showArtist" class="truncate text-zinc-400">
+                          <template v-for="(artist, ai) in track.artists" :key="ai">
+                            <span v-if="ai > 0">, </span>
+                            <router-link
+                              :to="{ name: 'artist', params: { name: artist } }"
+                              class="hover:text-zinc-100 hover:underline"
+                              @click.stop
+                            >{{ artist }}</router-link>
+                          </template>
+                        </div>
+
+                        <router-link
+                          v-if="showAlbum && !showArtist"
+                          :to="{ name: 'album', params: { artist: track.artists[0], album: track.album } }"
+                          class="truncate text-zinc-400 hover:text-zinc-100 hover:underline"
+                          @click.stop
+                        >{{ track.album }}</router-link>
+                      </template>
+
+                      <template v-else>
+                        <span v-if="showPlays" class="shrink-0">{{ track.playCount || 0 }} play{{ (track.playCount || 0) === 1 ? '' : 's' }}</span>
+                        <span
+                          v-if="showPlays && showLastPlayed && (track.playedAt ?? track.lastPlayedAt)"
+                          class="shrink-0 px-0.5 text-white/10"
+                          aria-hidden="true"
+                        >•</span>
+                        <span v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt)" class="shrink-0">
+                          Last played {{ timeAgo(track.playedAt ?? track.lastPlayedAt) }}
+                        </span>
+                      </template>
+                    </div>
+
+                    <div class="hidden min-w-0 overflow-hidden sm:block">
+                      <div class="inline-flex max-w-full items-center gap-x-1 whitespace-nowrap align-top">
+                      <div v-if="showArtist" class="shrink-0 text-zinc-400">
+                        <template v-for="(artist, ai) in track.artists" :key="ai">
+                          <span v-if="ai > 0">, </span>
+                          <router-link
+                          :to="{ name: 'artist', params: { name: artist } }"
+                          class="hover:text-zinc-100 hover:underline"
+                          @click.stop
+                        >{{ artist }}</router-link>
+                      </template>
+                      </div>
+
+                      <span
+                        v-if="showArtist && showAlbum"
+                        class="shrink-0 px-0.5 text-white/10"
+                        aria-hidden="true"
+                      >•</span>
+                      <router-link
+                        v-if="showAlbum"
+                        :to="{ name: 'album', params: { artist: track.artists[0], album: track.album } }"
+                        class="shrink-0 text-zinc-400 hover:text-zinc-100 hover:underline"
+                        @click.stop
+                      >{{ track.album }}</router-link>
+
+                      <span
+                        v-if="showPlays && (showArtist || showAlbum)"
+                        class="shrink-0 px-0.5 text-white/10"
+                        aria-hidden="true"
+                      >•</span>
+                      <span v-if="showPlays" class="shrink-0">{{ track.playCount || 0 }} play{{ (track.playCount || 0) === 1 ? '' : 's' }}</span>
+
+                      <span
+                        v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt) && (showArtist || showAlbum || showPlays)"
+                        class="shrink-0 px-0.5 text-white/10"
+                        aria-hidden="true"
+                      >•</span>
+                      <span v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt)" class="shrink-0">
+                        Last played {{ timeAgo(track.playedAt ?? track.lastPlayedAt) }}
+                      </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-          </td>
-          <td v-if="showAlbum" :class="[rowPy, 'px-3 text-zinc-400 hidden md:table-cell overflow-hidden']">
-            <router-link
-              :to="{ name: 'album', params: { artist: track.artists[0], album: track.album } }"
-              class="hover:text-zinc-100 hover:underline truncate block"
-              @click.stop
-            >{{ track.album }}</router-link>
-          </td>
-          <td v-if="showPlays" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">{{ track.playCount || 0 }}</td>
-          <td v-if="showLastPlayed" :class="[rowPy, 'px-3 text-center text-zinc-500 hidden sm:table-cell']">
-            {{ (track.playedAt ?? track.lastPlayedAt) ? timeAgo(track.playedAt ?? track.lastPlayedAt) : '' }}
-          </td>
-          <td :class="[rowPy, 'px-1 align-middle']">
+          </div>
+
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span
+              class="hidden pr-1 text-sm tabular-nums sm:inline"
+              :class="menuRowIndex === i ? 'hidden' : 'text-zinc-500'"
+            >{{ formatTime(track.duration) }}</span>
             <button
               v-if="!track.deleted"
-              class="flex items-center justify-center w-full transition-opacity"
+              class="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
               :class="track.isLoved
-                ? 'text-rose-400'
-                : 'text-zinc-500 hover:text-zinc-400 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:pointer-events-none sm:group-hover:pointer-events-auto'"
+                ? 'bg-zinc-800/70 text-rose-400'
+                : 'text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-300'"
               @click.stop="toggleLove(track)"
             >
-              <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-3.5 h-3.5" />
+              <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-4 h-4" />
             </button>
-          </td>
-          <td :class="[rowPy, 'px-3 text-right text-zinc-500']">
-            <span :class="menuRowIndex === i ? 'hidden' : 'group-hover:hidden sm:block hidden'" class="tabular-nums">{{ formatTime(track.duration) }}</span>
             <button
               v-if="!track.deleted"
-              :class="menuRowIndex === i ? 'flex' : 'flex sm:hidden sm:group-hover:flex'"
-              class="items-center justify-end w-full text-zinc-500 hover:text-zinc-300"
+              class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300"
               @click.stop="openMenu($event, i, track)"
             >
-              <Icon :path="mdiDotsVertical" class="w-3.5 h-3.5" />
+              <Icon :path="mdiDotsVertical" class="w-4 h-4" />
             </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+        </div>
+      </div>
   </div>
 
   <TrackContextMenu
@@ -467,12 +449,41 @@ defineExpose({ playAll, playShuffle });
 </template>
 
 <style scoped>
-.drop-above > td {
+.drop-above {
   box-shadow: inset 0 2px 0 var(--indicator);
 }
-.drop-below > td {
+.drop-below {
   box-shadow: inset 0 -2px 0 var(--indicator);
 }
+.cover-indicator-enter-active,
+.cover-indicator-leave-active,
+.track-indicator-enter-active,
+.track-indicator-leave-active {
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.cover-indicator-enter-from,
+.cover-indicator-leave-to,
+.track-indicator-enter-from,
+.track-indicator-leave-to {
+  opacity: 0;
+}
+
+.cover-indicator-enter-from,
+.cover-indicator-leave-to {
+  transform: scale(0.92);
+}
+
+.track-indicator-enter-from,
+.track-indicator-leave-to {
+  transform: translateY(2px);
+}
 @media (prefers-reduced-motion: reduce) {
+  .cover-indicator-enter-active,
+  .cover-indicator-leave-active,
+  .track-indicator-enter-active,
+  .track-indicator-leave-active {
+    transition: none;
+  }
 }
 </style>

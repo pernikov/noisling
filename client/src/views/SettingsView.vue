@@ -30,6 +30,7 @@ import CoverArt from '../components/CoverArt.vue';
 import IconButton from '../components/IconButton.vue';
 import EditTrackMetadataModal from '../components/EditTrackMetadataModal.vue';
 import EditAlbumCoverModal from '../components/EditAlbumCoverModal.vue';
+import TrackList from '../components/TrackList.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -66,7 +67,7 @@ watch(activeTab, (tab) => {
   }
 });
 
-const { state: playerState, playAlbum } = usePlayer();
+const { state: playerState } = usePlayer();
 const playerStateRef = computed(() => playerState);
 
 const {
@@ -158,10 +159,6 @@ function topSectionToggleLabel(key, items = []) {
 
 function formatPlaysLabel(plays) {
   return `${plays.toLocaleString()} play${plays === 1 ? '' : 's'}`;
-}
-
-function playTopTrack(index) {
-  if (stats.value?.topTracks?.length) playAlbum(stats.value.topTracks, index);
 }
 
 const LIBRARY_HEALTH_ITEMS = [
@@ -679,26 +676,19 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Most Played Tracks</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topTracks ? '' : '-rotate-90'" />
           </button>
-          <div v-show="statsOpen.topTracks" class="mt-4 space-y-2">
-            <button
-              v-for="(track, i) in visibleTopItems('topTracks', stats.topTracks)"
-              :key="`${track.title}-${track.artists?.[0] ?? 'unknown'}-${track.album ?? 'unknown'}`"
-              class="group flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-3 text-left transition-colors hover:bg-zinc-800/60"
-              type="button"
-              @click="playTopTrack(i)"
-            >
-              <CoverArt :cover="track.cover" size="w-10 h-10 shrink-0 rounded-md" />
-              <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-medium text-zinc-100">{{ track.title }}</div>
-                <div class="truncate text-xs text-zinc-500">{{ track.artists?.join(', ') }}<template v-if="track.album"> • {{ track.album }}</template></div>
-              </div>
-              <div class="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
-                {{ formatPlaysLabel(track.playCount) }}
-              </div>
-            </button>
+          <div v-show="statsOpen.topTracks" class="mt-4">
+            <TrackList
+              :tracks="visibleTopItems('topTracks', stats.topTracks)"
+              :play-tracks="stats.topTracks"
+              show-cover
+              show-artist
+              show-album
+              show-plays
+              hide-controls
+            />
             <button
               v-if="hasTopSectionOverflow(stats.topTracks)"
-              class="pt-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
+              class="pt-3 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
               @click="toggleTopSectionExpanded('topTracks')"
             >
               {{ topSectionToggleLabel('topTracks', stats.topTracks) }}
@@ -716,17 +706,18 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <button
               v-for="(artist, i) in visibleTopItems('topArtists', stats.topArtists)"
               :key="artist.name"
-              class="group flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-3 text-left transition-colors hover:bg-zinc-800/60"
+              class="group flex w-full items-center gap-3 rounded-2xl bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
               type="button"
               @click="router.push({ name: 'artist', params: { name: artist.name } })"
             >
               <ArtistCover :covers="artist.covers || []" size="w-10 h-10 shrink-0" wrapper-class="mb-0" />
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-medium text-zinc-100">{{ artist.name }}</div>
-                <div class="text-xs text-zinc-500">{{ artist.trackCount.toLocaleString() }} track{{ artist.trackCount !== 1 ? 's' : '' }}</div>
-              </div>
-              <div class="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
-                {{ formatPlaysLabel(artist.plays) }}
+                <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-zinc-500">
+                  <span>{{ artist.trackCount.toLocaleString() }} track{{ artist.trackCount !== 1 ? 's' : '' }}</span>
+                  <span class="shrink-0 px-0.5 text-white/10" aria-hidden="true">•</span>
+                  <span>{{ formatPlaysLabel(artist.plays) }}</span>
+                </div>
               </div>
             </button>
             <button
@@ -749,17 +740,20 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <button
               v-for="(album, i) in visibleTopItems('topAlbums', stats.topAlbums)"
               :key="`${album.name}-${album.artists?.[0] ?? 'unknown'}`"
-              class="group flex w-full items-center gap-3 rounded-xl border border-zinc-800/80 bg-zinc-800/30 px-3 py-3 text-left transition-colors hover:bg-zinc-800/60"
+              class="group flex w-full items-center gap-3 rounded-2xl bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
               type="button"
               @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
             >
               <CoverArt :cover="album.cover" size="w-10 h-10 shrink-0 rounded-md" />
               <div class="min-w-0 flex-1">
                 <div class="truncate text-sm font-medium text-zinc-100">{{ album.name }}</div>
-                <div class="truncate text-xs text-zinc-500">{{ album.artists?.join(', ') }}</div>
-              </div>
-              <div class="shrink-0 rounded-full border border-zinc-700 bg-zinc-800 px-2.5 py-1 text-xs text-zinc-300">
-                {{ formatPlaysLabel(album.plays) }}
+                <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-zinc-500">
+                  <span class="truncate max-w-full">{{ album.artists?.join(', ') }}</span>
+                  <span class="shrink-0 px-0.5 text-white/10" aria-hidden="true">•</span>
+                  <span>{{ album.trackCount?.toLocaleString?.() ?? 0 }} track{{ album.trackCount === 1 ? '' : 's' }}</span>
+                  <span class="shrink-0 px-0.5 text-white/10" aria-hidden="true">•</span>
+                  <span>{{ formatPlaysLabel(album.plays) }}</span>
+                </div>
               </div>
             </button>
             <button
