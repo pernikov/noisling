@@ -263,7 +263,6 @@ defineExpose({ playAll, playShuffle });
               ? 'cursor-default opacity-40'
               : 'cursor-pointer hover:bg-zinc-800/55',
             isCurrentTrack(track) ? 'bg-zinc-800/65 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]' : 'bg-zinc-800/35',
-            { [`text-${accentColor}-300`]: isCurrentTrack(track) },
             { 'bg-zinc-800/75': menuRowIndex === i },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
@@ -324,7 +323,7 @@ defineExpose({ playAll, playShuffle });
                   </Transition>
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium" :class="isCurrentTrack(track) ? `text-${accentColor}-200` : 'text-zinc-100'">
+                  <p class="truncate text-sm font-medium" :class="isCurrentTrack(track) ? `text-${accentColor}-400` : 'text-zinc-100'">
                     {{ track.title }}
                   </p>
 
