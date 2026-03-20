@@ -146,7 +146,7 @@ function flatIndex(type, i) {
   <!-- Navbar trigger — icon-only, matches other nav buttons -->
   <button
     @click="openSearch"
-    class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
+    class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded-lg hover:bg-white/10"
     :class="{ '!text-zinc-100': open }"
     aria-label="Search"
   >
@@ -155,7 +155,7 @@ function flatIndex(type, i) {
 
   <!-- Modal -->
   <BaseModal :show="open" align="top" @close="closeSearch">
-        <div class="bg-zinc-900 border border-zinc-700/80 rounded-xl shadow-2xl w-full max-w-xl overflow-hidden">
+        <div class="bg-zinc-900 border border-zinc-700/80 rounded-lg shadow-2xl w-full max-w-xl overflow-hidden">
 
           <!-- Input -->
           <div class="flex items-center px-4 border-b border-zinc-800">
@@ -170,7 +170,7 @@ function flatIndex(type, i) {
             />
             <button
               @click="closeSearch"
-              class="text-zinc-600 hover:text-zinc-400 transition-colors p-1 ml-2 rounded"
+              class="text-zinc-600 hover:text-zinc-400 transition-colors p-1 ml-2 rounded-lg"
             >
               <Icon :path="mdiClose" class="w-4 h-4" />
             </button>

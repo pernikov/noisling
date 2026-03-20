@@ -154,7 +154,7 @@ watch(
 <template>
   <div
     v-if="track"
-    class="pending-play-status relative overflow-hidden rounded-2xl px-4 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.85)]"
+    class="pending-play-status relative overflow-hidden rounded-lg px-4 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.85)]"
     :class="[
       'py-3',
       {
@@ -170,7 +170,7 @@ watch(
     <span class="pending-play-status__sheen"></span>
 
     <div class="relative z-10 flex items-center gap-3 min-w-0">
-      <CoverArt :cover="track.cover" size="w-10 h-10 shrink-0 rounded-md" />
+      <CoverArt :cover="track.cover" size="w-10 h-10 shrink-0 rounded-lg" />
 
       <div class="min-w-0 flex-1">
         <div class="truncate text-sm font-medium text-zinc-100">{{ track.title }}</div>

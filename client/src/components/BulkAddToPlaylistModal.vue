@@ -210,7 +210,7 @@ async function addTracks() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-xl border border-zinc-800 w-full max-w-sm shadow-2xl flex flex-col" style="max-height: 80vh">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 w-full max-w-sm shadow-2xl flex flex-col" style="max-height: 80vh">
       <!-- Header -->
       <div class="px-5 pt-5 pb-3 border-b border-zinc-800 shrink-0">
         <h2 class="text-base font-bold font-display">Add tracks</h2>

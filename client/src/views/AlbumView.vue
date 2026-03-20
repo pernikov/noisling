@@ -147,7 +147,7 @@ async function onTrackUpdated() {
       </div>
       <!-- Track list -->
       <div class="sm:hidden space-y-2">
-        <div v-for="i in 6" :key="`mobile-${i}`" class="rounded-2xl bg-zinc-900/35">
+        <div v-for="i in 6" :key="`mobile-${i}`" class="rounded-lg bg-zinc-900/35">
           <div class="flex items-center gap-3 px-3 py-3.5">
             <div class="w-11 h-11 bg-zinc-800 rounded-lg shrink-0"></div>
             <div class="flex-1 min-w-0 space-y-2">
@@ -161,7 +161,7 @@ async function onTrackUpdated() {
 
       <div class="hidden sm:block">
         <div class="space-y-2">
-          <div v-for="i in 8" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-2xl bg-zinc-900/35 px-3 py-3">
+          <div v-for="i in 8" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-lg bg-zinc-900/35 px-3 py-3">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-10 h-10 bg-zinc-800 rounded-lg shrink-0"></div>
               <div class="min-w-0 flex-1 space-y-2">
@@ -189,7 +189,7 @@ async function onTrackUpdated() {
         <button
           v-if="albumInfo.cover"
           :class="coverSize"
-          class="cursor-zoom-in shrink-0 rounded overflow-hidden relative group/cover transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
+          class="cursor-zoom-in shrink-0 rounded-lg overflow-hidden relative group/cover transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
           @click="openCoverModal"
         >
           <CoverArt :cover="albumInfo.cover" :size="'w-full h-full'" />
@@ -205,7 +205,7 @@ async function onTrackUpdated() {
         <button
           v-else
           :class="coverSize"
-          class="shrink-0 rounded overflow-hidden relative group/cover transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
+          class="shrink-0 rounded-lg overflow-hidden relative group/cover transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99]"
           @click="openEditCover"
         >
           <CoverArt :cover="''" :size="'w-full h-full'" />

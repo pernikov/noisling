@@ -290,7 +290,9 @@ function goToAlbum(album) {
 
 <template>
   <div class="space-y-10">
-    <h1 class="text-2xl font-bold font-display">{{ greeting }}</h1>
+    <div class="flex">
+      <h1 class="flex min-h-11 items-center text-2xl font-bold font-display">{{ greeting }}</h1>
+    </div>
 
     <!-- Quick Actions -->
     <section>
@@ -300,7 +302,7 @@ function goToAlbum(album) {
         <button
           @click="playShuffleAll"
           :disabled="loadingShuffleAll"
-          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingShuffleAll" class="absolute inset-0 flex items-center justify-center bg-black/20">
             <Spinner class="w-8 h-8 text-white" />
@@ -314,7 +316,7 @@ function goToAlbum(album) {
         <button
           @click="playTopTracks"
           :disabled="loadingTopTracks"
-          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingTopTracks" class="absolute inset-0 flex items-center justify-center bg-black/20">
             <Spinner class="w-8 h-8 text-white" />
@@ -328,7 +330,7 @@ function goToAlbum(album) {
         <button
           @click="playLovedTracks"
           :disabled="loadingLoved || lovedTracks.length === 0"
-          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-xl p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
+          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
         >
           <Icon :path="mdiHeart" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
           <div class="text-base sm:text-lg font-bold font-display text-white">Loved Tracks</div>
@@ -359,7 +361,7 @@ function goToAlbum(album) {
 
       <div v-if="loadingRecent" class="animate-pulse">
         <div class="sm:hidden space-y-2">
-          <div v-for="i in 4" :key="`mobile-${i}`" class="rounded-2xl bg-zinc-900/35">
+          <div v-for="i in 4" :key="`mobile-${i}`" class="rounded-lg bg-zinc-900/35">
             <div class="flex items-center gap-3 px-3 py-3.5">
               <div class="w-11 h-11 bg-zinc-800 rounded-lg shrink-0"></div>
               <div class="flex-1 min-w-0 space-y-2">
@@ -373,7 +375,7 @@ function goToAlbum(album) {
 
         <div class="hidden sm:block">
           <div class="space-y-2">
-            <div v-for="i in 5" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-2xl bg-zinc-900/35 px-3 py-3">
+            <div v-for="i in 5" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-lg bg-zinc-900/35 px-3 py-3">
               <div class="flex items-center gap-3 min-w-0">
                 <div class="w-10 h-10 bg-zinc-800 rounded-lg shrink-0"></div>
                 <div class="min-w-0 flex-1 space-y-2">
@@ -395,7 +397,7 @@ function goToAlbum(album) {
         </div>
       </div>
 
-      <div v-else-if="recentTracksForDisplay.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
+      <div v-else-if="recentTracksForDisplay.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
         <Icon :path="mdiHistory" class="w-8 h-8 text-zinc-600" />
         <p class="text-sm font-medium text-zinc-400">Nothing played yet</p>
         <p class="text-xs text-zinc-600">Your recently played tracks will show up here.</p>
@@ -441,7 +443,7 @@ function goToAlbum(album) {
         </div>
       </div>
 
-      <div v-else-if="currentAlbumItems.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
+      <div v-else-if="currentAlbumItems.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
         <Icon :path="mdiAlbum" class="w-8 h-8 text-zinc-600" />
         <p class="text-sm font-medium text-zinc-400">{{ currentAlbumEmptyState.title }}</p>
         <p class="text-xs text-zinc-600">

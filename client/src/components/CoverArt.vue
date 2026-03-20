@@ -32,7 +32,7 @@ function onLoad() {
 </script>
 
 <template>
-  <div :class="[props.size, 'relative rounded overflow-hidden flex-shrink-0 bg-zinc-800']">
+  <div :class="[props.size, 'relative rounded-lg overflow-hidden flex-shrink-0 bg-zinc-800']">
     <!-- Spinner while loading -->
     <div
       v-if="props.showSpinner && props.cover && !loaded"

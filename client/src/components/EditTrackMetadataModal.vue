@@ -103,7 +103,7 @@ async function revert() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 w-full max-w-lg shadow-2xl">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-lg shadow-2xl">
       <div class="flex items-start justify-between gap-4 mb-5">
         <div>
           <h2 class="text-lg font-bold font-display">Edit track metadata</h2>
@@ -120,7 +120,7 @@ async function revert() {
       <div class="space-y-3">
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Title</label>
-          <FormInput v-model="title" type="text" class="w-full px-3 py-2" :disabled="loading || saving || reverting" autofocus />
+          <FormInput v-model="title" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" autofocus />
         </div>
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Artists</label>
@@ -129,20 +129,20 @@ async function revert() {
         </div>
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Album</label>
-          <FormInput v-model="album" type="text" class="w-full px-3 py-2" :disabled="loading || saving || reverting" />
+          <FormInput v-model="album" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" />
         </div>
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Album artist</label>
-          <FormInput v-model="albumArtist" type="text" class="w-full px-3 py-2" :disabled="loading || saving || reverting" />
+          <FormInput v-model="albumArtist" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" />
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="block text-xs text-zinc-500 mb-1">Track #</label>
-            <FormInput v-model="trackNumber" type="number" min="0" class="w-full px-3 py-2" :disabled="loading || saving || reverting" />
+            <FormInput v-model="trackNumber" type="number" min="0" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" />
           </div>
           <div>
             <label class="block text-xs text-zinc-500 mb-1">Year</label>
-            <FormInput v-model="year" type="number" min="0" class="w-full px-3 py-2" :disabled="loading || saving || reverting" />
+            <FormInput v-model="year" type="number" min="0" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" />
           </div>
         </div>
       </div>

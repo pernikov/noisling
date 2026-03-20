@@ -1,30 +1,53 @@
 <script setup>
+import { computed } from 'vue'
 import Icon from './Icon.vue'
 import Spinner from './Spinner.vue'
-defineProps({
+import {
+  CONTROL_BUTTON_BASE_CLASS,
+  CONTROL_BUTTON_SIZE_CLASS,
+  CONTROL_BUTTON_VARIANT_CLASS,
+  CONTROL_ICON_ONLY_SIZE_CLASS,
+  useAccentButtonStyle,
+} from './buttonStyles.js'
+
+const props = defineProps({
   icon: { type: String, required: true },
   label: { type: String, required: true },
   disabled: { type: Boolean, default: false },
   loading: { type: Boolean, default: false },
-  variant: { type: String, default: 'default' }, // 'default' | 'destructive'
+  variant: { type: String, default: 'ghost' }, // 'ghost' | 'muted' | 'destructive' | 'accent'
+  size: { type: String, default: 'md' }, // 'sm' | 'md'
   hideLabelOnMobile: { type: Boolean, default: true },
+  iconOnly: { type: Boolean, default: false },
+})
+
+const { accentStyle } = useAccentButtonStyle()
+
+const buttonClass = computed(() => {
+  const sizeClass = props.iconOnly
+    ? (CONTROL_ICON_ONLY_SIZE_CLASS[props.size] ?? CONTROL_ICON_ONLY_SIZE_CLASS.md)
+    : (CONTROL_BUTTON_SIZE_CLASS[props.size] ?? CONTROL_BUTTON_SIZE_CLASS.md)
+
+  return [
+    CONTROL_BUTTON_BASE_CLASS,
+    sizeClass,
+    props.iconOnly ? 'gap-0' : null,
+    props.variant === 'accent'
+      ? 'hover:brightness-95 shadow-sm'
+      : (CONTROL_BUTTON_VARIANT_CLASS[props.variant] ?? CONTROL_BUTTON_VARIANT_CLASS.ghost),
+  ]
 })
 </script>
 
 <template>
   <button
-    :disabled="disabled"
-    class="flex items-center gap-2 text-sm rounded-lg disabled:opacity-40 transition-all active:scale-95"
-    :class="[
-      'px-3.5 py-2.5 min-h-11 sm:min-h-0',
-      variant === 'destructive'
-        ? 'bg-red-600/10 text-red-400 hover:bg-red-600/20'
-        : 'bg-zinc-800 hover:bg-zinc-700 ring-1 ring-zinc-700/60 sm:ring-0',
-      'sm:p-2 sm:px-4 sm:py-2',
-    ]"
+    :disabled="disabled || loading"
+    :class="buttonClass"
+    :style="variant === 'accent' ? accentStyle : undefined"
+    :aria-label="iconOnly ? label : undefined"
   >
     <Spinner v-if="loading" class="w-4 h-4" />
     <Icon v-else :path="icon" class="w-4 h-4" />
-    <span :class="hideLabelOnMobile ? 'hidden sm:inline' : ''">{{ label }}</span>
+    <span v-if="!iconOnly" :class="hideLabelOnMobile ? 'hidden sm:inline' : ''">{{ label }}</span>
   </button>
 </template>

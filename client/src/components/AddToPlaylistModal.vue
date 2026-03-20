@@ -69,7 +69,7 @@ async function confirmCreate() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-xl border border-zinc-800 w-full max-w-sm shadow-2xl">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 w-full max-w-sm shadow-2xl">
       <!-- Header with track info -->
       <div class="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-zinc-800">
         <CoverArt
@@ -108,7 +108,7 @@ async function confirmCreate() {
             v-model="newName"
             type="text"
             placeholder="Playlist name"
-            class="flex-1 px-3 py-2"
+            class="flex-1 px-3.5 py-2.5"
             @keydown.enter="confirmCreate"
             @keydown.esc="creating = false"
           />

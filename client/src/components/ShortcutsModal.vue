@@ -44,7 +44,7 @@ const groups = [
 
 <template>
   <BaseModal :show="playerState.showShortcuts" @close="toggleShortcuts">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-sm p-6">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl w-full max-w-sm p-6">
       <div class="flex items-center justify-between mb-5">
         <h2 class="font-display font-bold text-lg">Keyboard Shortcuts</h2>
         <ModalCloseButton @click="toggleShortcuts" />

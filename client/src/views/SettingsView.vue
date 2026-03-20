@@ -219,7 +219,9 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold mb-6 font-display">Settings</h1>
+    <div class="flex mb-6">
+      <h1 class="flex min-h-11 items-center text-2xl font-bold font-display">Settings</h1>
+    </div>
 
     <!-- Segmented Nav -->
     <TabBar v-model="activeTab" :tabs="TABS" mobile-full class="mb-8" />
@@ -227,7 +229,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
     <!-- Appearance tab -->
     <div v-if="activeTab === 'appearance'" class="space-y-6">
       <!-- Colors section -->
-      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
+      <section class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 space-y-6">
         <div>
           <p class="text-sm font-medium text-zinc-200">Colors</p>
           <p class="text-xs text-zinc-500 mt-1">Accent, background, and highlight color options.</p>
@@ -285,7 +287,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
       </section>
 
       <!-- Display section -->
-      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
+      <section class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 space-y-6">
         <div>
           <p class="text-sm font-medium text-zinc-200">Display</p>
           <p class="text-xs text-zinc-500 mt-1">Scale and motion controls.</p>
@@ -328,7 +330,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
       </section>
 
       <!-- Layout section -->
-      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-5">
+      <section class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 space-y-5">
         <div>
           <p class="text-sm font-medium text-zinc-200">Layout</p>
           <p class="text-xs text-zinc-500 mt-1">One layout toggle and one home-content preference.</p>
@@ -372,7 +374,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
 
     <!-- Library tab -->
     <div v-else-if="activeTab === 'library'" class="space-y-6">
-      <section class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 space-y-6">
+      <section class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 space-y-6">
         <div>
           <p class="text-sm text-zinc-500">Scan your music directory for new tracks or manage your library.</p>
         </div>
@@ -380,8 +382,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0 flex-1 pr-2">
               <p class="text-sm font-medium text-zinc-200">Scan for music</p>
               <p class="text-xs text-zinc-500">Discover and index new audio files from your library folder.</p>
             </div>
@@ -495,8 +497,8 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         <div class="border-t border-zinc-800" />
 
         <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <div>
+          <div class="flex items-center justify-between gap-4">
+            <div class="min-w-0 flex-1 pr-2">
               <p class="text-sm font-medium text-zinc-200">Delete library</p>
               <p class="text-xs text-zinc-500">Remove all tracks, cover art, and play statistics.</p>
             </div>
@@ -535,7 +537,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
     <div v-else-if="activeTab === 'stats'" class="space-y-4">
       <div v-if="statsLoading" class="space-y-4 animate-pulse">
         <!-- Library Overview + Formats skeleton -->
-        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
           <div class="h-3 bg-zinc-800 rounded w-36 mb-4"></div>
           <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div v-for="i in 4" :key="`primary-${i}`" class="bg-zinc-800/50 rounded-lg p-4">
@@ -561,7 +563,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           </div>
         </div>
         <!-- Most Played Tracks skeleton -->
-        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
           <div class="h-3 bg-zinc-800 rounded w-44 mb-4"></div>
           <div class="space-y-1">
             <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
@@ -576,7 +578,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           </div>
         </div>
         <!-- Top Artists skeleton -->
-        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
           <div class="h-3 bg-zinc-800 rounded w-28 mb-4"></div>
           <div class="space-y-1">
             <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
@@ -590,7 +592,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           </div>
         </div>
         <!-- Top Albums skeleton -->
-        <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6">
+        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
           <div class="h-3 bg-zinc-800 rounded w-28 mb-4"></div>
           <div class="space-y-1">
             <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
@@ -608,7 +610,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
 
       <template v-else-if="stats">
         <!-- Library Overview -->
-        <section class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+        <section class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
           <button class="flex items-center justify-between w-full" @click="toggleStats('overview')">
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Library Overview</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.overview ? '' : '-rotate-90'" />
@@ -671,7 +673,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         </section>
 
         <!-- Most Played Tracks -->
-        <section v-if="stats.topTracks.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+        <section v-if="stats.topTracks.length > 0" class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
           <button class="flex items-center justify-between w-full" @click="toggleStats('topTracks')">
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Most Played Tracks</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topTracks ? '' : '-rotate-90'" />
@@ -697,7 +699,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         </section>
 
         <!-- Top Artists -->
-        <section v-if="stats.topArtists.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+        <section v-if="stats.topArtists.length > 0" class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
           <button class="flex items-center justify-between w-full" @click="toggleStats('topArtists')">
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Artists</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topArtists ? '' : '-rotate-90'" />
@@ -706,7 +708,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <button
               v-for="(artist, i) in visibleTopItems('topArtists', stats.topArtists)"
               :key="artist.name"
-              class="group flex w-full items-center gap-3 rounded-2xl bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
+              class="group flex w-full items-center gap-3 rounded-lg bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
               type="button"
               @click="router.push({ name: 'artist', params: { name: artist.name } })"
             >
@@ -731,7 +733,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         </section>
 
         <!-- Top Albums -->
-        <section v-if="stats.topAlbums.length > 0" class="bg-zinc-900 rounded-xl border border-zinc-800 px-6 py-4">
+        <section v-if="stats.topAlbums.length > 0" class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
           <button class="flex items-center justify-between w-full" @click="toggleStats('topAlbums')">
             <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Albums</h2>
             <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topAlbums ? '' : '-rotate-90'" />
@@ -740,7 +742,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <button
               v-for="(album, i) in visibleTopItems('topAlbums', stats.topAlbums)"
               :key="`${album.name}-${album.artists?.[0] ?? 'unknown'}`"
-              class="group flex w-full items-center gap-3 rounded-2xl bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
+              class="group flex w-full items-center gap-3 rounded-lg bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
               type="button"
               @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
             >
@@ -767,7 +769,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
         </section>
 
         <!-- Empty state -->
-        <div v-if="stats.totalPlays === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
+        <div v-if="stats.totalPlays === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
           <Icon :path="mdiHeadphones" class="w-8 h-8 text-zinc-600" />
           <p class="text-sm font-medium text-zinc-400">No listening data yet</p>
           <p class="text-xs text-zinc-600">Play some tracks and your stats will show up here.</p>
@@ -788,7 +790,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
     />
 
     <BaseModal :show="showLibraryHealthModal" @close="showLibraryHealthModal = false">
-      <div class="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl flex flex-col max-h-[80vh]">
+      <div class="w-full max-w-2xl bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl flex flex-col max-h-[80vh]">
         <!-- Header -->
         <div class="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
           <div>

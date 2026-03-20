@@ -74,7 +74,7 @@ function formatDuration(seconds) {
 
     <template v-else>
       <div v-if="loading" class="animate-pulse">
-        <div class="flex items-center justify-between mb-6 gap-4">
+        <div class="flex items-start justify-between mb-6 gap-4">
           <div class="h-8 bg-zinc-800 rounded w-48 max-w-[60%]"></div>
           <div class="flex items-center gap-2 shrink-0">
             <div class="h-10 w-24 bg-zinc-800 rounded-lg"></div>
@@ -92,9 +92,9 @@ function formatDuration(seconds) {
       </div>
 
       <template v-else>
-        <div class="flex items-center justify-between mb-6">
-          <h1 class="text-2xl font-bold font-display">{{ artistName }}</h1>
-          <div class="flex items-center gap-2">
+        <div class="flex items-start justify-between mb-6 gap-4">
+          <h1 class="flex min-h-11 items-center text-2xl font-bold font-display">{{ artistName }}</h1>
+          <div class="flex items-center gap-2 shrink-0">
             <IconButton :icon="mdiPlay" label="Play All" @click="playAll" />
             <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
           </div>

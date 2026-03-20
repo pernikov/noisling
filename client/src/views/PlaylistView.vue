@@ -133,7 +133,7 @@ async function deletePlaylist() {
   <div>
     <div v-if="loading" class="animate-pulse">
       <div class="flex flex-col sm:flex-row sm:items-end gap-5 mb-8">
-        <div class="shrink-0 w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto rounded-xl bg-zinc-800"></div>
+        <div class="shrink-0 w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto rounded-lg bg-zinc-800"></div>
         <div class="min-w-0 flex-1">
           <div class="h-2.5 bg-zinc-800/70 rounded w-16 mb-3"></div>
           <div class="h-8 bg-zinc-800 rounded w-56 max-w-[75%] mb-2"></div>
@@ -148,7 +148,7 @@ async function deletePlaylist() {
       </div>
 
       <div class="sm:hidden space-y-2">
-        <div v-for="i in 6" :key="`mobile-${i}`" class="rounded-2xl bg-zinc-900/35">
+        <div v-for="i in 6" :key="`mobile-${i}`" class="rounded-lg bg-zinc-900/35">
           <div class="flex items-center gap-3 px-3 py-3.5">
             <div class="w-11 h-11 bg-zinc-800 rounded-lg shrink-0"></div>
             <div class="flex-1 min-w-0 space-y-2">
@@ -162,7 +162,7 @@ async function deletePlaylist() {
 
       <div class="hidden sm:block">
         <div class="space-y-2">
-          <div v-for="i in 8" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-2xl bg-zinc-900/35 px-3 py-3">
+          <div v-for="i in 8" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-lg bg-zinc-900/35 px-3 py-3">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-10 h-10 bg-zinc-800 rounded-lg shrink-0"></div>
               <div class="min-w-0 flex-1 space-y-2">
@@ -189,7 +189,7 @@ async function deletePlaylist() {
       <div class="flex flex-col sm:flex-row sm:items-end gap-5 mb-8">
         <!-- Cover mosaic -->
         <div
-          class="shrink-0 w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto rounded-xl overflow-hidden bg-zinc-800"
+          class="shrink-0 w-full aspect-square sm:w-48 sm:h-48 sm:aspect-auto rounded-lg overflow-hidden bg-zinc-800"
         >
           <TransitionGroup
             v-if="mosaicCovers.length"
@@ -237,7 +237,7 @@ async function deletePlaylist() {
       </div>
 
       <!-- Track list -->
-      <div v-if="tracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 text-center">
+      <div v-if="tracks.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 text-center">
         <p class="text-sm text-zinc-500">No tracks yet.</p>
         <p class="text-xs text-zinc-600 mt-1">Add tracks via the "..." menu in any track list.</p>
       </div>

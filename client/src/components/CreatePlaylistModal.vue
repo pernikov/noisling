@@ -50,7 +50,7 @@ async function save() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 w-full max-w-sm shadow-2xl">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-sm shadow-2xl">
       <h2 class="text-lg font-bold font-display mb-5">
         {{ isRename ? 'Rename playlist' : (trackIds?.length ? 'Save queue as playlist' : 'New playlist') }}
       </h2>

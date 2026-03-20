@@ -90,7 +90,7 @@ async function revert() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-6 w-full max-w-md shadow-2xl">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-md shadow-2xl">
       <div class="mb-4">
         <h2 class="text-lg font-bold font-display">Edit album artwork</h2>
         <p class="text-xs text-zinc-500 mt-1">Stored in Noisling only.</p>
@@ -98,13 +98,13 @@ async function revert() {
 
       <div class="mb-4">
         <button
-          class="group relative mx-auto block w-full max-w-md aspect-square rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 transition-colors"
+          class="group relative mx-auto block w-full max-w-md aspect-square rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 transition-colors"
           :disabled="saving || reverting"
           @click="openPicker"
         >
           <CoverArt :cover="currentPreview" size="w-full h-full" />
           <div class="absolute inset-0 bg-black/0 group-hover:bg-black/35 transition-colors flex items-end justify-center p-4">
-            <div class="w-full rounded-xl bg-black/55 px-3 py-2 text-center text-xs text-zinc-200 opacity-90">
+            <div class="w-full rounded-lg bg-black/55 px-3 py-2 text-center text-xs text-zinc-200 opacity-90">
               {{ hasPreview ? 'Click to choose different artwork' : 'Click to choose artwork' }}
             </div>
           </div>

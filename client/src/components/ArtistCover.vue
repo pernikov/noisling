@@ -32,7 +32,7 @@ const displayCovers = computed(() => Array.isArray(props.covers) ? props.covers.
 </script>
 
 <template>
-  <div :class="[props.size, 'rounded overflow-hidden bg-zinc-800 relative', props.wrapperClass]">
+  <div :class="[props.size, 'rounded-lg overflow-hidden bg-zinc-800 relative', props.wrapperClass]">
     <!-- No covers -->
     <img
       v-if="layout === 'empty'"

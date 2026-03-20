@@ -113,9 +113,9 @@ function prevPage() {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold font-display">Tracks</h1>
-      <div class="flex items-center gap-2">
+    <div class="flex items-start justify-between mb-6 gap-4">
+      <h1 class="flex min-h-11 items-center text-2xl font-bold font-display">Tracks</h1>
+      <div class="flex items-center gap-2 shrink-0">
         <IconButton :icon="mdiPlay" label="Play All" @click="playAll" />
         <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
       </div>
@@ -123,7 +123,7 @@ function prevPage() {
 
     <div v-if="loading" class="animate-pulse">
       <div class="sm:hidden space-y-2">
-        <div v-for="i in 8" :key="`mobile-${i}`" class="rounded-2xl bg-zinc-900/35">
+        <div v-for="i in 8" :key="`mobile-${i}`" class="rounded-lg bg-zinc-900/35">
           <div class="flex items-center gap-3 px-3 py-3.5">
             <div class="w-11 h-11 bg-zinc-800 rounded-lg shrink-0"></div>
             <div class="flex-1 min-w-0 space-y-2">
@@ -137,7 +137,7 @@ function prevPage() {
 
       <div class="hidden sm:block">
         <div class="space-y-2">
-          <div v-for="i in 10" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-2xl bg-zinc-900/35 px-3 py-3">
+          <div v-for="i in 10" :key="`desktop-${i}`" class="grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-lg bg-zinc-900/35 px-3 py-3">
             <div class="flex items-center gap-3 min-w-0">
               <div class="w-10 h-10 bg-zinc-800 rounded-lg shrink-0"></div>
               <div class="min-w-0 flex-1 space-y-2">
@@ -159,7 +159,7 @@ function prevPage() {
       </div>
     </div>
 
-    <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-xl border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
+    <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiMusicNote" class="w-8 h-8 text-zinc-600" />
       <p class="text-sm font-medium text-zinc-400">No tracks yet</p>
       <p class="text-xs text-zinc-600"><router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.</p>

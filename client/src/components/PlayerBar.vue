@@ -25,6 +25,7 @@ import {
 } from "@mdi/js";
 import Icon from "./Icon.vue";
 import Tooltip from "./Tooltip.vue";
+import TransportButton from "./TransportButton.vue";
 
 const {
   state,
@@ -47,7 +48,7 @@ const {
   hasPrev,
 } = usePlayer();
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor } = useTheme();
+const { accentColor, accentRgb } = useTheme();
 
 const barStyle = computed(() => {
   if (!albumAccentColor.value) return {};
@@ -55,6 +56,10 @@ const barStyle = computed(() => {
     background: `linear-gradient(to right, rgba(${albumAccentColor.value}, 0.25), rgba(${albumAccentColor.value}, 0.1) 60%, transparent)`,
   };
 });
+
+const activeAccentStyle = computed(() => ({
+  color: `rgb(${accentRgb.value})`,
+}));
 
 
 // --- Progress scrubbing ---
@@ -206,57 +211,61 @@ const hoverTime = computed(() => {
       <div class="flex items-center gap-3">
         <!-- Shuffle -->
         <Tooltip label="Shuffle" :shortcut="state.shuffle ? 'S · on' : 'S'">
-          <button
-            class="transition-colors"
-            :class="state.shuffle ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+          <TransportButton
+            size="sm"
+            variant="bare"
+            :icon="mdiShuffle"
+            label="Shuffle"
+            :active="state.shuffle"
+            :active-style="activeAccentStyle"
             @click="toggleShuffle"
-          >
-            <Icon :path="mdiShuffle" class="w-4 h-4" />
-          </button>
+          />
         </Tooltip>
 
         <Tooltip label="Previous" shortcut="P">
-          <button
+          <TransportButton
             :disabled="!hasPrev"
-            class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
+            size="sm"
+            variant="bare"
+            :icon="mdiSkipPrevious"
+            label="Previous"
             @click="prev"
-          >
-            <Icon :path="mdiSkipPrevious" class="w-5 h-5" />
-          </button>
+          />
         </Tooltip>
 
         <Tooltip :label="state.isPlaying ? 'Pause' : 'Play'" shortcut="Space">
-          <button
-            class="w-8 h-8 rounded-full bg-zinc-100 text-zinc-900 flex items-center justify-center hover:scale-105 transition-transform"
-            @click="toggle"
-          >
-            <Transition name="icon-swap" mode="out-in">
-              <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-desktop'" />
-              <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-desktop'" />
-            </Transition>
-          </button>
+          <TransportButton size="sm" variant="solid" :label="state.isPlaying ? 'Pause' : 'Play'" @click="toggle">
+            <template #icon>
+              <Transition name="icon-swap" mode="out-in">
+                <Icon v-if="state.isPlaying" :path="mdiPause" class="w-4 h-4" :key="'pause-desktop'" />
+                <Icon v-else :path="mdiPlay" class="w-4 h-4" :key="'play-desktop'" />
+              </Transition>
+            </template>
+          </TransportButton>
         </Tooltip>
 
         <Tooltip label="Next" shortcut="N">
-          <button
+          <TransportButton
             :disabled="!hasNext"
-            class="text-zinc-400 hover:text-zinc-100 disabled:text-zinc-700 transition-colors"
+            size="sm"
+            variant="bare"
+            :icon="mdiSkipNext"
+            label="Next"
             @click="next"
-          >
-            <Icon :path="mdiSkipNext" class="w-5 h-5" />
-          </button>
+          />
         </Tooltip>
 
         <!-- Repeat -->
         <Tooltip :label="state.repeat === 'one' ? 'Repeat one' : state.repeat === 'all' ? 'Repeat all' : 'Repeat off'" shortcut="R">
-          <button
-            class="transition-colors"
-            :class="state.repeat !== 'off' ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+          <TransportButton
+            size="sm"
+            variant="bare"
+            :icon="state.repeat === 'one' ? mdiRepeatOnce : mdiRepeat"
+            label="Repeat"
+            :active="state.repeat !== 'off'"
+            :active-style="activeAccentStyle"
             @click="cycleRepeat"
-          >
-            <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-4 h-4" />
-            <Icon v-else :path="mdiRepeat" class="w-4 h-4" />
-          </button>
+          />
         </Tooltip>
       </div>
 
@@ -297,67 +306,68 @@ const hoverTime = computed(() => {
 
     <!-- Right group: love, visualizer, queue, volume -->
     <div
-      class="hidden sm:flex items-center gap-3 w-56 flex-shrink-0 justify-end"
+      class="hidden sm:flex items-center gap-px w-56 flex-shrink-0 justify-end"
     >
       <!-- Love -->
       <Tooltip :label="state.currentTrack.isLoved ? 'Unlove' : 'Love'" shortcut="L">
-        <button
-          class="transition-colors"
-          :class="state.currentTrack.isLoved
-            ? 'text-red-400 hover:text-red-300'
-            : 'text-zinc-400 hover:text-zinc-100'"
+        <TransportButton
+          size="xs"
+          variant="bare"
+          :icon="state.currentTrack.isLoved ? mdiHeart : mdiHeartOutline"
+          :label="state.currentTrack.isLoved ? 'Unlove' : 'Love'"
+          :active="state.currentTrack.isLoved"
+          :active-style="{ color: '#fb7185' }"
+          active-class="text-rose-400 hover:text-rose-300"
           @click="toggleLove()"
-          aria-label="Love track"
-        >
-          <Transition name="icon-swap" mode="out-in">
-            <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-4 h-4" :key="'loved'" />
-            <Icon v-else :path="mdiHeartOutline" class="w-4 h-4" :key="'unloved'" />
-          </Transition>
-        </button>
+        />
       </Tooltip>
 
       <Tooltip label="Add to playlist" shortcut="A">
-        <button
-          class="text-zinc-400 hover:text-zinc-100 transition-colors"
+        <TransportButton
+          size="xs"
+          variant="bare"
+          :icon="mdiPlaylistPlus"
+          label="Add to playlist"
           @click="openAddToPlaylist"
-          aria-label="Add to playlist"
-        >
-          <Icon :path="mdiPlaylistPlus" class="w-4 h-4" />
-        </button>
+        />
       </Tooltip>
       <!-- Queue toggle -->
       <Tooltip :label="'Queue (' + state.queue.length + ')'" shortcut="Q">
-        <button
-          class="transition-colors"
-          :class="state.showQueue ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+        <TransportButton
+          size="xs"
+          variant="bare"
+          :icon="mdiPlaylistMusic"
+          label="Queue"
+          :active="state.showQueue"
+          :active-style="activeAccentStyle"
           @click="toggleQueue"
-        >
-          <Icon :path="mdiPlaylistMusic" class="w-4 h-4" />
-        </button>
+        />
       </Tooltip>
 
       <!-- Visualizer -->
       <Tooltip label="Visualizer" shortcut="V">
-        <button
-          class="transition-colors disabled:text-zinc-700"
-          :class="state.showVisualizer ? `text-${accentColor}-400` : 'text-zinc-400 hover:text-zinc-100'"
+        <TransportButton
+          size="xs"
+          variant="bare"
+          :icon="mdiEyeOutline"
+          label="Visualizer"
+          :active="state.showVisualizer"
+          :active-style="activeAccentStyle"
           :disabled="!state.currentTrack"
           @click="toggleVisualizer"
-        >
-          <Icon :path="mdiEyeOutline" class="w-4 h-4" />
-        </button>
+        />
       </Tooltip>
 
       <!-- Volume -->
-      <div class="flex items-center gap-1.5 flex-1" @wheel.prevent="onVolumeWheel">
+      <div class="ml-1.5 flex items-center gap-1.5 w-32 flex-none" @wheel.prevent="onVolumeWheel">
         <Tooltip :label="state.volume === 0 ? 'Unmute' : 'Mute'" shortcut="M">
-          <button
-            class="text-zinc-400 hover:text-zinc-100 transition-colors flex-shrink-0"
+          <TransportButton
+            size="xs"
+            variant="bare"
+            :icon="state.volume === 0 ? mdiVolumeOff : mdiVolumeHigh"
+            :label="state.volume === 0 ? 'Unmute' : 'Mute'"
             @click="toggleMute"
-          >
-            <Icon v-if="state.volume === 0" :path="mdiVolumeOff" class="w-4 h-4" />
-            <Icon v-else :path="mdiVolumeHigh" class="w-4 h-4" />
-          </button>
+          />
         </Tooltip>
         <div class="relative flex-1 flex items-center" @mouseenter="showVolTooltip = true" @mouseleave="showVolTooltip = false">
           <Transition name="tooltip-fade">

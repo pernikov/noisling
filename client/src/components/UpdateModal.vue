@@ -121,7 +121,7 @@ function reload() {
 
 <template>
   <BaseModal :show="true" @close="close">
-    <div class="relative bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg p-6">
+    <div class="relative bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl w-full max-w-lg p-6">
           <!-- Header -->
           <div class="flex items-center justify-between mb-5">
             <div class="flex items-center gap-2">

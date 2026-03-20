@@ -10,6 +10,7 @@ import Spinner from './Spinner.vue';
 import QueueList from './QueueList.vue';
 import QueueActions from './QueueActions.vue';
 import AddToPlaylistModal from './AddToPlaylistModal.vue';
+import TransportButton from './TransportButton.vue';
 import { useToast } from '../composables/useToast.js';
 import {
   mdiChevronDown,
@@ -42,7 +43,7 @@ const {
 } = usePlayer();
 
 const { accentColor: albumAccentColor } = useAccentColor();
-const { accentColor } = useTheme();
+const { accentColor, accentRgb } = useTheme();
 const { show: showToast } = useToast();
 const api = useApi();
 const coverUrl = computed(() =>
@@ -419,7 +420,7 @@ onUnmounted(() => {
           </div>
 
           <!-- Top bar -->
-          <div class="relative flex items-center justify-between py-3 flex-shrink-0">
+          <div class="relative flex items-center py-3 flex-shrink-0">
             <button
               class="text-zinc-300 hover:text-white transition-colors p-1 -ml-1 rounded-full hover:bg-white/10"
               @click="toggleNowPlaying"
@@ -441,32 +442,29 @@ onUnmounted(() => {
                 @click="activeTab = 'queue'"
               >Queue</button>
             </div>
-            <span class="hidden sm:block text-xs uppercase tracking-widest text-zinc-400 font-medium">Now Playing</span>
+            <span class="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-xs uppercase tracking-widest text-zinc-400 font-medium sm:block">Now Playing</span>
 
             <!-- Track actions (hidden in queue tab) -->
-            <div v-if="activeTab === 'nowplaying'" class="flex items-center gap-0.5 -mr-1">
-              <button
-                class="flex h-11 w-11 items-center justify-center rounded-full text-zinc-300 transition-colors hover:bg-white/10 hover:text-white active:scale-95"
+            <div v-if="activeTab === 'nowplaying'" class="ml-auto flex items-center gap-0.5 -mr-1">
+              <TransportButton
+                size="md"
+                :icon="mdiPlaylistPlus"
+                label="Add to playlist"
+                variant="bare"
                 @click="openAddToPlaylist"
-                aria-label="Add to playlist"
-              >
-                <Icon :path="mdiPlaylistPlus" class="h-5 w-5" />
-              </button>
-              <button
-                class="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-white/10 active:scale-95"
-                :class="state.currentTrack.isLoved
-                  ? 'text-red-400'
-                  : 'text-zinc-300 hover:text-white'"
+              />
+              <TransportButton
+                size="md"
+                :icon="state.currentTrack.isLoved ? mdiHeart : mdiHeartOutline"
+                :label="state.currentTrack.isLoved ? 'Unlove' : 'Love'"
+                variant="bare"
+                :active="state.currentTrack.isLoved"
+                :active-style="{ color: '#fb7185' }"
+                active-class="text-rose-400 hover:text-rose-300"
                 @click="toggleLove()"
-                aria-label="Love track"
-              >
-                <Transition name="icon-swap" mode="out-in">
-                  <Icon v-if="state.currentTrack.isLoved" :path="mdiHeart" class="w-6 h-6" :key="'loved'" />
-                  <Icon v-else :path="mdiHeartOutline" class="w-6 h-6" :key="'unloved'" />
-                </Transition>
-              </button>
+              />
             </div>
-            <div v-else class="w-[5.5rem] h-11 flex-shrink-0" aria-hidden="true" />
+            <div v-else class="ml-auto w-[5.5rem] h-11 flex-shrink-0" aria-hidden="true" />
           </div>
 
           <!-- Tab content: both panels always mounted, crossfade via CSS opacity -->
@@ -507,7 +505,7 @@ onUnmounted(() => {
               </div>
 
               <div
-                class="relative aspect-square w-full rounded-xl overflow-hidden"
+                class="relative aspect-square w-full rounded-lg overflow-hidden"
                 style="box-shadow: 0 32px 80px rgba(0,0,0,0.6);"
               >
                 <!-- Placeholder when no cover -->
@@ -614,55 +612,57 @@ onUnmounted(() => {
 
             <!-- Playback controls -->
             <div class="flex items-center justify-between">
-              <button
-                class="transition-colors p-2 rounded-full hover:bg-white/10"
-                :class="state.shuffle ? `text-${accentColor}-400` : 'text-white/60 hover:text-white'"
+              <TransportButton
+                size="md"
+                :icon="mdiShuffle"
+                label="Shuffle"
+                variant="bare"
+                :active="state.shuffle"
+                :active-style="{ color: `rgb(${accentRgb})` }"
                 @click="toggleShuffle"
-                aria-label="Shuffle"
-              >
-                <Icon :path="mdiShuffle" class="w-5 h-5" />
-              </button>
+              />
 
-              <button
+              <TransportButton
                 :disabled="!hasPrev"
-                class="flex h-11 w-11 items-center justify-center rounded-full p-2 text-white transition-colors hover:bg-white/10 disabled:text-zinc-600 disabled:hover:bg-transparent"
+                size="md"
+                :icon="mdiSkipPrevious"
+                label="Previous"
+                variant="bare"
                 @click="prev"
-                aria-label="Previous"
-              >
-                <Icon :path="mdiSkipPrevious" class="w-9 h-9" />
-              </button>
+              />
 
-              <button
-                class="w-16 h-16 rounded-full bg-white text-zinc-900 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-lg"
+              <TransportButton
+                size="lg"
+                variant="solid"
+                :label="state.isPlaying ? 'Pause' : 'Play'"
                 @click="toggle"
-                :aria-label="state.isPlaying ? 'Pause' : 'Play'"
               >
-                <Transition name="icon-swap" mode="out-in">
-                  <Icon v-if="state.isPlaying" :path="mdiPause" class="w-8 h-8" :key="'pause'" />
-                  <Icon v-else :path="mdiPlay" class="w-8 h-8" :key="'play'" />
-                </Transition>
-              </button>
+                <template #icon>
+                  <Transition name="icon-swap" mode="out-in">
+                    <Icon v-if="state.isPlaying" :path="mdiPause" class="w-8 h-8" :key="'pause'" />
+                    <Icon v-else :path="mdiPlay" class="w-8 h-8" :key="'play'" />
+                  </Transition>
+                </template>
+              </TransportButton>
 
-              <button
+              <TransportButton
                 :disabled="!hasNext"
-                class="flex h-11 w-11 items-center justify-center rounded-full p-2 text-white transition-colors hover:bg-white/10 disabled:text-zinc-600 disabled:hover:bg-transparent"
+                size="md"
+                :icon="mdiSkipNext"
+                label="Next"
+                variant="bare"
                 @click="next"
-                aria-label="Next"
-              >
-                <Icon :path="mdiSkipNext" class="w-9 h-9" />
-              </button>
+              />
 
-              <button
-                class="transition-colors p-2 rounded-full hover:bg-white/10"
-                :class="state.repeat !== 'off' ? `text-${accentColor}-400` : 'text-white/60 hover:text-white'"
+              <TransportButton
+                size="md"
+                :icon="state.repeat === 'one' ? mdiRepeatOnce : mdiRepeat"
+                label="Repeat"
+                variant="bare"
+                :active="state.repeat !== 'off'"
+                :active-style="{ color: `rgb(${accentRgb})` }"
                 @click="cycleRepeat"
-                :aria-label="'Repeat: ' + state.repeat"
-              >
-                <Transition name="icon-swap" mode="out-in">
-                  <Icon v-if="state.repeat === 'one'" :path="mdiRepeatOnce" class="w-5 h-5" :key="'repeat-one'" />
-                  <Icon v-else :path="mdiRepeat" class="w-5 h-5" :key="'repeat'" />
-                </Transition>
-              </button>
+              />
             </div>
 
 

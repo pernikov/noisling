@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue';
 import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
+import TransportButton from './TransportButton.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useApi } from '../composables/useApi.js';
@@ -256,7 +257,7 @@ defineExpose({ playAll, playShuffle });
         <div
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
-          class="group grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-2xl px-3 py-3 transition-all"
+          class="group grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-lg px-3 py-3 transition-all"
           :class="[
             track.deleted
               ? 'cursor-default opacity-40'
@@ -415,23 +416,23 @@ defineExpose({ playAll, playShuffle });
               class="hidden pr-1 text-sm tabular-nums sm:inline"
               :class="menuRowIndex === i ? 'hidden' : 'text-zinc-500'"
             >{{ formatTime(track.duration) }}</span>
-            <button
+            <TransportButton
               v-if="!track.deleted"
-              class="flex h-9 w-9 items-center justify-center rounded-full transition-colors"
-              :class="track.isLoved
-                ? 'bg-zinc-800/70 text-rose-400'
-                : 'text-zinc-500 hover:bg-zinc-800/60 hover:text-zinc-300'"
+              size="sm"
+              :icon="track.isLoved ? mdiHeart : mdiHeartOutline"
+              :label="track.isLoved ? 'Unlove track' : 'Love track'"
+              :active="track.isLoved"
+              :active-style="{ color: '#fb7185' }"
+              active-class="text-rose-400 hover:text-rose-300"
               @click.stop="toggleLove(track)"
-            >
-              <Icon :path="track.isLoved ? mdiHeart : mdiHeartOutline" class="w-4 h-4" />
-            </button>
-            <button
+            />
+            <TransportButton
               v-if="!track.deleted"
-              class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300"
+              size="sm"
+              :icon="mdiDotsVertical"
+              label="Track actions"
               @click.stop="openMenu($event, i, track)"
-            >
-              <Icon :path="mdiDotsVertical" class="w-4 h-4" />
-            </button>
+            />
           </div>
         </div>
       </div>

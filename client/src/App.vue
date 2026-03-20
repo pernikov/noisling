@@ -125,7 +125,7 @@ watch(
           <div class="flex gap-1 text-sm">
             <router-link
               to="/tracks"
-              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded-lg"
               active-class="nav-active"
               @click="closeVisualizer"
             >
@@ -133,7 +133,7 @@ watch(
             </router-link>
             <router-link
               to="/artists"
-              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded-lg"
               active-class="nav-active"
               @click="closeVisualizer"
             >
@@ -141,7 +141,7 @@ watch(
             </router-link>
             <router-link
               to="/playlists"
-              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded"
+              class="text-zinc-400 hover:text-zinc-100 hover:bg-white/10 transition-colors px-2.5 py-1.5 rounded-lg"
               active-class="nav-active"
               @click="closeVisualizer"
             >
@@ -153,7 +153,7 @@ watch(
         <div class="flex items-center gap-1">
           <button
             v-if="hasUpdate"
-            class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
+            class="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-colors"
             :title="`Update available: v${latestVersion}`"
             @click="showUpdateModal = true"
           >
@@ -164,7 +164,7 @@ watch(
           </button>
           <GlobalSearch />
           <button
-            class="hidden sm:flex text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
+            class="hidden sm:flex text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded-lg hover:bg-white/10"
             :class="{ '!text-zinc-100': playerState.showShortcuts }"
             @click="toggleShortcuts"
             aria-label="Keyboard shortcuts"
@@ -173,7 +173,7 @@ watch(
           </button>
           <router-link
             to="/settings"
-            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded hover:bg-white/10"
+            class="text-zinc-400 hover:text-zinc-100 transition-colors p-1.5 rounded-lg hover:bg-white/10"
             active-class="nav-active"
             @click="closeVisualizer"
           >
