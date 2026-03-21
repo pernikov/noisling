@@ -112,7 +112,7 @@ const hoverTime = computed(() => {
   <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
-    class="sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex flex-col cursor-pointer active:bg-white/5"
+    class="player-bar-mobile sm:hidden fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40 flex flex-col cursor-pointer active:bg-white/5"
     :style="barStyle"
     @click="toggleNowPlaying"
   >
@@ -150,7 +150,7 @@ const hoverTime = computed(() => {
   <Transition name="slide-up-bar">
   <div
     v-if="state.currentTrack"
-    class="hidden sm:flex flex-col fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40"
+    class="player-bar-desktop hidden sm:flex flex-col fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40"
     :style="barStyle"
   >
     <div class="flex items-center justify-between gap-4 px-4 py-3">
@@ -306,7 +306,7 @@ const hoverTime = computed(() => {
 
     <!-- Right group: love, visualizer, queue, volume -->
     <div
-      class="hidden sm:flex items-center gap-px w-56 flex-shrink-0 justify-end"
+      class="player-bar-right-group hidden sm:flex items-center gap-px w-56 flex-shrink-0 justify-end"
     >
       <!-- Love -->
       <Tooltip :label="state.currentTrack.isLoved ? 'Unlove' : 'Love'" shortcut="L">
@@ -457,5 +457,19 @@ const hoverTime = computed(() => {
 .icon-swap-enter-from,
 .icon-swap-leave-to {
   opacity: 0;
+}
+
+@media (max-width: 1199px) {
+  .player-bar-mobile {
+    display: flex;
+  }
+
+  .player-bar-desktop {
+    display: none;
+  }
+
+  .player-bar-right-group {
+    display: none;
+  }
 }
 </style>

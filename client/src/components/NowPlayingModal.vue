@@ -412,7 +412,7 @@ onUnmounted(() => {
         </div>
 
         <!-- Content -->
-        <div class="relative z-10 flex flex-col h-full px-6">
+        <div class="now-playing-modal relative z-10 flex flex-col h-full px-6">
 
           <!-- Drag pill -->
           <div class="flex justify-center pt-[calc(0.75rem+env(safe-area-inset-top))] pb-1 flex-shrink-0">
@@ -472,15 +472,15 @@ onUnmounted(() => {
 
           <!-- Now Playing content -->
           <div
-            class="absolute inset-0 flex flex-col transition-opacity duration-200"
+            class="now-playing-panel absolute inset-0 flex flex-col transition-opacity duration-200"
             :class="activeTab === 'nowplaying' ? 'opacity-100' : 'opacity-0 pointer-events-none'"
           >
 
             <!-- Album art -->
-            <div class="flex-1 flex items-center justify-center py-2 min-h-0">
+            <div class="now-playing-art-wrap flex-1 flex items-center justify-center py-2 min-h-0">
             <div
               ref="coverDragEl"
-              class="relative w-full"
+              class="now-playing-art relative w-full"
               style="max-width: min(100%, 60vh, 400px);"
             >
               <!-- Swipe-to-prev hint (dragging right) -->
@@ -553,10 +553,10 @@ onUnmounted(() => {
             </div>
 
             <!-- Bottom section -->
-            <div class="flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
+            <div class="now-playing-details flex flex-col gap-4 pb-[calc(2.5rem+env(safe-area-inset-bottom))] flex-shrink-0" data-no-swipe>
 
             <!-- Track info -->
-            <div>
+            <div class="now-playing-track-info">
               <div class="text-xl font-bold truncate text-white leading-tight">
                 {{ state.currentTrack.title }}
               </div>
@@ -581,7 +581,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Progress scrubber -->
-            <div>
+            <div class="now-playing-progress">
               <!-- Tall hit area so finger has plenty of room; visual bar stays slim -->
               <div
                 class="relative flex items-center h-8 select-none"
@@ -611,7 +611,7 @@ onUnmounted(() => {
             </div>
 
             <!-- Playback controls -->
-            <div class="flex items-center justify-between">
+            <div class="now-playing-controls flex items-center justify-between">
               <TransportButton
                 size="md"
                 :icon="mdiShuffle"
@@ -720,6 +720,69 @@ onUnmounted(() => {
 .icon-swap-enter-from,
 .icon-swap-leave-to {
   opacity: 0;
+}
+
+@media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {
+  .now-playing-modal > .flex.justify-center {
+    display: none;
+  }
+
+  .now-playing-modal > .relative.flex.items-center.py-3 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .now-playing-modal {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .now-playing-panel {
+    flex-direction: row;
+    align-items: stretch;
+    gap: 1rem;
+    overflow-y: auto;
+    padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+  }
+
+  .now-playing-art-wrap {
+    flex: 0 0 auto;
+    width: min(42vw, calc(100vh - 8rem));
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+
+  .now-playing-art {
+    width: min(42vw, calc(100vh - 8rem)) !important;
+    max-width: min(42vw, calc(100vh - 8rem)) !important;
+  }
+
+  .now-playing-details {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: center;
+    gap: 0.875rem;
+    padding-bottom: 0;
+  }
+
+  .now-playing-track-info .text-xl {
+    font-size: 1.125rem;
+    line-height: 1.4rem;
+  }
+
+  .now-playing-track-info .text-sm {
+    margin-top: 0.25rem;
+  }
+
+  .now-playing-progress .h-8 {
+    height: 1.5rem;
+  }
+
+  .now-playing-controls {
+    gap: 0.25rem;
+  }
 }
 
 </style>
