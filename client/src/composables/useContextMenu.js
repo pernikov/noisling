@@ -15,7 +15,14 @@ export function useContextMenu({ menuWidth = 160, menuHeight = 72, align = 'righ
   const menuStyle = ref({});
   let closeTimer = null;
 
+  function supportsHover() {
+    return typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+  }
+
   function openMenu(event, track) {
+    clearTimeout(closeTimer);
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
 
@@ -41,6 +48,7 @@ export function useContextMenu({ menuWidth = 160, menuHeight = 72, align = 'righ
   }
 
   function scheduleClose() {
+    if (!supportsHover()) return;
     closeTimer = setTimeout(() => { menuTrack.value = null; }, 120);
   }
 
