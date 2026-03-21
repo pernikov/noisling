@@ -8,6 +8,7 @@ import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
 import { useApi } from '../composables/useApi.js';
 import { useContextMenu } from '../composables/useContextMenu.js';
+import { useAccentColor } from '../composables/useAccentColor.js';
 import { formatTime } from '../composables/useProgressScrub.js';
 import CoverArt from './CoverArt.vue';
 import TrackContextMenu from './TrackContextMenu.vue';
@@ -74,6 +75,7 @@ function onMenuTrackUpdated(updatedTrack) {
 }
 
 const { accentColor, accentRgb } = useTheme();
+const { accentColor: albumAccentRgb } = useAccentColor();
 // When any track's love status changes (from PlayerBar or another TrackList instance),
 // keep the matching track object in this list in sync.
 watch(() => state.loveToggled, (change) => {
@@ -145,6 +147,18 @@ function isCurrentTrack(track) {
 
 function isPlayingTrack(track) {
   return isCurrentTrack(track) && state.isPlaying;
+}
+
+function currentTrackTint(track) {
+  if (!isCurrentTrack(track)) return undefined;
+
+  const rgb = albumAccentRgb.value || accentRgb.value;
+  if (!rgb) return undefined;
+
+  return {
+    backgroundImage: `linear-gradient(90deg, rgba(${rgb}, 0.28), rgba(${rgb}, 0.14) 32%, rgba(39, 39, 42, 0.88) 78%, rgba(24, 24, 27, 0.96) 100%)`,
+    boxShadow: `inset 0 1px 0 rgba(255,255,255,0.05), inset 2px 0 0 rgba(${rgb}, 0.58), inset 10px 0 18px -16px rgba(${rgb}, 0.42)`,
+  };
 }
 
 function mobileMeta(track) {
@@ -257,18 +271,21 @@ defineExpose({ playAll, playShuffle });
         <div
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
-          class="group grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-lg px-3 py-3 transition-all"
+          class="group grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200"
           :class="[
             track.deleted
               ? 'cursor-default opacity-40'
               : 'cursor-pointer hover:bg-zinc-800/55',
-            isCurrentTrack(track) ? 'bg-zinc-800/65 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]' : 'bg-zinc-800/35',
-            { 'bg-zinc-800/75': menuRowIndex === i },
+            isCurrentTrack(track) ? 'bg-zinc-800/80' : 'bg-zinc-800/35',
+            { 'bg-zinc-800/75': menuRowIndex === i && !isCurrentTrack(track) },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
             { 'drop-below': draggable && dragOverIndex === i && dragIndex !== null && dragIndex < i },
           ]"
-          :style="draggable ? { '--indicator': `rgb(${accentRgb})` } : {}"
+          :style="{
+            ...(draggable ? { '--indicator': `rgb(${accentRgb})` } : {}),
+            ...(currentTrackTint(track) ?? {}),
+          }"
           :draggable="draggable ? 'true' : 'false'"
           @click="!track.deleted && playTrack(i)"
           @mouseleave="scheduleCloseMenu"
@@ -278,11 +295,11 @@ defineExpose({ playAll, playShuffle });
           @drop="draggable && onDrop($event, i)"
           @dragend="draggable && onDragEnd()"
         >
-          <div class="grid min-w-0 items-center gap-3" :class="useTrackNumber ? 'grid-cols-[2rem,minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'">
+          <div class="grid min-w-0 items-center gap-3" :class="useTrackNumber ? 'grid-cols-[2.75rem,minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'">
             <div
               v-if="useTrackNumber"
-              class="text-center text-xs tabular-nums"
-              :class="isCurrentTrack(track) ? `text-${accentColor}-400` : 'text-zinc-500'"
+              class="flex h-10 items-center justify-center border-r border-white/5 pr-3 text-[11px] font-mono tabular-nums tracking-[0.16em]"
+              :class="isCurrentTrack(track) ? `text-${accentColor}-300/90` : 'text-zinc-500/75'"
             >
               <Transition name="track-indicator" mode="out-in">
                 <span
@@ -323,11 +340,11 @@ defineExpose({ playAll, playShuffle });
                   </Transition>
                 </div>
                 <div class="min-w-0 flex-1">
-                  <p class="truncate text-sm font-medium" :class="isCurrentTrack(track) ? `text-${accentColor}-400` : 'text-zinc-100'">
+                  <p class="truncate text-sm font-medium transition-colors" :class="isCurrentTrack(track) ? 'text-zinc-50' : 'text-zinc-100 group-hover:text-zinc-50'">
                     {{ track.title }}
                   </p>
 
-                  <div class="mt-1 min-w-0 text-xs text-zinc-500">
+                  <div class="mt-1 min-w-0 text-xs text-zinc-500 transition-colors" :class="isCurrentTrack(track) ? 'text-zinc-300/75' : ''">
                     <div class="flex min-w-0 items-center gap-x-1 whitespace-nowrap overflow-hidden sm:hidden">
                       <template v-if="showArtist || showAlbum">
                         <div v-if="showArtist" class="truncate text-zinc-400">
@@ -410,28 +427,35 @@ defineExpose({ playAll, playShuffle });
             </div>
           </div>
 
-          <div class="flex items-center gap-1.5 shrink-0">
+      <div class="flex items-center gap-3 shrink-0 sm:min-w-[8.5rem] sm:justify-end">
             <span
-              class="hidden pr-1 text-sm tabular-nums sm:inline"
-              :class="menuRowIndex === i ? 'hidden' : 'text-zinc-500'"
+              class="hidden w-12 text-right text-[12px] font-medium tabular-nums tracking-[0.08em] sm:inline"
+              :class="isCurrentTrack(track) ? 'text-zinc-200/70' : 'text-zinc-500/80'"
             >{{ formatTime(track.duration) }}</span>
-            <TransportButton
+            <div
               v-if="!track.deleted"
-              size="sm"
-              :icon="track.isLoved ? mdiHeart : mdiHeartOutline"
-              :label="track.isLoved ? 'Unlove track' : 'Love track'"
-              :active="track.isLoved"
-              :active-style="{ color: '#fb7185' }"
-              active-class="text-rose-400 hover:text-rose-300"
-              @click.stop="toggleLove(track)"
-            />
-            <TransportButton
-              v-if="!track.deleted"
-              size="sm"
-              :icon="mdiDotsVertical"
-              label="Track actions"
-              @click.stop="openMenu($event, i, track)"
-            />
+              class="flex items-center gap-1.5 text-zinc-500/70 transition-colors duration-200"
+              :class="{
+                'text-zinc-300': menuRowIndex === i || isCurrentTrack(track),
+                'sm:group-hover:text-zinc-300': true,
+              }"
+            >
+              <TransportButton
+                size="sm"
+                :icon="track.isLoved ? mdiHeart : mdiHeartOutline"
+                :label="track.isLoved ? 'Unlove track' : 'Love track'"
+                :active="track.isLoved"
+                :active-style="{ color: '#fb7185' }"
+                active-class="text-rose-400 hover:text-rose-300"
+                @click.stop="toggleLove(track)"
+              />
+              <TransportButton
+                size="sm"
+                :icon="mdiDotsVertical"
+                label="Track actions"
+                @click.stop="openMenu($event, i, track)"
+              />
+            </div>
           </div>
         </div>
       </div>
