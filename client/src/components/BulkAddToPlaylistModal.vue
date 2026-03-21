@@ -18,7 +18,7 @@ const api = useApi();
 
 const TABS = ['Track', 'Album', 'Artist', 'Genre'];
 const TAB_ITEMS = TABS.map(t => ({ value: t, label: t }));
-const ITEM_HEIGHT = 48;
+const ITEM_HEIGHT = 52;
 const OVERSCAN = 8;
 
 const activeTab = ref('Track');
@@ -249,41 +249,45 @@ async function addTracks() {
         <!-- Virtual scroll -->
         <div v-else :style="{ height: totalHeight + 'px', position: 'relative' }">
           <div :style="{ transform: `translateY(${offsetY}px)` }">
-              <button
+              <div
                 v-for="{ item } in visibleItems"
                 :key="itemKey(item)"
-                @click="toggleItem(item)"
-                class="flex items-center gap-2.5 w-full px-2.5 text-sm rounded-lg transition-colors"
-                :class="isSelected(item) ? 'bg-zinc-700 text-white' : 'hover:bg-zinc-800/70 text-zinc-300'"
                 :style="{ height: ITEM_HEIGHT + 'px' }"
+                class="py-0.5"
               >
-                <!-- Checkbox first -->
-                <SelectionCheckbox :checked="isSelected(item)" />
-                <!-- Cover -->
-                <CoverArt
-                  v-if="activeTab !== 'Genre'"
-                  :cover="itemCover(item)"
-                  size="w-8 h-8"
-                  class="shrink-0"
-                />
-                <!-- Label -->
-                <div class="min-w-0 flex-1 text-left">
-                  <p class="truncate font-medium leading-tight">
-                    {{ activeTab === 'Track' ? item.title : (item.name || (activeTab === 'Genre' ? 'Unknown Genre' : 'Unknown')) }}
-                  </p>
-                  <p
-                    v-if="(activeTab === 'Album' && item.artists?.length) || activeTab === 'Track'"
-                    class="text-xs text-zinc-400 truncate mt-0.5"
-                  >
-                    <template v-if="activeTab === 'Album'">{{ item.artists[0] }}</template>
-                    <template v-else>{{ item.artists?.join(', ') }}{{ item.album ? ' · ' + item.album : '' }}</template>
-                  </p>
-                </div>
-                <!-- Track count badge -->
-                <span v-if="activeTab !== 'Track'" class="text-xs text-zinc-500 shrink-0">
-                  {{ item.trackCount }}
-                </span>
-              </button>
+                <button
+                  @click="toggleItem(item)"
+                  class="flex h-full items-center gap-2.5 w-full px-2.5 text-sm rounded-lg transition-colors"
+                  :class="isSelected(item) ? 'bg-zinc-700 text-white' : 'hover:bg-zinc-800/70 text-zinc-300'"
+                >
+                  <!-- Checkbox first -->
+                  <SelectionCheckbox :checked="isSelected(item)" />
+                  <!-- Cover -->
+                  <CoverArt
+                    v-if="activeTab !== 'Genre'"
+                    :cover="itemCover(item)"
+                    size="w-8 h-8"
+                    class="shrink-0"
+                  />
+                  <!-- Label -->
+                  <div class="min-w-0 flex-1 text-left">
+                    <p class="truncate font-medium leading-tight">
+                      {{ activeTab === 'Track' ? item.title : (item.name || (activeTab === 'Genre' ? 'Unknown Genre' : 'Unknown')) }}
+                    </p>
+                    <p
+                      v-if="(activeTab === 'Album' && item.artists?.length) || activeTab === 'Track'"
+                      class="text-xs text-zinc-400 truncate mt-0.5"
+                    >
+                      <template v-if="activeTab === 'Album'">{{ item.artists[0] }}</template>
+                      <template v-else>{{ item.artists?.join(', ') }}{{ item.album ? ' · ' + item.album : '' }}</template>
+                    </p>
+                  </div>
+                  <!-- Track count badge -->
+                  <span v-if="activeTab !== 'Track'" class="text-xs text-zinc-500 shrink-0">
+                    {{ item.trackCount }}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
