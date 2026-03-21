@@ -154,7 +154,7 @@ watch(
 <template>
   <div
     v-if="track"
-    class="pending-play-status relative overflow-hidden rounded-lg px-4 shadow-[0_18px_50px_-28px_rgba(0,0,0,0.85)]"
+    class="pending-play-status relative overflow-hidden rounded-xl px-4"
     :class="[
       'py-3',
       {
@@ -201,35 +201,33 @@ watch(
 
 <style scoped>
 .pending-play-status {
-  background:
-    radial-gradient(circle at top left, rgb(255 255 255 / 0.08), transparent 38%),
-    linear-gradient(135deg, rgb(24 24 27 / 0.98), rgb(18 18 21 / 0.96));
+  background: rgb(39 39 42 / 0.42);
   transition: opacity 320ms ease-out, transform 320ms cubic-bezier(0.22, 1, 0.36, 1), filter 320ms ease-out;
 }
 .pending-play-status__backdrop {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgb(255 255 255 / 0.02), rgb(255 255 255 / 0));
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.015), rgb(255 255 255 / 0));
   pointer-events: none;
 }
 .pending-play-status__fill {
   position: absolute;
   inset: 0;
   width: var(--pending-progress, 0%);
-  background: linear-gradient(90deg, rgb(255 255 255 / 0.09), rgb(255 255 255 / 0.03));
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.06), rgb(255 255 255 / 0.015));
   transition: width 220ms linear, opacity 260ms ease-out;
 }
 .pending-play-status__sheen {
   position: absolute;
   inset: 0;
-  background: linear-gradient(115deg, transparent 18%, rgb(255 255 255 / 0.07) 32%, transparent 48%);
-  opacity: 0.45;
-  transform: translateX(-38%);
+  background: linear-gradient(115deg, transparent 28%, rgb(255 255 255 / 0.035) 36%, transparent 52%);
+  opacity: 0.12;
+  transform: translateX(-52%);
   transition: opacity 260ms ease-out, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
   pointer-events: none;
 }
 .pending-play-status--counting {
-  animation: pending-play-glow 1.8s ease-in-out infinite;
+  animation: pending-play-glow 2.2s ease-in-out infinite;
 }
 .pending-play-status__status {
   position: relative;
@@ -248,10 +246,10 @@ watch(
   justify-content: center;
   padding: 0.48rem 0.9rem;
   border-radius: 999px;
-  background: rgb(9 9 11 / 0.62);
-  color: rgb(161 161 170 / 1);
+  background: rgb(10 10 12 / 0.24);
+  color: rgb(212 212 216 / 0.74);
   backdrop-filter: blur(10px);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.02);
   transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1), min-width 420ms cubic-bezier(0.22, 1, 0.36, 1), padding 420ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms ease-out, color 320ms ease-out, transform 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms ease-out;
 }
 .pending-play-status__status--completed .pending-play-status__pill {
@@ -333,10 +331,10 @@ watch(
 }
 @keyframes pending-play-glow {
   0%, 100% {
-    border-color: rgb(63 63 70 / 1);
+    background: rgb(39 39 42 / 0.38);
   }
   50% {
-    border-color: rgb(82 82 91 / 1);
+    background: rgb(39 39 42 / 0.52);
   }
 }
 </style>

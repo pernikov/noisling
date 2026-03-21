@@ -7,7 +7,6 @@ import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useTheme } from '../composables/useTheme.js';
 import TrackList from '../components/TrackList.vue';
-import PendingPlayStatus from '../components/PendingPlayStatus.vue';
 import CoverArt from '../components/CoverArt.vue';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
@@ -60,7 +59,18 @@ const completingRecentTrack = ref(null);
 let completingRecentTimer = null;
 let completingRecentFadeTimer = null;
 
-const recentTracksForDisplay = computed(() => recentTracks.value);
+const recentTracksForDisplay = computed(() => {
+  const pendingTrack = pendingPlayStatus.value;
+  if (!pendingTrack) return recentTracks.value;
+
+  const pendingTrackId = pendingTrack._id?.toString?.() ?? pendingTrack._id;
+  const dedupedRecentTracks = recentTracks.value.filter((track) => {
+    const trackId = track._id?.toString?.() ?? track._id;
+    return trackId !== pendingTrackId;
+  });
+
+  return [pendingTrack, ...dedupedRecentTracks];
+});
 const currentAlbumModeLabel = computed(() => {
   if (homeAlbumsMode.value === 'random') return 'Random Albums';
   if (homeAlbumsMode.value === 'top') return 'Top Albums';
@@ -93,8 +103,17 @@ const pendingPlayStatus = computed(() => {
   const currentTrack = playerState.currentTrack;
   if (completingRecentTrack.value) return completingRecentTrack.value;
   if (!currentTrack || playerState.currentTrackReported) return null;
+
+  const currentTrackId = currentTrack._id?.toString?.() ?? currentTrack._id;
+  const previousRecentMatch = recentTracks.value.find((track) => {
+    const trackId = track._id?.toString?.() ?? track._id;
+    return trackId === currentTrackId;
+  });
+
   return {
     ...currentTrack,
+    playedAt: previousRecentMatch?.playedAt ?? previousRecentMatch?.lastPlayedAt ?? currentTrack.playedAt,
+    lastPlayedAt: previousRecentMatch?.lastPlayedAt ?? previousRecentMatch?.playedAt ?? currentTrack.lastPlayedAt,
     _pendingRecentPhase: 'counting',
   };
 });
@@ -179,32 +198,6 @@ function stageCompletedPendingRow(trackId) {
     }
     completingRecentTimer = null;
   }, 2000);
-}
-
-function animatePendingStatusEnter(el) {
-  el.style.height = '0px';
-  el.style.opacity = '0';
-  el.style.transform = 'translateY(-6px)';
-  requestAnimationFrame(() => {
-    el.style.height = `${el.scrollHeight}px`;
-    el.style.opacity = '1';
-    el.style.transform = 'translateY(0)';
-  });
-}
-
-function animatePendingStatusAfterEnter(el) {
-  el.style.height = 'auto';
-}
-
-function animatePendingStatusLeave(el) {
-  el.style.height = `${el.scrollHeight}px`;
-  el.style.opacity = '1';
-  el.style.transform = 'translateY(0)';
-  requestAnimationFrame(() => {
-    el.style.height = '0px';
-    el.style.opacity = '0';
-    el.style.transform = 'translateY(-6px)';
-  });
 }
 
 async function loadAlbums(mode = homeAlbumsMode.value, { force = false } = {}) {
@@ -403,28 +396,13 @@ function goToAlbum(album) {
         <p class="text-xs text-zinc-600">Your recently played tracks will show up here.</p>
       </div>
 
-      <div v-else class="space-y-3">
-        <Transition
-          @enter="animatePendingStatusEnter"
-          @after-enter="animatePendingStatusAfterEnter"
-          @leave="animatePendingStatusLeave"
-        >
-          <div
-            v-if="pendingPlayStatus"
-            class="overflow-hidden transition-[height,opacity,transform] duration-350 ease-[cubic-bezier(0.22,1,0.36,1)]"
-          >
-            <PendingPlayStatus
-              :track="pendingPlayStatus"
-              :phase="pendingPlayStatus._pendingRecentPhase"
-            />
-          </div>
-        </Transition>
-
+      <div v-else>
         <TrackList
           :tracks="recentTracksForDisplay"
           show-cover
           show-artist
           show-album
+          show-plays
           show-last-played
           hide-controls
         />

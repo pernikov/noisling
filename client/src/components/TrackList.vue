@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiCheck } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
 import TransportButton from './TransportButton.vue';
@@ -97,7 +97,9 @@ watch(() => state.playReportCount, (count) => {
   if (!match) return;
 
   const playedAt = new Date().toISOString();
-  match.playCount = (match.playCount || 0) + 1;
+  if (!isPendingRecentTrack(match)) {
+    match.playCount = (match.playCount || 0) + 1;
+  }
   match.lastPlayedAt = playedAt;
   match.playedAt = playedAt;
 });
@@ -115,6 +117,52 @@ function timeAgo(date) {
   return `${months}mo ago`;
 }
 
+function clampProgress(progress) {
+  return Math.max(0, Math.min(1, Number(progress) || 0));
+}
+
+function pendingRecentPhase(track) {
+  return track?._pendingRecentPhase ?? '';
+}
+
+function isPendingRecentTrack(track) {
+  return ['counting', 'completed', 'fading'].includes(pendingRecentPhase(track));
+}
+
+function isPrimaryPendingRecentTrack(track, index) {
+  return index === 0 && isPendingRecentTrack(track);
+}
+
+function pendingRecentStatus(track) {
+  const phase = pendingRecentPhase(track);
+  if (!phase) return '';
+  if (phase === 'completed' || phase === 'fading') return 'Played';
+
+  const duration = Number(track?.duration) || Number(state.duration) || 0;
+  const threshold = duration > 0 ? Math.min(duration * 0.5, 240) : 0;
+  if (threshold <= 0) return 'Marking played';
+
+  const isCurrentPendingTrack = state.currentTrack?._id === track?._id;
+  const progress = isCurrentPendingTrack ? clampProgress(state.currentTrackPlayProgress) : 0;
+  const remaining = Math.max(0, threshold * (1 - progress));
+  return `Counts in ${formatTime(remaining)}`;
+}
+
+function pendingRecentProgress(track) {
+  const phase = pendingRecentPhase(track);
+  if (!phase) return 0;
+  if (phase !== 'counting') return 100;
+  if (state.currentTrack?._id !== track?._id) return 0;
+  return clampProgress(state.currentTrackPlayProgress) * 100;
+}
+
+function pendingBadgeWidth(track) {
+  const phase = pendingRecentPhase(track);
+  if (!phase) return undefined;
+  if (phase === 'completed' || phase === 'fading') return '2rem';
+  const label = pendingRecentStatus(track);
+  return `${Math.max(5.75, Math.min(9.5, label.length * 0.42 + 2.4))}rem`;
+}
 
 function playTrack(index) {
   const sourceTracks = Array.isArray(props.playTracks) && props.playTracks.length ? props.playTracks : props.tracks;
@@ -267,24 +315,26 @@ defineExpose({ playAll, playShuffle });
       <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
     </div>
 
-    <div class="space-y-2">
+    <div class="track-list-rows flex flex-col gap-2">
         <div
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
-          class="group grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200"
-          :class="[
-            track.deleted
-              ? 'cursor-default opacity-40'
-              : 'cursor-pointer hover:bg-zinc-800/55',
-            isCurrentTrack(track) ? 'bg-zinc-800/80' : 'bg-zinc-800/35',
+            class="group relative grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200"
+            :class="[
+              track.deleted
+                ? 'cursor-default opacity-40'
+                : 'cursor-pointer hover:bg-zinc-800/55',
+            isCurrentTrack(track) ? 'bg-zinc-800/80' : (isPrimaryPendingRecentTrack(track, i) ? 'bg-zinc-800/45' : 'bg-zinc-800/35'),
             { 'bg-zinc-800/75': menuRowIndex === i && !isCurrentTrack(track) },
             { 'opacity-40': draggable && dragIndex === i },
             { 'drop-above': draggable && dragOverIndex === i && dragIndex !== null && dragIndex > i },
             { 'drop-below': draggable && dragOverIndex === i && dragIndex !== null && dragIndex < i },
+            { 'pending-recent-track': isPrimaryPendingRecentTrack(track, i) },
           ]"
           :style="{
             ...(draggable ? { '--indicator': `rgb(${accentRgb})` } : {}),
             ...(currentTrackTint(track) ?? {}),
+            ...(isPrimaryPendingRecentTrack(track, i) ? { '--pending-progress': `${pendingRecentProgress(track)}%` } : {}),
           }"
           :draggable="draggable ? 'true' : 'false'"
           @click="!track.deleted && playTrack(i)"
@@ -295,6 +345,12 @@ defineExpose({ playAll, playShuffle });
           @drop="draggable && onDrop($event, i)"
           @dragend="draggable && onDragEnd()"
         >
+          <template v-if="isPrimaryPendingRecentTrack(track, i)">
+            <span class="pending-recent-track__backdrop"></span>
+            <span class="pending-recent-track__fill"></span>
+            <span class="pending-recent-track__sheen"></span>
+          </template>
+
           <div class="grid min-w-0 items-center gap-3" :class="useTrackNumber ? 'grid-cols-[2.75rem,minmax(0,1fr)]' : 'grid-cols-[minmax(0,1fr)]'">
             <div
               v-if="useTrackNumber"
@@ -446,10 +502,39 @@ defineExpose({ playAll, playShuffle });
             </div>
           </div>
 
-      <div class="flex items-center gap-3 shrink-0 sm:min-w-[8.5rem] sm:justify-end">
+      <div class="relative z-10 flex items-center gap-3 shrink-0 sm:min-w-[8.5rem] sm:justify-end">
+            <Transition name="pending-recent-badge">
+              <div
+                v-if="isPrimaryPendingRecentTrack(track, i)"
+                class="pending-recent-pill-wrap hidden sm:flex"
+                :class="{ 'pending-recent-pill-wrap--completed': pendingRecentPhase(track) !== 'counting' }"
+              >
+                <div
+                  class="pending-recent-pill tabular-nums text-[10px] font-medium uppercase tracking-[0.18em]"
+                  :class="{ 'pending-recent-pill--completed': pendingRecentPhase(track) !== 'counting' }"
+                  :style="{ width: pendingBadgeWidth(track), minWidth: pendingBadgeWidth(track), '--pending-pill-accent': `rgb(${accentRgb})` }"
+                >
+                  <span
+                    class="pending-recent-pill__label"
+                    :class="{ 'pending-recent-pill__label--hidden': pendingRecentPhase(track) !== 'counting' }"
+                  >
+                    {{ pendingRecentStatus(track) }}
+                  </span>
+                  <span
+                    class="pending-recent-pill__check"
+                    :class="{ 'pending-recent-pill__check--visible': pendingRecentPhase(track) === 'completed' }"
+                  >
+                    <Icon :path="mdiCheck" class="h-3.5 w-3.5" />
+                  </span>
+                </div>
+              </div>
+            </Transition>
             <span
               class="hidden w-12 text-right text-[12px] font-medium tabular-nums tracking-[0.08em] sm:inline"
-              :class="isCurrentTrack(track) ? 'text-zinc-200/70' : 'text-zinc-500/80'"
+              :class="[
+                isCurrentTrack(track) ? 'text-zinc-200/70' : 'text-zinc-500/80',
+                isPrimaryPendingRecentTrack(track, i) ? 'hidden' : '',
+              ]"
             >{{ formatTime(track.duration) }}</span>
             <div
               v-if="!track.deleted"
@@ -497,6 +582,110 @@ defineExpose({ playAll, playShuffle });
 }
 .drop-below {
   box-shadow: inset 0 -2px 0 var(--indicator);
+}
+.pending-recent-track {
+  overflow: hidden;
+}
+.pending-recent-track__backdrop,
+.pending-recent-track__fill,
+.pending-recent-track__sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.pending-recent-track__backdrop {
+  background: linear-gradient(180deg, rgb(255 255 255 / 0.018), rgb(255 255 255 / 0));
+}
+.pending-recent-track__fill {
+  width: var(--pending-progress, 0%);
+  background: linear-gradient(90deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0.025));
+  transition: width 220ms linear, opacity 260ms ease-out;
+}
+.pending-recent-track__sheen {
+  background: linear-gradient(115deg, transparent 22%, rgb(255 255 255 / 0.05) 34%, transparent 50%);
+  opacity: 0.24;
+  transform: translateX(-42%);
+  transition: opacity 260ms ease-out, transform 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pending-recent-track.pending-recent-track .pending-recent-track__sheen {
+  animation: pending-recent-sheen 2.4s ease-in-out infinite;
+}
+.track-list-rows > :not(:first-child) .pending-recent-pill-wrap,
+.track-list-rows > :not(:first-child) .pending-recent-track__backdrop,
+.track-list-rows > :not(:first-child) .pending-recent-track__fill,
+.track-list-rows > :not(:first-child) .pending-recent-track__sheen {
+  display: none !important;
+}
+.pending-recent-pill-wrap {
+  width: 0;
+  overflow: visible;
+  justify-content: flex-end;
+}
+.pending-recent-pill-wrap--completed {
+  transform: translateX(-0.12rem);
+}
+.pending-recent-pill {
+  position: relative;
+  overflow: hidden;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.48rem 0.9rem;
+  border-radius: 999px;
+  background: rgb(10 10 12 / 0.28);
+  color: rgb(212 212 216 / 0.74);
+  backdrop-filter: blur(10px);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.02);
+  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1), min-width 420ms cubic-bezier(0.22, 1, 0.36, 1), padding 420ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms ease-out, color 320ms ease-out, transform 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms ease-out;
+}
+.pending-recent-pill--completed {
+  padding-left: 0;
+  padding-right: 0;
+  background: color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 18%, rgb(9 9 11 / 0.82));
+  color: color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 62%, white);
+  transform: scale(1.02);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 30%, rgb(255 255 255 / 0.06)),
+    0 14px 28px -24px color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 45%, transparent);
+}
+.pending-recent-pill__label {
+  display: inline-block;
+  max-width: 14rem;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 220ms ease-out, transform 380ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease-out;
+}
+.pending-recent-pill__label--hidden {
+  max-width: 0;
+  opacity: 0;
+  transform: translateY(-7px) scale(0.92);
+  filter: blur(3px);
+}
+.pending-recent-pill__check {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(-10deg) scale(0.6);
+  filter: blur(5px);
+  transition: opacity 260ms ease-out 80ms, transform 520ms cubic-bezier(0.2, 0.9, 0.2, 1.2) 80ms, filter 260ms ease-out 80ms;
+}
+.pending-recent-pill__check--visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) rotate(0deg) scale(1);
+  filter: blur(0);
+}
+@keyframes pending-recent-sheen {
+  0%, 100% {
+    transform: translateX(-42%);
+  }
+  50% {
+    transform: translateX(18%);
+  }
 }
 .track-indicator-shell {
   position: relative;
