@@ -301,24 +301,26 @@ defineExpose({ playAll, playShuffle });
               class="flex h-10 items-center justify-center border-r border-white/5 pr-3 text-[11px] font-mono tabular-nums tracking-[0.16em]"
               :class="isCurrentTrack(track) ? `text-${accentColor}-300/90` : 'text-zinc-500/75'"
             >
-              <Transition name="track-indicator" mode="out-in">
-                <span
-                  v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'"
-                  key="repeat"
-                  class="flex items-center justify-center animate-pulse"
-                >
-                  <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
-                </span>
-                <span
-                  v-else-if="isCurrentTrack(track) && state.isPlaying"
-                  key="play"
-                  class="flex items-center justify-center"
-                >
-                  <Icon :path="mdiPlay" class="w-3 h-3" />
-                </span>
-                <span v-else-if="track.trackNumber" key="track-number">{{ track.trackNumber }}</span>
-                <span v-else key="fallback-number" class="opacity-30">{{ startIndex + i + 1 }}</span>
-              </Transition>
+              <span class="track-indicator-shell">
+                <Transition name="track-indicator">
+                  <span
+                    v-if="isCurrentTrack(track) && state.isPlaying && state.repeat === 'one'"
+                    key="repeat"
+                    class="track-indicator-item animate-pulse"
+                  >
+                    <Icon :path="mdiRepeatOnce" class="w-3.5 h-3.5" />
+                  </span>
+                  <span
+                    v-else-if="isCurrentTrack(track) && state.isPlaying"
+                    key="play"
+                    class="track-indicator-item"
+                  >
+                    <Icon :path="mdiPlay" class="w-3 h-3" />
+                  </span>
+                  <span v-else-if="track.trackNumber" key="track-number" class="track-indicator-item">{{ track.trackNumber }}</span>
+                  <span v-else key="fallback-number" class="track-indicator-item opacity-30">{{ startIndex + i + 1 }}</span>
+                </Transition>
+              </span>
             </div>
 
             <div class="min-w-0">
@@ -479,11 +481,26 @@ defineExpose({ playAll, playShuffle });
 .drop-below {
   box-shadow: inset 0 -2px 0 var(--indicator);
 }
+.track-indicator-shell {
+  position: relative;
+  display: inline-grid;
+  width: 2rem;
+  height: 1rem;
+  place-items: center;
+}
+.track-indicator-item {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
 .cover-indicator-enter-active,
 .cover-indicator-leave-active,
 .track-indicator-enter-active,
 .track-indicator-leave-active {
-  transition: opacity 180ms ease, transform 180ms ease;
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .cover-indicator-enter-from,
@@ -500,7 +517,15 @@ defineExpose({ playAll, playShuffle });
 
 .track-indicator-enter-from,
 .track-indicator-leave-to {
-  transform: translateY(2px);
+  transform: none;
+}
+
+.track-indicator-leave-active {
+  pointer-events: none;
+}
+
+.track-indicator-leave-to {
+  transform: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .cover-indicator-enter-active,
