@@ -337,7 +337,24 @@ defineExpose({ playAll, playShuffle });
                       class="absolute inset-0 flex items-center justify-center"
                       :class="`text-${accentColor}-100`"
                     >
-                      <Icon :path="state.repeat === 'one' ? mdiRepeatOnce : mdiPlay" class="w-4 h-4 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]" />
+                      <span class="cover-indicator-shell">
+                        <Transition name="cover-icon-swap">
+                          <span
+                            v-if="state.repeat === 'one'"
+                            key="cover-repeat"
+                            class="cover-indicator-item animate-pulse"
+                          >
+                            <Icon :path="mdiRepeatOnce" class="w-4 h-4 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]" />
+                          </span>
+                          <span
+                            v-else
+                            key="cover-play"
+                            class="cover-indicator-item"
+                          >
+                            <Icon :path="mdiPlay" class="w-4 h-4 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]" />
+                          </span>
+                        </Transition>
+                      </span>
                     </div>
                   </Transition>
                 </div>
@@ -496,6 +513,20 @@ defineExpose({ playAll, playShuffle });
   justify-content: center;
   line-height: 1;
 }
+.cover-indicator-shell {
+  position: relative;
+  display: inline-grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  place-items: center;
+}
+.cover-indicator-item {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .cover-indicator-enter-active,
 .cover-indicator-leave-active,
 .track-indicator-enter-active,
@@ -503,10 +534,20 @@ defineExpose({ playAll, playShuffle });
   transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1), transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.cover-icon-swap-enter-active,
+.cover-icon-swap-leave-active {
+  transition: opacity 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 .cover-indicator-enter-from,
 .cover-indicator-leave-to,
 .track-indicator-enter-from,
 .track-indicator-leave-to {
+  opacity: 0;
+}
+
+.cover-icon-swap-enter-from,
+.cover-icon-swap-leave-to {
   opacity: 0;
 }
 
@@ -524,6 +565,10 @@ defineExpose({ playAll, playShuffle });
   pointer-events: none;
 }
 
+.cover-icon-swap-leave-active {
+  pointer-events: none;
+}
+
 .track-indicator-leave-to {
   transform: none;
 }
@@ -531,7 +576,9 @@ defineExpose({ playAll, playShuffle });
   .cover-indicator-enter-active,
   .cover-indicator-leave-active,
   .track-indicator-enter-active,
-  .track-indicator-leave-active {
+  .track-indicator-leave-active,
+  .cover-icon-swap-enter-active,
+  .cover-icon-swap-leave-active {
     transition: none;
   }
 }
