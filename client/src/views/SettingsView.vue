@@ -76,6 +76,7 @@ const {
   scanPercent,
   scanProgress,
   scanResult,
+  scanForceMetadata,
   deleting,
   deleteResult,
   confirm,
@@ -215,6 +216,29 @@ const activeLibraryHealthItem = computed(() =>
 );
 
 const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !libraryHealthLoaded.value);
+
+function shouldRewriteTags(value) {
+  if (Array.isArray(value)) return value.some(shouldRewriteTags);
+  return value === 'true' || value === '1';
+}
+
+// Hidden escape hatch for one-off metadata backfills after Noisling starts
+// reading a new tag field. We consume the query immediately so reloads do not
+// keep retriggering the refresh.
+watch(
+  () => [route.query.tab, route.query.rewriteTags, scanning.value],
+  async ([tab, rewriteTags, isScanning]) => {
+    if (tab !== 'library') return;
+    if (!shouldRewriteTags(rewriteTags)) return;
+    if (isScanning) return;
+
+    const nextQuery = { ...route.query };
+    delete nextQuery.rewriteTags;
+    await router.replace({ query: nextQuery });
+    await scanLibrary({ forceMetadata: true });
+  },
+  { immediate: true },
+);
 </script>
 
 <template>
@@ -390,10 +414,10 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             <IconButton
               :icon="mdiMagnify"
               :label="scanning ? 'Scanning...' : 'Scan Library'"
-              :loading="scanning"
+              :loading="scanning && !scanForceMetadata"
               :disabled="scanning"
               class="shrink-0"
-              @click="promptConfirm({ title: 'Rescan library?', message: 'This will walk your music directory, process any new or changed files, and remove tracks for deleted files. It may take a while for large libraries.', confirmLabel: 'Scan Library', destructive: false, onConfirm: scanLibrary })"
+              @click="promptConfirm({ title: 'Rescan library?', message: 'This will walk your music directory, process any new or changed files, and remove tracks for deleted files. It may take a while for large libraries.', confirmLabel: 'Scan Library', destructive: false, onConfirm: () => scanLibrary() })"
             />
           </div>
 
@@ -401,11 +425,11 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
           <div v-if="scanning" class="bg-zinc-800/50 rounded-lg p-4 space-y-3">
             <div v-if="!scanPhase" class="flex items-center gap-2 text-sm text-zinc-400">
               <Spinner class="w-4 h-4 text-zinc-500" />
-              Starting scan...
+              {{ scanForceMetadata ? 'Starting metadata refresh...' : 'Starting scan...' }}
             </div>
             <div v-if="scanPhase === 'walking'" class="flex items-center gap-2 text-sm text-zinc-300">
               <Spinner class="w-4 h-4 text-zinc-400" />
-              Discovering files...
+              {{ scanForceMetadata ? 'Discovering files for metadata refresh...' : 'Discovering files...' }}
             </div>
             <div v-if="scanPhase === 'processing' && scanProgress?.total && scanProgress?.toProcess != null" class="flex items-center gap-4 text-xs text-zinc-400">
               <span>{{ scanProgress.total }} files found</span>
@@ -414,7 +438,7 @@ const libraryHealthInitialLoad = computed(() => loadingLibraryHealth.value && !l
             </div>
             <div v-if="scanPhase === 'processing' && scanPercent != null" class="space-y-2">
               <div class="flex items-center justify-between text-xs text-zinc-400">
-                <span>Processing tracks... {{ scanProgress?.processed ?? 0 }} / {{ scanProgress?.total ?? '?' }}</span>
+                <span>{{ scanForceMetadata ? 'Refreshing metadata...' : 'Processing tracks...' }} {{ scanProgress?.processed ?? 0 }} / {{ scanProgress?.total ?? '?' }}</span>
                 <span>{{ scanPercent }}%</span>
               </div>
               <div class="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden">

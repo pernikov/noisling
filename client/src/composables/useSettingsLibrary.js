@@ -22,6 +22,7 @@ export function useSettingsLibrary() {
   const scanPercent = ref(null);
   const scanProgress = ref(null);
   const scanResult = ref(null);
+  const scanForceMetadata = ref(false);
   const deleting = ref(false);
   const deleteResult = ref(null);
   const confirm = ref(null); // { title, message, confirmLabel, destructive, onConfirm }
@@ -49,6 +50,7 @@ export function useSettingsLibrary() {
     eventSource.addEventListener('scan-progress', (e) => {
       const data = JSON.parse(e.data);
       scanPhase.value = data.phase;
+      scanForceMetadata.value = data.forceMetadata === true;
 
       if (data.phase === 'walking') {
         scanProgress.value = { message: data.message };
@@ -63,6 +65,7 @@ export function useSettingsLibrary() {
         scanPercent.value = null;
         scanProgress.value = null;
         scanPhase.value = null;
+        scanForceMetadata.value = false;
       }
     });
 
@@ -185,15 +188,17 @@ export function useSettingsLibrary() {
     await loadLibraryHealth(true);
   }
 
-  async function scanLibrary() {
+  async function scanLibrary(options = {}) {
+    const forceMetadata = options.forceMetadata === true;
     scanning.value = true;
+    scanForceMetadata.value = forceMetadata;
     scanPercent.value = 0;
     scanPhase.value = null;
     scanProgress.value = null;
     scanResult.value = null;
 
     try {
-      scanResult.value = await api.scanLibrary();
+      scanResult.value = await api.scanLibrary({ forceMetadata });
     } catch (err) {
       scanResult.value = { error: err.message };
     } finally {
@@ -201,6 +206,7 @@ export function useSettingsLibrary() {
       scanPercent.value = null;
       scanPhase.value = null;
       scanProgress.value = null;
+      scanForceMetadata.value = false;
     }
   }
 
@@ -238,6 +244,7 @@ export function useSettingsLibrary() {
     scanPercent,
     scanProgress,
     scanResult,
+    scanForceMetadata,
     deleting,
     deleteResult,
     confirm,

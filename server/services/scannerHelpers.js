@@ -57,9 +57,39 @@ export function normalizeArtists(common = {}) {
   return artists.length ? artists : ['Unknown Artist'];
 }
 
+export function normalizeReleaseType(value) {
+  const rawValues = Array.isArray(value) ? value : [value];
+  const tokens = rawValues
+    .flatMap((entry) => String(entry ?? '').split(/[;,/]/))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
+  if (!tokens.length) return '';
+
+  const normalized = tokens.map((token) => token.toLowerCase());
+  if (normalized.some((token) => token === 'ep' || token === 'e.p.')) return 'EP';
+  if (normalized.some((token) => token === 'single')) return 'Single';
+  if (normalized.some((token) => token === 'album' || token === 'lp')) return 'Album';
+
+  const first = tokens[0].replace(/\s+/g, ' ').trim();
+  if (!first) return '';
+  if (first.toLowerCase() === 'ep' || first.toLowerCase() === 'e.p.') return 'EP';
+
+  return first
+    .split(' ')
+    .map((part) => part ? part[0].toUpperCase() + part.slice(1).toLowerCase() : '')
+    .join(' ');
+}
+
 export function buildTrackData({ filePath, metadata, fileStat, cover, hasEmbeddedCover }) {
   const { common, format } = metadata;
   const artists = normalizeArtists(common);
+  const releaseType = normalizeReleaseType(
+    common.releaseType
+    ?? common.releasetype
+    ?? common.releasegroup?.type
+    ?? common.releasegroup?.primaryType,
+  );
 
   return {
     path: filePath,
@@ -68,6 +98,7 @@ export function buildTrackData({ filePath, metadata, fileStat, cover, hasEmbedde
     artistsNorm: artists.map((artist) => artist.toLowerCase()),
     albumArtist: common.albumartist || artists[0] || '',
     album: common.album || 'Unknown Album',
+    releaseType,
     trackNumber: common.track?.no || 0,
     disc: common.disk?.no || 1,
     duration: format.duration || 0,

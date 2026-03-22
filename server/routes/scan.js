@@ -23,7 +23,8 @@ router.post('/scan', async (req, res) => {
   try {
     scanning = true;
     pauseWatcher();
-    const stats = await scanLibrary();
+    const forceMetadata = req.body?.forceMetadata === true;
+    const stats = await scanLibrary({ forceMetadata });
     broadcast('library-updated', stats);
     res.json(stats);
   } catch (err) {

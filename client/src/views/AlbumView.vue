@@ -41,6 +41,7 @@ function syncAlbumInfoFromTracks() {
   albumInfo.value = {
     name: firstTrack.album,
     artists: firstTrack.artists,
+    releaseType: tracks.value.find((track) => track.releaseType)?.releaseType || '',
     year: firstTrack.year,
     cover: firstTrack.cover,
     hasCustomCover: tracks.value.some((track) => !!track.overrides?.cover),
@@ -215,7 +216,7 @@ async function onTrackUpdated() {
           </div>
         </button>
         <div class="min-w-0 flex-1">
-          <div class="text-xs uppercase text-zinc-500 mb-1">Album</div>
+          <div class="text-xs uppercase text-zinc-500 mb-1">{{ albumInfo.releaseType || 'Album' }}</div>
           <h1 class="text-2xl sm:text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
           <div class="text-zinc-400 mb-4">
             <template v-for="(artist, ai) in albumInfo.artists" :key="ai">

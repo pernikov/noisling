@@ -65,7 +65,11 @@ export function useApi() {
     clearTrackOverrides: (id) => request(`/tracks/${id}/overrides`, { method: 'DELETE' }),
     getTrack: (id) => request(`/tracks/${id}`),
     getScanStatus: () => request('/scan'),
-    scanLibrary: () => request('/scan', { method: 'POST' }),
+    scanLibrary: (body = {}) => request('/scan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
     deleteLibrary: () => request('/library', { method: 'DELETE' }),
     globalSearch: (q, limit = 5) => {
       const params = new URLSearchParams({ q, limit });

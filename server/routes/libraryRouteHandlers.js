@@ -46,6 +46,7 @@ function buildAlbumSummaries(tracks) {
         name: track.album,
         artists: track.artists,
         artistsNorm: track.artistsNorm,
+        releaseType: track.releaseType || '',
         year: track.year,
         trackCount: 0,
         cover: track.cover,
@@ -55,6 +56,7 @@ function buildAlbumSummaries(tracks) {
     const summary = albumMap.get(key);
     summary.trackCount += 1;
     if (!summary.cover && track.cover) summary.cover = track.cover;
+    if (!summary.releaseType && track.releaseType) summary.releaseType = track.releaseType;
     if (!summary.year && track.year) summary.year = track.year;
   }
 
@@ -140,6 +142,7 @@ async function aggregateAlbumSearch(Track, regex, limit) {
         effectiveAlbum: effectiveField('album'),
         effectiveArtists: effectiveField('artists'),
         effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveReleaseType: effectiveField('releaseType'),
         effectiveYear: effectiveField('year'),
         effectiveCover: effectiveField('cover'),
       },
@@ -154,6 +157,7 @@ async function aggregateAlbumSearch(Track, regex, limit) {
         name: { $first: '$effectiveAlbum' },
         artists: { $first: '$effectiveArtists' },
         artistsNorm: { $first: '$effectiveArtistsNorm' },
+        releaseTypes: { $addToSet: '$effectiveReleaseType' },
         years: { $addToSet: '$effectiveYear' },
         covers: { $addToSet: '$effectiveCover' },
         trackCount: { $sum: 1 },
@@ -165,6 +169,20 @@ async function aggregateAlbumSearch(Track, regex, limit) {
         name: 1,
         artists: 1,
         artistsNorm: 1,
+        releaseType: {
+          $let: {
+            vars: {
+              filteredReleaseTypes: {
+                $filter: {
+                  input: '$releaseTypes',
+                  as: 'releaseType',
+                  cond: { $and: [{ $ne: ['$$releaseType', null] }, { $ne: ['$$releaseType', ''] }] },
+                },
+              },
+            },
+            in: { $ifNull: [{ $arrayElemAt: ['$$filteredReleaseTypes', 0] }, ''] },
+          },
+        },
         year: {
           $let: {
             vars: {

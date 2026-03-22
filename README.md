@@ -10,6 +10,8 @@ Noisling reads tags embedded in your audio files (ID3, Vorbis, MP4, etc.) to pop
 
 It works best with libraries that are already mostly well tagged. Noisling does not try to infer missing artist or album structure from folder names. If needed, you can make small local metadata or artwork overrides inside Noisling, but those tools are meant for quick fixes rather than full library curation.
 
+In rare cases, Noisling may start reading a new metadata field that older scans did not import yet. For those one-off backfills, open `http://localhost:1994/settings?tab=library&rewriteTags=true`. That triggers a forced metadata refresh for all files once, then removes the query flag from the URL. Existing play counts, last-played timestamps, likes, and local overrides are preserved.
+
 Untagged files still appear in the library, but only with limited fallback metadata:
 
 - the filename is used as the title

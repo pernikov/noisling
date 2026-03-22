@@ -115,13 +115,20 @@ async function upsertFile(filePath) {
   );
 }
 
-export async function scanLibrary() {
+// `forceMetadata` is intentionally supported for one-off backfills when Noisling
+// starts reading a new tag field. We keep it out of the normal UI because
+// day-to-day rescans should rely on file mtime changes instead.
+export async function scanLibrary({ forceMetadata = false } = {}) {
   if (!config.musicDir) {
     throw new Error('MUSIC_DIR is not set in .env');
   }
 
-  log.info(`Scanning: ${config.musicDir}`);
-  broadcast('scan-progress', { phase: 'walking', message: 'Discovering files...' });
+  log.info(`Scanning: ${config.musicDir}${forceMetadata ? ' (forced metadata refresh)' : ''}`);
+  broadcast('scan-progress', {
+    phase: 'walking',
+    message: forceMetadata ? 'Discovering files for metadata refresh...' : 'Discovering files...',
+    forceMetadata,
+  });
 
   const files = await walkDir(config.musicDir);
   const total = files.length;
@@ -131,7 +138,7 @@ export async function scanLibrary() {
   const existingTracks = await Track.find({}, { path: 1, fileMtime: 1 }).lean();
   const existingMap = new Map(existingTracks.map((t) => [t.path, t.fileMtime]));
 
-  const stats = { added: 0, updated: 0, skipped: 0, removed: 0, errors: 0 };
+  const stats = { added: 0, updated: 0, skipped: 0, removed: 0, errors: 0, forceMetadata };
   const scannedPaths = new Set();
 
   // Split files into those that need processing vs those we can skip
@@ -141,7 +148,7 @@ export async function scanLibrary() {
     const fileStat = await stat(filePath);
     const existingMtime = existingMap.get(filePath);
 
-    if (existingMtime !== undefined && Math.abs(fileStat.mtimeMs - existingMtime) < 1000) {
+    if (!forceMetadata && existingMtime !== undefined && Math.abs(fileStat.mtimeMs - existingMtime) < 1000) {
       stats.skipped++;
     } else {
       toProcess.push({ filePath, isNew: existingMtime === undefined });
@@ -150,7 +157,13 @@ export async function scanLibrary() {
 
   const needProcessing = toProcess.length;
   log.log(`Processing ${needProcessing} files (${stats.skipped} unchanged)`);
-  broadcast('scan-progress', { phase: 'processing', total, toProcess: needProcessing, skipped: stats.skipped });
+  broadcast('scan-progress', {
+    phase: 'processing',
+    total,
+    toProcess: needProcessing,
+    skipped: stats.skipped,
+    forceMetadata,
+  });
 
   // Process in batches
   for (let i = 0; i < toProcess.length; i += BATCH_SIZE) {
@@ -187,6 +200,7 @@ export async function scanLibrary() {
       processed,
       total: needProcessing,
       percent: Math.round((processed / needProcessing) * 100),
+      forceMetadata,
     });
   }
 
@@ -205,7 +219,7 @@ export async function scanLibrary() {
   stats.coversRemoved = coverStats.removed;
 
   log.success('Scan complete:', stats);
-  broadcast('scan-progress', { phase: 'complete', stats });
+  broadcast('scan-progress', { phase: 'complete', stats, forceMetadata });
   return stats;
 }
 

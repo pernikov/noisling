@@ -7,6 +7,7 @@ import {
   isAudioFile,
   isImageFile,
   normalizeArtists,
+  normalizeReleaseType,
   pickFolderCover,
 } from './scannerHelpers.js';
 
@@ -52,6 +53,14 @@ test('normalizeArtists falls back to a single artist tag or Unknown Artist', () 
   assert.deepEqual(normalizeArtists({}), ['Unknown Artist']);
 });
 
+test('normalizeReleaseType canonicalizes common release type values', () => {
+  assert.equal(normalizeReleaseType('ep'), 'EP');
+  assert.equal(normalizeReleaseType(['single', 'remix']), 'Single');
+  assert.equal(normalizeReleaseType(' lp '), 'Album');
+  assert.equal(normalizeReleaseType('live album'), 'Live Album');
+  assert.equal(normalizeReleaseType(''), '');
+});
+
 test('buildTrackData normalizes scanner metadata into a track document shape', () => {
   const scannedAtBefore = Date.now();
   const track = buildTrackData({
@@ -62,6 +71,7 @@ test('buildTrackData normalizes scanner metadata into a track document shape', (
         artists: ['Burial; Four Tet'],
         albumartist: 'Burial',
         album: 'Untrue',
+        releasetype: 'album',
         track: { no: 3 },
         disk: { no: 1 },
         genre: ['Dubstep'],
@@ -86,6 +96,7 @@ test('buildTrackData normalizes scanner metadata into a track document shape', (
   assert.deepEqual(track.artistsNorm, ['burial', 'four tet']);
   assert.equal(track.albumArtist, 'Burial');
   assert.equal(track.album, 'Untrue');
+  assert.equal(track.releaseType, 'Album');
   assert.equal(track.trackNumber, 3);
   assert.equal(track.disc, 1);
   assert.equal(track.duration, 245.2);

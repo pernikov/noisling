@@ -76,6 +76,7 @@ test('searchLibrary matches overridden track, artist, and album values', async (
             artists: ['Comma, Artist'],
             artistsNorm: ['comma, artist'],
             album: 'Override Album',
+            releaseType: 'EP',
           },
         }],
       };
@@ -88,6 +89,7 @@ test('searchLibrary matches overridden track, artist, and album values', async (
   await searchLibrary({ query: { q: 'Override', limit: '10' } }, tracksRes);
   assert.equal(tracksRes.body.tracks[0].title, 'Override Title');
   assert.equal(tracksRes.body.albums[0].name, 'Override Album');
+  assert.equal(tracksRes.body.albums[0].releaseType, 'EP');
 
   const artistsRes = createRes();
   await searchLibrary({ query: { q: 'Comma, Artist', limit: '10' } }, artistsRes);
@@ -199,11 +201,12 @@ test('listTracks resolves override fields before responding', async () => {
                       overrides: {
                         title: 'New Title',
                         artists: ['Burial'],
-                        artistsNorm: ['burial'],
-                        album: 'Untrue',
-                        trackNumber: 2,
-                      },
-                    }],
+                      artistsNorm: ['burial'],
+                      album: 'Untrue',
+                      releaseType: 'Album',
+                      trackNumber: 2,
+                    },
+                  }],
                   };
                 },
               };
@@ -228,6 +231,7 @@ test('listTracks resolves override fields before responding', async () => {
     artistsNorm: ['burial'],
     album: 'Untrue',
     albumArtist: undefined,
+    releaseType: 'Album',
     trackNumber: 2,
     cover: undefined,
     year: 0,
@@ -236,9 +240,10 @@ test('listTracks resolves override fields before responding', async () => {
       artists: ['Burial'],
       artistsNorm: ['burial'],
       album: 'Untrue',
+      releaseType: 'Album',
       trackNumber: 2,
     },
     hasOverrides: true,
-    overrideFields: ['title', 'artists', 'artistsNorm', 'album', 'trackNumber'],
+    overrideFields: ['title', 'artists', 'artistsNorm', 'album', 'releaseType', 'trackNumber'],
   });
 });

@@ -22,13 +22,14 @@ const error = ref('');
 const title = ref('');
 const artists = ref([]);
 const album = ref('');
+const releaseType = ref('');
 const albumArtist = ref('');
 const trackNumber = ref('');
 const year = ref('');
 const showConfirmRevert = ref(false);
 
 const hasMetadataOverrides = computed(() =>
-  ['title', 'artists', 'artistsNorm', 'albumArtist', 'album', 'trackNumber', 'year']
+  ['title', 'artists', 'artistsNorm', 'albumArtist', 'album', 'releaseType', 'trackNumber', 'year']
     .some((field) => props.track?.overrideFields?.includes(field)),
 );
 
@@ -36,6 +37,7 @@ function fillForm(track) {
   title.value = track?.title ?? '';
   artists.value = Array.isArray(track?.artists) ? [...track.artists] : [];
   album.value = track?.album ?? '';
+  releaseType.value = track?.releaseType ?? '';
   albumArtist.value = track?.albumArtist ?? '';
   trackNumber.value = track?.trackNumber ? String(track.trackNumber) : '';
   year.value = track?.year ? String(track.year) : '';
@@ -72,6 +74,7 @@ async function save() {
       title: title.value,
       artists: artists.value,
       album: album.value,
+      releaseType: releaseType.value,
       albumArtist: albumArtist.value,
       trackNumber: trackNumber.value === '' ? 0 : Number(trackNumber.value),
       year: year.value === '' ? 0 : Number(year.value),
@@ -132,6 +135,10 @@ async function revert() {
           <FormInput v-model="album" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" />
         </div>
         <div>
+          <label class="block text-xs text-zinc-500 mb-1">Release type</label>
+          <FormInput v-model="releaseType" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" placeholder="Album, Single, EP..." />
+        </div>
+        <div>
           <label class="block text-xs text-zinc-500 mb-1">Album artist</label>
           <FormInput v-model="albumArtist" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" />
         </div>
@@ -172,7 +179,7 @@ async function revert() {
   <ConfirmModal
     :open="showConfirmRevert"
     title="Revert metadata overrides?"
-    message="This will remove local title, artist, album, track number, and year edits for this track. Artwork overrides will be kept."
+    message="This will remove local title, artist, album, release type, track number, and year edits for this track. Artwork overrides will be kept."
     confirm-label="Revert"
     destructive
     @confirm="showConfirmRevert = false; revert()"

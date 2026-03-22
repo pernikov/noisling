@@ -1,3 +1,5 @@
+import { normalizeReleaseType } from './scannerHelpers.js';
+
 function normalizeText(value) {
   return String(value ?? '').trim();
 }
@@ -30,6 +32,10 @@ export function buildTrackOverrides(payload = {}) {
     const album = normalizeText(payload.album);
     if (!album) throw new Error('Album is required.');
     overrides.album = album;
+  }
+
+  if (Object.hasOwn(payload, 'releaseType')) {
+    overrides.releaseType = normalizeReleaseType(payload.releaseType);
   }
 
   if (Object.hasOwn(payload, 'albumArtist')) {
@@ -65,6 +71,7 @@ export function mergeTrackOverrides(track) {
     'artistsNorm',
     'albumArtist',
     'album',
+    'releaseType',
     'trackNumber',
     'year',
     'cover',
@@ -85,6 +92,7 @@ export function mergeTrackOverrides(track) {
     artistsNorm: overrides.artistsNorm ?? track.artistsNorm,
     albumArtist: overrides.albumArtist ?? track.albumArtist,
     album: overrides.album ?? track.album,
+    releaseType: overrides.releaseType ?? track.releaseType,
     trackNumber: overrides.trackNumber ?? track.trackNumber,
     year: overrides.year ?? track.year,
     cover: overrides.cover ?? track.cover,
