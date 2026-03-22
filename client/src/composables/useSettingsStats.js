@@ -1,5 +1,6 @@
 import { ref, watch } from 'vue';
 import { useApi } from './useApi.js';
+import { formatExactDuration } from '../utils/formatDuration.js';
 
 export function useSettingsStats({ activeTab, playerState }) {
   const api = useApi();
@@ -47,11 +48,7 @@ export function useSettingsStats({ activeTab, playerState }) {
   });
 
   function formatDuration(seconds) {
-    if (!seconds) return '0 min';
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    if (h === 0) return `${m} min`;
-    return `${h}h ${m}m`;
+    return formatExactDuration(seconds);
   }
 
   function formatSize(bytes) {

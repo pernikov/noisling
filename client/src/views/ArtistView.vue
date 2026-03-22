@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
+import { formatExactDuration } from '../utils/formatDuration.js';
 import CoverArt from '../components/CoverArt.vue';
 import { mdiPlay, mdiShuffle, mdiChevronRight } from '@mdi/js';
 import Icon from '../components/Icon.vue';
@@ -62,10 +63,6 @@ async function playShuffle() {
   playAlbum(tracks, randomIndex);
 }
 
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60);
-  return `${m} min`;
-}
 </script>
 
 <template>
@@ -114,7 +111,7 @@ function formatDuration(seconds) {
               {{ album.year ? '·' : '' }}
               {{ album.trackCount }} track{{ album.trackCount !== 1 ? 's' : '' }}
               &middot;
-              {{ formatDuration(album.duration) }}
+              {{ formatExactDuration(album.duration) }}
             </div>
           </div>
         </div>

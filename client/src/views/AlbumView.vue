@@ -5,6 +5,7 @@ import { useApi } from '../composables/useApi.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
 import { useTheme } from '../composables/useTheme.js';
 import { usePlayer } from '../composables/usePlayer.js';
+import { formatExactDuration } from '../utils/formatDuration.js';
 import CoverArt from '../components/CoverArt.vue';
 import TrackList from '../components/TrackList.vue';
 import NotFoundPage from '../components/NotFoundPage.vue';
@@ -106,11 +107,6 @@ async function load() {
 onMounted(load);
 watch(() => [route.params.artist, route.params.album], load);
 useLibraryEvents(load);
-
-function formatDuration(seconds) {
-  const m = Math.floor(seconds / 60);
-  return `${m} min`;
-}
 
 function playAll() {
   if (tracks.value.length) playAlbum(tracks.value, 0);
@@ -228,7 +224,7 @@ async function onTrackUpdated() {
             </template>
             <span v-if="albumInfo.year" class="text-zinc-500"> &middot; {{ albumInfo.year }}</span>
             <span class="text-zinc-500">
-              &middot; {{ albumInfo.trackCount }} track{{ albumInfo.trackCount !== 1 ? 's' : '' }} &middot; {{ formatDuration(albumInfo.duration) }}
+              &middot; {{ albumInfo.trackCount }} track{{ albumInfo.trackCount !== 1 ? 's' : '' }} &middot; {{ formatExactDuration(albumInfo.duration) }}
             </span>
           </div>
           <div class="flex items-center gap-2">
