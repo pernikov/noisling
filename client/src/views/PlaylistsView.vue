@@ -18,6 +18,7 @@ const { playAlbum, playShuffled } = usePlayer();
 const playlists = ref([]);
 const loading = ref(true);
 const showCreate = ref(false);
+const loadError = ref(false);
 
 function playlistDetail(playlist) {
   if (!playlist.trackCount) return 'Empty';
@@ -25,10 +26,14 @@ function playlistDetail(playlist) {
 }
 
 async function load() {
+  loading.value = true;
+  loadError.value = false;
   try {
     playlists.value = await api.getPlaylists();
   } catch (err) {
     console.error('Failed to load playlists:', err);
+    playlists.value = [];
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -67,6 +72,12 @@ function onCreated(playlist) {
   router.push({ name: 'playlist', params: { id: playlist._id } });
 }
 
+function onPlaylistCardKeydown(event, playlistId) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  goToPlaylist(playlistId);
+}
+
 </script>
 
 <template>
@@ -96,6 +107,13 @@ function onCreated(playlist) {
     </div>
 
     <!-- Empty state -->
+    <div v-else-if="loadError" class="bg-zinc-900 rounded-lg border border-red-900/60 p-12 flex flex-col items-center gap-3 text-center">
+      <Icon :path="mdiPlaylistMusic" class="w-10 h-10 text-red-400/80" />
+      <p class="text-sm font-medium text-zinc-200">Couldn&apos;t load playlists</p>
+      <p class="text-xs text-zinc-500">The server didn&apos;t return your playlists. Try again in a moment.</p>
+      <Button class="mt-2" @click="load">Retry</Button>
+    </div>
+
     <div v-else-if="playlists.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-12 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiPlaylistMusic" class="w-10 h-10 text-zinc-600" />
       <p class="text-sm font-medium text-zinc-400">No playlists yet</p>
@@ -112,7 +130,11 @@ function onCreated(playlist) {
           v-for="playlist in playlists"
           :key="playlist._id"
           class="group cursor-pointer"
+          role="link"
+          tabindex="0"
+          :aria-label="`Open playlist ${playlist.name}`"
           @click="goToPlaylist(playlist._id)"
+          @keydown="onPlaylistCardKeydown($event, playlist._id)"
         >
           <div class="overflow-hidden rounded-lg bg-zinc-900/35">
             <div class="relative aspect-square overflow-hidden bg-zinc-800">

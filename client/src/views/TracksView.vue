@@ -19,6 +19,7 @@ const route = useRoute();
 const router = useRouter();
 const allTracks = ref([]);
 const loading = ref(true);
+const loadError = ref(false);
 const page = ref(1);
 const total = ref(0);
 const limit = 100;
@@ -36,12 +37,16 @@ function updateQuery() {
 
 async function loadTracks() {
   loading.value = true;
+  loadError.value = false;
   try {
     const data = await api.getTracks(page.value, limit, '', tracksSort.value.field, tracksSort.value.dir);
     allTracks.value = data.tracks;
     total.value = data.total;
   } catch (err) {
     console.error('Failed to load tracks:', err);
+    allTracks.value = [];
+    total.value = 0;
+    loadError.value = true;
     toastError('Failed to load tracks. Check your connection.');
   } finally {
     loading.value = false;
@@ -157,6 +162,15 @@ function prevPage() {
           </div>
         </div>
       </div>
+    </div>
+
+    <div v-else-if="loadError" class="bg-zinc-900 rounded-lg border border-red-900/60 p-10 flex flex-col items-center gap-3 text-center">
+      <Icon :path="mdiMusicNote" class="w-8 h-8 text-red-400/80" />
+      <p class="text-sm font-medium text-zinc-200">Couldn't load tracks</p>
+      <p class="text-xs text-zinc-500">The server didn't return your tracks. Try again in a moment.</p>
+      <button class="mt-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700 transition-colors" @click="loadTracks">
+        Retry
+      </button>
     </div>
 
     <div v-else-if="allTracks.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">

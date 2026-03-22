@@ -3,17 +3,24 @@ import { ref, watch, onMounted } from 'vue';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import TrackList from '../components/TrackList.vue';
+import Icon from '../components/Icon.vue';
+import { mdiHistory } from '@mdi/js';
 
 const api = useApi();
 const { state: playerState } = usePlayer();
 const tracks = ref([]);
 const loading = ref(true);
+const loadError = ref(false);
 
 async function loadRecent() {
+  loading.value = true;
+  loadError.value = false;
   try {
     tracks.value = await api.getRecentTracks(100);
   } catch (err) {
     console.error('Failed to load recent tracks:', err);
+    tracks.value = [];
+    loadError.value = true;
   } finally {
     loading.value = false;
   }
@@ -69,8 +76,19 @@ watch(() => playerState.playReportCount, (count) => {
       </div>
     </div>
 
-    <div v-else-if="tracks.length === 0" class="text-zinc-500">
-      No recently played tracks yet. Start listening!
+    <div v-else-if="loadError" class="bg-zinc-900 rounded-lg border border-red-900/60 p-10 flex flex-col items-center gap-3 text-center">
+      <Icon :path="mdiHistory" class="w-8 h-8 text-red-400/80" />
+      <p class="text-sm font-medium text-zinc-200">Couldn't load recently played</p>
+      <p class="text-xs text-zinc-500">The server didn't return your recent plays. Try again in a moment.</p>
+      <button class="mt-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700 transition-colors" @click="loadRecent">
+        Retry
+      </button>
+    </div>
+
+    <div v-else-if="tracks.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
+      <Icon :path="mdiHistory" class="w-8 h-8 text-zinc-600" />
+      <p class="text-sm font-medium text-zinc-400">No recently played tracks yet</p>
+      <p class="text-xs text-zinc-600">Start listening and your recent plays will show up here.</p>
     </div>
 
     <TrackList v-else :tracks="tracks" show-cover show-artist show-album show-last-played />

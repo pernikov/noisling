@@ -69,9 +69,9 @@ async function confirmCreate() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-lg border border-zinc-800 w-full max-w-sm shadow-2xl">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 w-full max-w-sm shadow-2xl flex max-h-[calc(100svh-2rem)] sm:max-h-[calc(100svh-3rem)] flex-col overflow-hidden">
       <!-- Header with track info -->
-      <div class="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-zinc-800">
+      <div class="flex items-center gap-3 px-5 pt-5 pb-4 border-b border-zinc-800 shrink-0">
         <CoverArt
           :cover="track.cover"
           size="w-10 h-10"
@@ -84,7 +84,7 @@ async function confirmCreate() {
         </div>
       </div>
 
-      <div class="py-1 max-h-72 overflow-y-auto">
+      <div class="py-1 overflow-y-auto overscroll-contain flex-1 min-h-0">
         <LoadingState v-if="loading" label="Loading playlists…" />
         <div v-else-if="playlists.length === 0" class="px-5 py-4 text-sm text-zinc-500 text-center">
           No playlists yet.
@@ -101,7 +101,7 @@ async function confirmCreate() {
         </button>
       </div>
 
-      <div class="border-t border-zinc-800">
+      <div class="border-t border-zinc-800 shrink-0">
         <div v-if="creating" class="flex items-center gap-2 px-5 py-3">
           <FormInput
             ref="nameInput"

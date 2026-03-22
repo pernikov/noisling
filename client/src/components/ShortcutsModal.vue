@@ -44,13 +44,13 @@ const groups = [
 
 <template>
   <BaseModal :show="playerState.showShortcuts" @close="toggleShortcuts">
-    <div class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl w-full max-w-sm p-6">
-      <div class="flex items-center justify-between mb-5">
+    <div class="bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl w-full max-w-sm max-h-[calc(100svh-2rem)] sm:max-h-[calc(100svh-3rem)] p-6 flex flex-col overflow-hidden">
+      <div class="flex items-center justify-between mb-5 shrink-0">
         <h2 class="font-display font-bold text-lg">Keyboard Shortcuts</h2>
         <ModalCloseButton @click="toggleShortcuts" />
       </div>
 
-      <div class="space-y-5">
+      <div class="space-y-5 overflow-y-auto overscroll-contain min-h-0 pr-1">
         <div v-for="group in groups" :key="group.label">
           <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-2">{{ group.label }}</p>
           <div class="space-y-1">

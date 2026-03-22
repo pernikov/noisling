@@ -103,8 +103,8 @@ async function revert() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-lg shadow-2xl">
-      <div class="flex items-start justify-between gap-4 mb-5">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-lg shadow-2xl flex max-h-[calc(100svh-2rem)] sm:max-h-[calc(100svh-3rem)] flex-col overflow-hidden">
+      <div class="flex items-start justify-between gap-4 mb-5 shrink-0">
         <div>
           <h2 class="text-lg font-bold font-display">Edit track metadata</h2>
           <p class="text-xs text-zinc-500 mt-1">Stored in Noisling only. Your audio files won't be changed.</p>
@@ -117,7 +117,7 @@ async function revert() {
         </span>
       </div>
 
-      <div class="space-y-3">
+      <div class="space-y-3 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1">
         <div>
           <label class="block text-xs text-zinc-500 mb-1">Title</label>
           <FormInput v-model="title" type="text" class="w-full px-3.5 py-2.5" :disabled="loading || saving || reverting" autofocus />
@@ -147,10 +147,10 @@ async function revert() {
         </div>
       </div>
 
-      <p v-if="loading" class="mt-3 text-sm text-zinc-500">Loading full metadata...</p>
-      <p v-if="error" class="mt-3 text-sm text-red-400">{{ error }}</p>
+      <p v-if="loading" class="mt-3 text-sm text-zinc-500 shrink-0">Loading full metadata...</p>
+      <p v-if="error" class="mt-3 text-sm text-red-400 shrink-0">{{ error }}</p>
 
-      <div class="flex items-center justify-between gap-2 mt-5">
+      <div class="flex items-center justify-between gap-2 mt-5 shrink-0">
         <Button
           v-if="hasMetadataOverrides"
           variant="destructive"

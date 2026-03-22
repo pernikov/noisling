@@ -35,6 +35,13 @@ const loadingAlbumModes = ref({
 });
 const loadingLoved = ref(true);
 const loadingRecent = ref(true);
+const lovedError = ref(false);
+const recentError = ref(false);
+const albumModeErrors = ref({
+  recent: false,
+  random: false,
+  top: false,
+});
 
 const GREETINGS = [
   'Hello again.',
@@ -78,6 +85,7 @@ const currentAlbumModeLabel = computed(() => {
 });
 const currentAlbumItems = computed(() => albumModeItems.value[homeAlbumsMode.value] ?? []);
 const currentAlbumLoading = computed(() => loadingAlbumModes.value[homeAlbumsMode.value]);
+const currentAlbumError = computed(() => albumModeErrors.value[homeAlbumsMode.value]);
 const currentAlbumEmptyState = computed(() => {
   if (homeAlbumsMode.value === 'random') {
     return {
@@ -138,10 +146,14 @@ async function playTopTracks() {
 }
 
 async function loadLoved() {
+  loadingLoved.value = true;
+  lovedError.value = false;
   try {
     lovedTracks.value = await api.getLovedTracks();
   } catch (err) {
     console.error('Failed to load loved tracks:', err);
+    lovedTracks.value = [];
+    lovedError.value = true;
   } finally {
     loadingLoved.value = false;
   }
@@ -153,10 +165,14 @@ function playLovedTracks() {
 }
 
 async function loadRecent() {
+  loadingRecent.value = true;
+  recentError.value = false;
   try {
     recentTracks.value = await api.getRecentTracks(10);
   } catch (err) {
     console.error('Failed to load recent tracks:', err);
+    recentTracks.value = [];
+    recentError.value = true;
   } finally {
     loadingRecent.value = false;
   }
@@ -208,6 +224,10 @@ async function loadAlbums(mode = homeAlbumsMode.value, { force = false } = {}) {
     ...loadingAlbumModes.value,
     [mode]: true,
   };
+  albumModeErrors.value = {
+    ...albumModeErrors.value,
+    [mode]: false,
+  };
 
   try {
     const albums = mode === 'random'
@@ -226,6 +246,14 @@ async function loadAlbums(mode = homeAlbumsMode.value, { force = false } = {}) {
     };
   } catch (err) {
     console.error(`Failed to load ${mode} albums:`, err);
+    albumModeItems.value = {
+      ...albumModeItems.value,
+      [mode]: [],
+    };
+    albumModeErrors.value = {
+      ...albumModeErrors.value,
+      [mode]: true,
+    };
   } finally {
     loadingAlbumModes.value = {
       ...loadingAlbumModes.value,
@@ -338,6 +366,7 @@ function goToAlbum(album) {
               <span v-if="loadingLoved" key="loading" class="flex items-center">
                 <Spinner class="w-4 h-4 text-white/70" />
               </span>
+              <span v-else-if="lovedError" key="error">Couldn't load loved tracks</span>
               <span v-else-if="lovedTracks.length === 0" key="empty">Love some tracks to play them here</span>
               <span v-else key="count">{{ lovedTracks.length }} track{{ lovedTracks.length !== 1 ? 's' : '' }} you love</span>
             </Transition>
@@ -390,6 +419,15 @@ function goToAlbum(album) {
         </div>
       </div>
 
+      <div v-else-if="recentError" class="bg-zinc-900 rounded-lg border border-red-900/60 p-8 flex flex-col items-center gap-3 text-center">
+        <Icon :path="mdiHistory" class="w-8 h-8 text-red-400/80" />
+        <p class="text-sm font-medium text-zinc-200">Couldn't load recently played</p>
+        <p class="text-xs text-zinc-500">The server didn't return your recent plays. Try again in a moment.</p>
+        <button class="mt-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700 transition-colors" @click="loadRecent">
+          Retry
+        </button>
+      </div>
+
       <div v-else-if="recentTracksForDisplay.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">
         <Icon :path="mdiHistory" class="w-8 h-8 text-zinc-600" />
         <p class="text-sm font-medium text-zinc-400">Nothing played yet</p>
@@ -420,6 +458,15 @@ function goToAlbum(album) {
           <div class="h-3.5 bg-zinc-800 rounded mb-1.5" :style="{ width: `${50 + (i * 11) % 35}%` }"></div>
           <div class="h-2.5 bg-zinc-800/60 rounded w-2/3"></div>
         </div>
+      </div>
+
+      <div v-else-if="currentAlbumError" class="bg-zinc-900 rounded-lg border border-red-900/60 p-8 flex flex-col items-center gap-3 text-center">
+        <Icon :path="mdiAlbum" class="w-8 h-8 text-red-400/80" />
+        <p class="text-sm font-medium text-zinc-200">Couldn't load {{ currentAlbumModeLabel.toLowerCase() }}</p>
+        <p class="text-xs text-zinc-500">The server didn't return this album section. Try again in a moment.</p>
+        <button class="mt-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700 transition-colors" @click="loadAlbums(homeAlbumsMode, { force: true })">
+          Retry
+        </button>
       </div>
 
       <div v-else-if="currentAlbumItems.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-8 flex flex-col items-center gap-3 text-center">

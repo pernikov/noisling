@@ -14,6 +14,7 @@ const route = useRoute();
 const router = useRouter();
 const artists = ref([]);
 const loading = ref(true);
+const loadError = ref(false);
 const page = ref(1);
 const total = ref(0);
 const limit = 60;
@@ -31,12 +32,16 @@ function updateQuery() {
 
 async function loadArtists() {
   loading.value = true;
+  loadError.value = false;
   try {
     const data = await api.getArtists(page.value, limit, '');
     artists.value = data.artists;
     total.value = data.total;
   } catch (err) {
     console.error('Failed to load artists:', err);
+    artists.value = [];
+    total.value = 0;
+    loadError.value = true;
     toastError('Failed to load artists. Check your connection.');
   } finally {
     loading.value = false;
@@ -72,6 +77,12 @@ function prevPage() {
 function goToArtist(name) {
   router.push({ name: 'artist', params: { name } });
 }
+
+function onArtistCardKeydown(event, name) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  goToArtist(name);
+}
 </script>
 
 <template>
@@ -88,6 +99,15 @@ function goToArtist(name) {
       </div>
     </div>
 
+    <div v-else-if="loadError" class="bg-zinc-900 rounded-lg border border-red-900/60 p-10 flex flex-col items-center gap-3 text-center">
+      <Icon :path="mdiMicrophone" class="w-8 h-8 text-red-400/80" />
+      <p class="text-sm font-medium text-zinc-200">Couldn't load artists</p>
+      <p class="text-xs text-zinc-500">The server didn't return your artists. Try again in a moment.</p>
+      <button class="mt-1 rounded-lg bg-zinc-800 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-700 transition-colors" @click="loadArtists">
+        Retry
+      </button>
+    </div>
+
     <div v-else-if="artists.length === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
       <Icon :path="mdiMicrophone" class="w-8 h-8 text-zinc-600" />
       <p class="text-sm font-medium text-zinc-400">No artists yet</p>
@@ -100,7 +120,11 @@ function goToArtist(name) {
           v-for="artist in artists"
           :key="artist.name"
           class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
+          role="link"
+          tabindex="0"
+          :aria-label="`Open artist ${artist.name}`"
           @click="goToArtist(artist.name)"
+          @keydown="onArtistCardKeydown($event, artist.name)"
         >
           <ArtistCover :covers="artist.covers || []" />
           <div class="font-medium font-display truncate">{{ artist.name }}</div>

@@ -140,6 +140,12 @@ function flatIndex(type, i) {
   return results.value.tracks.length + results.value.artists.length + i;
 }
 
+function onTrackResultKeydown(event, track) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  selectItem({ type: 'track', data: track });
+}
+
 </script>
 
 <template>
@@ -155,10 +161,13 @@ function flatIndex(type, i) {
 
   <!-- Modal -->
   <BaseModal :show="open" align="top" @close="closeSearch">
-        <div class="bg-zinc-900 border border-zinc-700/80 rounded-lg shadow-2xl w-full max-w-xl overflow-hidden">
+        <div
+          class="bg-zinc-900 border border-zinc-700/80 rounded-lg shadow-2xl w-full max-w-xl overflow-hidden flex flex-col"
+          style="max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 5rem);"
+        >
 
           <!-- Input -->
-          <div class="flex items-center px-4 border-b border-zinc-800">
+          <div class="flex items-center px-4 border-b border-zinc-800 shrink-0">
             <Icon :path="mdiMagnify" class="w-5 h-5 text-zinc-500 shrink-0 mr-3" />
             <input
               ref="inputRef"
@@ -177,7 +186,7 @@ function flatIndex(type, i) {
           </div>
 
           <!-- Results -->
-          <div ref="resultsRef" class="max-h-[28rem] overflow-y-auto overscroll-contain">
+          <div ref="resultsRef" class="flex-1 min-h-0 overflow-y-auto overscroll-contain">
 
             <!-- Loading -->
             <div v-if="loading" class="p-3 space-y-3 animate-pulse">
@@ -218,7 +227,11 @@ function flatIndex(type, i) {
                   data-result-item
                   class="group flex items-center gap-3 px-4 text-left transition-colors cursor-pointer"
                   :class="[rowPy, focusedIndex === flatIndex('track', i) ? 'bg-zinc-800/80' : 'hover:bg-zinc-800/50']"
+                  role="button"
+                  tabindex="0"
+                  :aria-label="`Play ${track.title}`"
                   @click="selectItem({ type: 'track', data: track })"
+                  @keydown="onTrackResultKeydown($event, track)"
                   @mouseenter="focusedIndex = flatIndex('track', i)"
                 >
                   <CoverArt :cover="track.cover" :size="`${coverSize} shrink-0`" />
@@ -307,7 +320,7 @@ function flatIndex(type, i) {
           </div>
 
           <!-- Footer hints -->
-          <div class="hidden sm:flex items-center gap-4 px-4 py-2 border-t border-zinc-800/80 text-[11px] text-zinc-600">
+          <div class="hidden sm:flex items-center gap-4 px-4 py-2 border-t border-zinc-800/80 text-[11px] text-zinc-600 shrink-0">
             <span><KbdKey>↑↓</KbdKey> navigate</span>
             <span><KbdKey>↵</KbdKey> select</span>
             <span><KbdKey>esc</KbdKey> close</span>

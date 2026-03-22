@@ -61,14 +61,14 @@ function onTrackSaved(updatedTrack) {
     <div
       v-if="track"
       class="fixed inset-0 z-[90] bg-black/45 sm:bg-transparent"
-      :class="showBackdrop ? '' : 'sm:hidden'"
+      :class="showBackdrop ? '' : 'min-[1200px]:hidden'"
       @click="emit('close')"
     />
 
     <Transition name="sheet">
       <div
         v-if="track"
-        class="fixed inset-x-3 bottom-3 z-[95] rounded-lg border border-zinc-800 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-xl sm:hidden"
+        class="fixed inset-x-3 bottom-3 z-[95] rounded-lg border border-zinc-800 bg-zinc-900/98 p-2 shadow-2xl backdrop-blur-xl max-h-[calc(100svh-env(safe-area-inset-bottom)-1.5rem)] overflow-y-auto overscroll-contain min-[1200px]:hidden"
       >
         <div class="mx-auto mb-2 h-1 w-10 rounded-full bg-zinc-700" />
         <button
@@ -113,7 +113,7 @@ function onTrackSaved(updatedTrack) {
     <Transition name="menu">
       <div
         v-if="track"
-        class="fixed z-[95] hidden min-w-[196px] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl sm:block"
+        class="fixed z-[95] hidden min-w-[196px] rounded-lg border border-zinc-700 bg-zinc-900 py-1 shadow-xl min-[1200px]:block"
         :style="style"
         @mouseenter="emit('cancel-close')"
         @mouseleave="emit('close')"

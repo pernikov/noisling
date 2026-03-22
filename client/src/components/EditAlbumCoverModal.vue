@@ -90,13 +90,13 @@ async function revert() {
 
 <template>
   <BaseModal :show="true" @close="emit('close')">
-    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-md shadow-2xl">
-      <div class="mb-4">
+    <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6 w-full max-w-md shadow-2xl flex max-h-[calc(100svh-2rem)] sm:max-h-[calc(100svh-3rem)] flex-col overflow-hidden">
+      <div class="mb-4 shrink-0">
         <h2 class="text-lg font-bold font-display">Edit album artwork</h2>
         <p class="text-xs text-zinc-500 mt-1">Stored in Noisling only.</p>
       </div>
 
-      <div class="mb-4">
+      <div class="mb-4 flex-1 min-h-0 overflow-y-auto overscroll-contain pr-1">
         <button
           class="group relative mx-auto block w-full max-w-md aspect-square rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950/60 hover:border-zinc-700 transition-colors"
           :disabled="saving || reverting"
@@ -125,9 +125,9 @@ async function revert() {
         </div>
       </div>
 
-      <p v-if="error" class="mt-3 text-sm text-red-400">{{ error }}</p>
+      <p v-if="error" class="mt-3 text-sm text-red-400 shrink-0">{{ error }}</p>
 
-      <div class="flex items-center justify-between gap-2 mt-5">
+      <div class="flex items-center justify-between gap-2 mt-5 shrink-0">
         <Button
           v-if="hasCustomCover"
           variant="destructive"

@@ -429,8 +429,8 @@ onUnmounted(() => {
               <Icon :path="mdiChevronDown" class="w-7 h-7" />
             </button>
 
-            <!-- Tab switcher (mobile only — desktop has the queue drawer) -->
-            <div class="sm:hidden absolute left-1/2 -translate-x-1/2 flex bg-white/10 rounded-full p-1">
+            <!-- Compact layout tab switcher (desktop has the queue drawer) -->
+            <div class="now-playing-mobile-tabs absolute left-1/2 -translate-x-1/2 flex bg-white/10 rounded-full p-1">
               <button
                 class="px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors"
                 :class="activeTab === 'nowplaying' ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white'"
@@ -442,7 +442,7 @@ onUnmounted(() => {
                 @click="activeTab = 'queue'"
               >Queue</button>
             </div>
-            <span class="pointer-events-none absolute left-1/2 hidden -translate-x-1/2 text-xs uppercase tracking-widest text-zinc-400 font-medium sm:block">Now Playing</span>
+            <span class="now-playing-desktop-title pointer-events-none absolute left-1/2 -translate-x-1/2 text-xs uppercase tracking-widest text-zinc-400 font-medium">Now Playing</span>
 
             <!-- Track actions (hidden in queue tab) -->
             <div v-if="activeTab === 'nowplaying'" class="ml-auto flex items-center gap-0.5 -mr-1">
@@ -669,10 +669,10 @@ onUnmounted(() => {
           </div>
           </div>
 
-          <!-- Queue tab (mobile only, always mounted) -->
+          <!-- Queue tab (compact layout only, always mounted) -->
           <div
             v-if="activeTab === 'queue'"
-            class="sm:hidden absolute inset-0 flex flex-col pb-[env(safe-area-inset-bottom)] transition-opacity duration-200 opacity-100"
+            class="now-playing-queue-panel absolute inset-0 flex flex-col pb-[env(safe-area-inset-bottom)] transition-opacity duration-200 opacity-100"
           >
             <div class="flex items-center justify-between px-3 py-2 border-b border-white/10">
               <div class="text-xs uppercase tracking-[0.18em] text-white/60">
@@ -720,6 +720,26 @@ onUnmounted(() => {
 .icon-swap-enter-from,
 .icon-swap-leave-to {
   opacity: 0;
+}
+
+.now-playing-mobile-tabs,
+.now-playing-queue-panel {
+  display: none;
+}
+
+.now-playing-desktop-title {
+  display: block;
+}
+
+@media (max-width: 1199px) {
+  .now-playing-mobile-tabs,
+  .now-playing-queue-panel {
+    display: flex;
+  }
+
+  .now-playing-desktop-title {
+    display: none;
+  }
 }
 
 @media (orientation: landscape) and (max-height: 500px) and (pointer: coarse) {

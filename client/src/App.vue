@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from "vue";
+import { computed, defineAsyncComponent, ref, watch } from "vue";
 import { mdiCog, mdiHelpCircleOutline, mdiAlertCircleOutline, mdiCheck } from "@mdi/js";
 import { useToast } from "./composables/useToast.js";
 import Icon from "./components/Icon.vue";
@@ -7,7 +7,6 @@ import { useRoute } from "vue-router";
 import PlayerBar from "./components/PlayerBar.vue";
 import NowPlayingModal from "./components/NowPlayingModal.vue";
 import ShortcutsModal from "./components/ShortcutsModal.vue";
-import SpectrogramVisualizer from "./components/SpectrogramVisualizer.vue";
 import { usePlayer } from "./composables/usePlayer.js";
 import { useKeyboardShortcuts } from "./composables/useKeyboardShortcuts.js";
 import { useAccentColor } from "./composables/useAccentColor.js";
@@ -15,6 +14,8 @@ import { useTheme } from "./composables/useTheme.js";
 import { useUpdateCheck } from "./composables/useUpdateCheck.js";
 import GlobalSearch from "./components/GlobalSearch.vue";
 import UpdateModal from "./components/UpdateModal.vue";
+
+const SpectrogramVisualizer = defineAsyncComponent(() => import("./components/SpectrogramVisualizer.vue"));
 
 const { loadTheme, wideLayout, themeColor, themeBgRgb, themeBgDarkRgb } = useTheme();
 loadTheme();

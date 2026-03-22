@@ -180,6 +180,13 @@ function playTrack(index) {
   }
 }
 
+function onTrackRowKeydown(event, index, track) {
+  if (track.deleted) return;
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  playTrack(index);
+}
+
 function playAll() {
   const sourceTracks = Array.isArray(props.playTracks) && props.playTracks.length ? props.playTracks : props.tracks;
   _playAll(sourceTracks, props.getAllTracks);
@@ -326,7 +333,7 @@ defineExpose({ playAll, playShuffle });
         <div
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
-            class="group relative grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200"
+            class="group relative grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             :class="[
               track.deleted
                 ? 'cursor-default opacity-40'
@@ -344,7 +351,11 @@ defineExpose({ playAll, playShuffle });
             ...(isPrimaryPendingRecentTrack(track, i) ? { '--pending-progress': `${pendingRecentProgress(track)}%` } : {}),
           }"
           :draggable="draggable ? 'true' : 'false'"
+          :role="track.deleted ? undefined : 'button'"
+          :tabindex="track.deleted ? -1 : 0"
+          :aria-label="track.deleted ? undefined : `Play ${track.title}`"
           @click="!track.deleted && playTrack(i)"
+          @keydown="onTrackRowKeydown($event, i, track)"
           @mouseleave="scheduleCloseMenu"
           @dragstart="draggable && onDragStart($event, i)"
           @dragover="draggable && onDragOver($event, i)"

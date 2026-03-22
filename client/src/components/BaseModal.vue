@@ -25,11 +25,17 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     <Transition name="modal" appear>
       <div
         v-if="show"
-        class="fixed inset-0 z-[80] flex px-4 bg-zinc-950/80 backdrop-blur-sm"
-        :class="align === 'top' ? 'items-start pt-16 justify-center' : 'items-center justify-center'"
+        class="fixed inset-0 z-[80] flex overflow-y-auto overscroll-contain px-4 bg-zinc-950/80 backdrop-blur-sm"
+        :class="align === 'top'
+          ? 'items-start justify-center pt-[calc(env(safe-area-inset-top)+4rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]'
+          : 'items-center justify-center py-[calc(env(safe-area-inset-top)+1rem)]'"
         @click.self="$emit('close')"
       >
-        <div class="modal-content w-full flex justify-center" :class="{ 'modal-content--top': align === 'top' }" @click.self="$emit('close')">
+        <div
+          class="modal-content w-full shrink-0 flex justify-center"
+          :class="{ 'modal-content--top': align === 'top' }"
+          @click.self="$emit('close')"
+        >
           <slot />
         </div>
       </div>
