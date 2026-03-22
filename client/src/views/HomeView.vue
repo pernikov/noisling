@@ -399,6 +399,7 @@ function goToAlbum(album) {
       <div v-else>
         <TrackList
           :tracks="recentTracksForDisplay"
+          animate-list
           show-cover
           show-artist
           show-album

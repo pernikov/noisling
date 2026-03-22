@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, TransitionGroup } from 'vue';
 import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiCheck } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
@@ -32,6 +32,7 @@ const props = defineProps({
   sortDir: { type: String, default: 'asc' },
   playlistId: { type: String, default: null }, // if set, shows "Remove from playlist" in menu
   draggable: { type: Boolean, default: false },
+  animateList: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['sort', 'remove-from-playlist', 'reorder', 'track-updated']);
@@ -222,6 +223,8 @@ const showArtistValue = computed(() => props.showArtist);
 const showAlbumValue = computed(() => props.showAlbum);
 const showPlaysValue = computed(() => props.showPlays);
 const showLastPlayedValue = computed(() => props.showLastPlayed);
+const listContainerTag = computed(() => (props.animateList ? TransitionGroup : 'div'));
+const listContainerProps = computed(() => (props.animateList ? { name: 'track-list-item', tag: 'div' } : {}));
 
 // --- Drag and drop reordering (playlist mode) ---
 const dragIndex = ref(null);
@@ -315,7 +318,11 @@ defineExpose({ playAll, playShuffle });
       <IconButton :icon="mdiShuffle" label="Shuffle" @click="playShuffle" />
     </div>
 
-    <div class="track-list-rows flex flex-col gap-2">
+    <component
+      :is="listContainerTag"
+      v-bind="listContainerProps"
+      class="track-list-rows flex flex-col gap-2"
+    >
         <div
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
@@ -562,7 +569,7 @@ defineExpose({ playAll, playShuffle });
             </div>
           </div>
         </div>
-      </div>
+      </component>
   </div>
 
   <TrackContextMenu
@@ -577,6 +584,10 @@ defineExpose({ playAll, playShuffle });
 </template>
 
 <style scoped>
+.track-list-rows {
+  position: relative;
+}
+
 .drop-above {
   box-shadow: inset 0 2px 0 var(--indicator);
 }
@@ -761,13 +772,41 @@ defineExpose({ playAll, playShuffle });
 .track-indicator-leave-to {
   transform: none;
 }
+
+.track-list-item-move,
+.track-list-item-enter-active,
+.track-list-item-leave-active {
+  transition:
+    transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 260ms ease,
+    filter 260ms ease;
+}
+
+.track-list-item-enter-from,
+.track-list-item-leave-to {
+  opacity: 0;
+  transform: translateY(12px) scale(0.98);
+  filter: blur(4px);
+}
+
+.track-list-item-leave-active {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cover-indicator-enter-active,
   .cover-indicator-leave-active,
   .track-indicator-enter-active,
   .track-indicator-leave-active,
   .cover-icon-swap-enter-active,
-  .cover-icon-swap-leave-active {
+  .cover-icon-swap-leave-active,
+  .track-list-item-move,
+  .track-list-item-enter-active,
+  .track-list-item-leave-active {
     transition: none;
   }
 }
