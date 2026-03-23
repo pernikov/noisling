@@ -151,30 +151,22 @@ describe('usePlayer orchestration', () => {
     expect(state.loveToggled).toEqual({ id: 'track-2', isLoved: false });
   });
 
-  it('waits for transcoded tracks to be ready before hidden playback starts', async () => {
-    vi.useFakeTimers();
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      value: 'hidden',
-    });
-
-    const warmTranscode = vi.fn()
-      .mockResolvedValueOnce({ status: 'started' })
-      .mockResolvedValueOnce({ status: 'in_progress' })
-      .mockResolvedValueOnce({ status: 'ready' });
+  it('prewarms the next two transcoded tracks in the queue', async () => {
+    const warmTranscode = vi.fn(() => Promise.resolve({ status: 'ready' }));
 
     const { playAlbum } = await importUsePlayerWithApi({ warmTranscode });
-    const audio = FakeAudio.lastInstance;
-    const track = { _id: 'track-3', title: 'Hidden FLAC', format: 'flac' };
+    const tracks = [
+      { _id: 'track-1', title: 'Current', format: 'mp3' },
+      { _id: 'track-2', title: 'Next FLAC', format: 'flac' },
+      { _id: 'track-3', title: 'Then FLAC Too', format: 'flac' },
+      { _id: 'track-4', title: 'Native AAC', format: 'aac' },
+    ];
 
-    playAlbum([track], 0);
+    playAlbum(tracks, 0);
     await Promise.resolve();
 
-    expect(audio.src).toBe('');
-
-    await vi.advanceTimersByTimeAsync(500);
-
-    expect(audio.src).toBe('/stream/track-3/transcoded');
-    expect(warmTranscode).toHaveBeenCalledTimes(3);
+    expect(warmTranscode).toHaveBeenCalledTimes(2);
+    expect(warmTranscode).toHaveBeenNthCalledWith(1, 'track-2');
+    expect(warmTranscode).toHaveBeenNthCalledWith(2, 'track-3');
   });
 });
