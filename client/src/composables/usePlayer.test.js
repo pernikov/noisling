@@ -20,8 +20,8 @@ class FakeAudio {
     this._listeners = new Map();
   }
 
-  canPlayType() {
-    return 'probably';
+  canPlayType(mime) {
+    return mime === 'audio/flac' ? '' : 'probably';
   }
 
   addEventListener(name, handler) {
@@ -149,5 +149,32 @@ describe('usePlayer orchestration', () => {
     expect(track.isLoved).toBe(false);
     expect(state.currentTrack.isLoved).toBe(false);
     expect(state.loveToggled).toEqual({ id: 'track-2', isLoved: false });
+  });
+
+  it('waits for transcoded tracks to be ready before hidden playback starts', async () => {
+    vi.useFakeTimers();
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    const warmTranscode = vi.fn()
+      .mockResolvedValueOnce({ status: 'started' })
+      .mockResolvedValueOnce({ status: 'in_progress' })
+      .mockResolvedValueOnce({ status: 'ready' });
+
+    const { playAlbum } = await importUsePlayerWithApi({ warmTranscode });
+    const audio = FakeAudio.lastInstance;
+    const track = { _id: 'track-3', title: 'Hidden FLAC', format: 'flac' };
+
+    playAlbum([track], 0);
+    await Promise.resolve();
+
+    expect(audio.src).toBe('');
+
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(audio.src).toBe('/stream/track-3/transcoded');
+    expect(warmTranscode).toHaveBeenCalledTimes(3);
   });
 });

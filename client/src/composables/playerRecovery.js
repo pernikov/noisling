@@ -5,6 +5,7 @@ export function createPlayerRecovery({
   needsTranscode,
   setTrackSource,
   waitForTranscodeReady,
+  getTranscodeWaitMs,
   play,
   next,
 }) {
@@ -47,7 +48,7 @@ export function createPlayerRecovery({
     clearEndedTimer();
     recoveryState.ignoreEndedTimer = setTimeout(() => {
       recoveryState.ignoreNextEnded = false;
-    }, needsTranscode(track) ? 8000 : 500);
+    }, needsTranscode(track) ? 20000 : 500);
   }
 
   function handleError() {
@@ -215,7 +216,8 @@ export function createPlayerRecovery({
 
       (async () => {
         if (state.transcodeActive) {
-          await waitForTranscodeReady(track._id, 12000);
+          state.transcodeWaiting = true;
+          await waitForTranscodeReady(track._id, getTranscodeWaitMs(track, { hidden: isHidden }));
         }
         if (!matchesRecoverySeq(seq)) return;
 
@@ -282,16 +284,23 @@ export function createPlayerRecovery({
       const seq = nextRecoverySeq();
       recoveryState.ignoreNextEnded = true;
       clearEndedTimer();
-      setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: false });
-      audio.load();
-      audio.addEventListener('loadedmetadata', () => {
-        if (!matchesRecoverySeq(seq)) return;
-        recoveryState.ignoreNextEnded = false;
-        if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
-          audio.currentTime = resumeAt;
+      (async () => {
+        if (state.transcodeActive) {
+          state.transcodeWaiting = true;
+          await waitForTranscodeReady(track._id, getTranscodeWaitMs(track, { hidden: false }));
         }
-        audio.play().catch((e) => console.error('[player] resume() reload retry failed:', e));
-      }, { once: true });
+        if (!matchesRecoverySeq(seq)) return;
+        setTrackSource(track, { forceTranscode: state.transcodeActive, markWaiting: state.transcodeActive });
+        audio.load();
+        audio.addEventListener('loadedmetadata', () => {
+          if (!matchesRecoverySeq(seq)) return;
+          recoveryState.ignoreNextEnded = false;
+          if (resumeAt > 0 && audio.seekable.length > 0 && audio.seekable.end(0) >= resumeAt) {
+            audio.currentTime = resumeAt;
+          }
+          audio.play().catch((e) => console.error('[player] resume() reload retry failed:', e));
+        }, { once: true });
+      })();
     });
   }
 

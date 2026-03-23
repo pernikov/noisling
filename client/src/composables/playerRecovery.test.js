@@ -42,6 +42,7 @@ function createRecoveryHarness(overrides = {}) {
   };
   const setTrackSource = vi.fn();
   const waitForTranscodeReady = vi.fn(() => Promise.resolve(true));
+  const getTranscodeWaitMs = vi.fn(() => 8000);
   const play = vi.fn();
   const next = vi.fn();
   const needsTranscode = overrides.needsTranscode ?? (() => false);
@@ -53,11 +54,12 @@ function createRecoveryHarness(overrides = {}) {
     needsTranscode,
     setTrackSource,
     waitForTranscodeReady,
+    getTranscodeWaitMs,
     play,
     next,
   });
 
-  return { state, audio, api, setTrackSource, waitForTranscodeReady, play, next, recovery };
+  return { state, audio, api, setTrackSource, waitForTranscodeReady, getTranscodeWaitMs, play, next, recovery };
 }
 
 beforeEach(() => {
@@ -110,7 +112,7 @@ describe('createPlayerRecovery', () => {
   });
 
   it('reloads the current source during force-resume when playback is stuck', async () => {
-    const { state, audio, setTrackSource, waitForTranscodeReady, recovery } = createRecoveryHarness();
+    const { state, audio, setTrackSource, waitForTranscodeReady, getTranscodeWaitMs, recovery } = createRecoveryHarness();
     state.transcodeActive = true;
     audio.error = { code: 2, message: 'network' };
 
@@ -121,7 +123,9 @@ describe('createPlayerRecovery', () => {
 
     await Promise.resolve();
 
-    expect(waitForTranscodeReady).toHaveBeenCalledWith('1', 12000);
+    expect(state.transcodeWaiting).toBe(true);
+    expect(getTranscodeWaitMs).toHaveBeenCalledWith(expect.objectContaining({ _id: '1' }), { hidden: false });
+    expect(waitForTranscodeReady).toHaveBeenCalledWith('1', 8000);
     expect(audio.removeAttribute).toHaveBeenCalledWith('src');
     expect(setTrackSource).toHaveBeenCalledWith(
       expect.objectContaining({ _id: '1' }),

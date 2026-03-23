@@ -95,6 +95,25 @@ let positionStateTimer = null;
 
 // Debounce volume server saves.
 let _volumeSaveTimer = null;
+let _playRequestSeq = 0;
+
+function isDocumentHidden() {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden';
+}
+
+function getAdaptiveTranscodeWaitMs(track, { hidden = false } = {}) {
+  let waitMs = 8000;
+  const duration = Number(track?.duration) || 0;
+  const format = String(track?.format || '').toLowerCase();
+
+  if (hidden) waitMs += 6000;
+  if (duration >= 10 * 60) waitMs += 6000;
+  if (duration >= 30 * 60) waitMs += 4000;
+  if (format === 'flac') waitMs += 4000;
+  if (format === 'opus' || format === 'ogg') waitMs += 2000;
+
+  return Math.min(waitMs, 30000);
+}
 
 function _setTrackSource(track, { forceTranscode = false, markWaiting = true, cacheBust = false } = {}) {
   const transcode = forceTranscode || needsTranscode(track);
@@ -148,8 +167,9 @@ function markCurrentTrackReported(trackId) {
 }
 
 function warmNextQueuedTrack() {
-  const nextIdx = state.queueIndex + 1;
-  if (nextIdx < state.queue.length) {
+  for (let offset = 1; offset <= 2; offset += 1) {
+    const nextIdx = state.queueIndex + offset;
+    if (nextIdx >= state.queue.length) break;
     const nextTrack = state.queue[nextIdx];
     if (needsTranscode(nextTrack)) api.warmTranscode(nextTrack._id);
   }
@@ -199,7 +219,6 @@ function registerPlayerEventListeners() {
     const audioDuration = isFinite(audio.duration) ? audio.duration : 0;
     const trackDuration = state.currentTrack?.duration ?? 0;
     state.duration = Math.max(audioDuration, trackDuration) || 0;
-    state.transcodeWaiting = false;
     updateMediaSessionPositionState();
 
     if (_pendingRestore) {
@@ -263,6 +282,7 @@ async function loadPlayerPrefs() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function play(track) {
+  const requestSeq = ++_playRequestSeq;
   const previousTrackId = state.currentTrack?._id?.toString?.() ?? null;
   const nextTrackId = track?._id?.toString?.() ?? null;
   if (nextTrackId && nextTrackId !== previousTrackId) {
@@ -279,44 +299,67 @@ function play(track) {
   state.currentTime = 0;
   resetPlayTracking();
   resetTranscodeAttempted();
-  _setTrackSource(track);
-  // Explicit load() clears stale ended/error state before play() on iOS.
-  audio.load();
 
-  maybeResumeVisualizerContext();
+  const transcode = needsTranscode(track);
+  state.transcodeActive = transcode;
+  state.transcodeWaiting = transcode;
 
-  const trackId = track._id;
-  audio.play().catch(err => {
-    console.error('[player] play() failed:', err);
-    if (err.name === 'NotAllowedError') {
-      // iOS denied the play() call — audio session window was missed or there was no
-      // user gesture. Mark as paused so the UI and lock screen reflect reality; the
-      // user can resume via the lock screen play button or by foregrounding the app.
-      state.isPlaying = false;
-      setPlaybackState(false);
-      return;
-    }
-
-    let retryDone = false;
-    const retryPlay = () => {
-      if (retryDone) return;
-      retryDone = true;
-      if (!matchesRecoverySeq(playSeq)) return;
-      if (state.currentTrack?._id !== trackId) return;
-      if (audio.error) return;
-      audio.play().catch(e => console.error('[player] play() retry failed:', e));
-    };
-
-    // For transcoded/background starts, metadata/canplay often arrives after
-    // the first play() attempt. Retry on readiness events instead of depending
-    // only on timers, which iOS can throttle in background.
-    audio.addEventListener('loadedmetadata', retryPlay, { once: true });
-    audio.addEventListener('canplay', retryPlay, { once: true });
-    queueMicrotask(retryPlay);
-    setTimeout(retryPlay, 500);
-  });
   updateMediaSession(track);
   warmNextQueuedTrack();
+
+  (async () => {
+    if (transcode && isDocumentHidden()) {
+      const ready = await waitForTranscodeReady(
+        track._id,
+        getAdaptiveTranscodeWaitMs(track, { hidden: true }),
+      );
+      if (!ready) {
+        console.warn(`[player] timed out waiting for transcode readiness before hidden start: ${track.title || track._id}`);
+      }
+    }
+
+    if (requestSeq !== _playRequestSeq) return;
+    if (!matchesRecoverySeq(playSeq)) return;
+    if (state.currentTrack?._id !== track._id) return;
+
+    _setTrackSource(track, { markWaiting: transcode });
+    // Explicit load() clears stale ended/error state before play() on iOS.
+    audio.load();
+
+    maybeResumeVisualizerContext();
+
+    const trackId = track._id;
+    audio.play().catch(err => {
+      console.error('[player] play() failed:', err);
+      if (err.name === 'NotAllowedError') {
+        // iOS denied the play() call — audio session window was missed or there was no
+        // user gesture. Mark as paused so the UI and lock screen reflect reality; the
+        // user can resume via the lock screen play button or by foregrounding the app.
+        state.isPlaying = false;
+        setPlaybackState(false);
+        return;
+      }
+
+      let retryDone = false;
+      const retryPlay = () => {
+        if (retryDone) return;
+        retryDone = true;
+        if (requestSeq !== _playRequestSeq) return;
+        if (!matchesRecoverySeq(playSeq)) return;
+        if (state.currentTrack?._id !== trackId) return;
+        if (audio.error) return;
+        audio.play().catch(e => console.error('[player] play() retry failed:', e));
+      };
+
+      // For transcoded/background starts, metadata/canplay often arrives after
+      // the first play() attempt. Retry on readiness events instead of depending
+      // only on timers, which iOS can throttle in background.
+      audio.addEventListener('loadedmetadata', retryPlay, { once: true });
+      audio.addEventListener('canplay', retryPlay, { once: true });
+      queueMicrotask(retryPlay);
+      setTimeout(retryPlay, 500);
+    });
+  })();
 }
 
 function pause() {
@@ -476,6 +519,7 @@ const {
   needsTranscode,
   setTrackSource: _setTrackSource,
   waitForTranscodeReady,
+  getTranscodeWaitMs: getAdaptiveTranscodeWaitMs,
   play,
   next,
 });
