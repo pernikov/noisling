@@ -1,6 +1,6 @@
 <script setup>
-import { ref, watch, computed, TransitionGroup } from 'vue';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiCheck } from '@mdi/js';
+import { ref, watch, computed, TransitionGroup, onUnmounted } from 'vue';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiCheck, mdiDragVertical } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
 import TransportButton from './TransportButton.vue';
@@ -10,6 +10,7 @@ import { useApi } from '../composables/useApi.js';
 import { useContextMenu } from '../composables/useContextMenu.js';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { formatTime } from '../composables/useProgressScrub.js';
+import { findScrollTarget, useDragAutoScroll } from '../composables/useDragAutoScroll.js';
 import CoverArt from './CoverArt.vue';
 import TrackContextMenu from './TrackContextMenu.vue';
 
@@ -232,11 +233,34 @@ const showPlaysValue = computed(() => props.showPlays);
 const showLastPlayedValue = computed(() => props.showLastPlayed);
 const listContainerTag = computed(() => (props.animateList ? TransitionGroup : 'div'));
 const listContainerProps = computed(() => (props.animateList ? { name: 'track-list-item', tag: 'div' } : {}));
+const rowElements = ref([]);
+
+function setRowRef(index, element) {
+  if (element) rowElements.value[index] = element;
+  else rowElements.value[index] = undefined;
+}
 
 // --- Drag and drop reordering (playlist mode) ---
 const dragIndex = ref(null);
 const dragOverIndex = ref(null);
 let ghostEl = null;
+let touchDragIndex = null;
+let touchClientY = null;
+const { start: startAutoScroll, update: updateAutoScroll, stop: stopAutoScroll } = useDragAutoScroll({
+  onStop: clearDragState,
+  onScroll: updateTouchDragOverIndex,
+});
+
+function clearDragState() {
+  dragIndex.value = null;
+  dragOverIndex.value = null;
+  touchDragIndex = null;
+  touchClientY = null;
+  if (ghostEl) {
+    document.body.removeChild(ghostEl);
+    ghostEl = null;
+  }
+}
 
 function onDragStart(e, index) {
   dragIndex.value = index;
@@ -245,6 +269,7 @@ function onDragStart(e, index) {
   const row = e.currentTarget;
   const rowH = row.offsetHeight;
   const track = props.tracks[index];
+  startAutoScroll(findScrollTarget(row), e.clientY);
 
   ghostEl = document.createElement('div');
   Object.assign(ghostEl.style, {
@@ -286,6 +311,7 @@ function onDragOver(e, index) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   dragOverIndex.value = index;
+  updateAutoScroll(e.clientY);
 }
 
 function onDragLeave(e) {
@@ -296,22 +322,84 @@ function onDragLeave(e) {
 
 function onDrop(e, toIndex) {
   e.preventDefault();
-  const fromIndex = dragIndex.value;
-  if (fromIndex !== null && fromIndex !== toIndex) {
-    const reordered = [...props.tracks];
-    const [moved] = reordered.splice(fromIndex, 1);
-    reordered.splice(toIndex, 0, moved);
-    emit('reorder', reordered);
-  }
-  dragIndex.value = null;
-  dragOverIndex.value = null;
+  reorderTracks(dragIndex.value, toIndex);
+  stopAutoScroll();
 }
 
 function onDragEnd() {
-  dragIndex.value = null;
-  dragOverIndex.value = null;
-  if (ghostEl) { document.body.removeChild(ghostEl); ghostEl = null; }
+  stopAutoScroll();
 }
+
+function reorderTracks(fromIndex, toIndex) {
+  if (fromIndex === null || toIndex === null || fromIndex === toIndex) return;
+  const reordered = [...props.tracks];
+  const [moved] = reordered.splice(fromIndex, 1);
+  reordered.splice(toIndex, 0, moved);
+  emit('reorder', reordered);
+}
+
+function updateTouchDragOverIndex(clientY = touchClientY) {
+  touchClientY = clientY;
+  if (touchDragIndex === null || clientY === null) return;
+
+  const rows = rowElements.value;
+  let overIndex = touchDragIndex;
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row) continue;
+    const rect = row.getBoundingClientRect();
+    if (clientY < rect.top + rect.height / 2) {
+      overIndex = i;
+      break;
+    }
+    overIndex = i;
+  }
+
+  dragOverIndex.value = Math.max(0, Math.min(props.tracks.length - 1, overIndex));
+}
+
+function removeTouchListeners() {
+  document.removeEventListener('touchmove', onTouchDragMove);
+  document.removeEventListener('touchend', onTouchDragEnd);
+  document.removeEventListener('touchcancel', onTouchDragCancel);
+}
+
+function onHandleTouchStart(e, index) {
+  if (!props.draggable) return;
+  e.stopPropagation();
+  touchDragIndex = index;
+  touchClientY = e.touches[0]?.clientY ?? null;
+  dragIndex.value = index;
+  dragOverIndex.value = index;
+  const row = rowElements.value[index];
+  startAutoScroll(findScrollTarget(row || e.currentTarget), touchClientY);
+  document.addEventListener('touchmove', onTouchDragMove, { passive: false });
+  document.addEventListener('touchend', onTouchDragEnd);
+  document.addEventListener('touchcancel', onTouchDragCancel);
+}
+
+function onTouchDragMove(e) {
+  if (touchDragIndex === null) return;
+  e.preventDefault();
+  const touch = e.touches[0];
+  if (!touch) return;
+  updateTouchDragOverIndex(touch.clientY);
+  updateAutoScroll(touch.clientY);
+}
+
+function onTouchDragEnd() {
+  removeTouchListeners();
+  reorderTracks(touchDragIndex, dragOverIndex.value);
+  stopAutoScroll();
+}
+
+function onTouchDragCancel() {
+  removeTouchListeners();
+  stopAutoScroll();
+}
+
+onUnmounted(removeTouchListeners);
 
 
 defineExpose({ playAll, playShuffle });
@@ -333,6 +421,7 @@ defineExpose({ playAll, playShuffle });
         <div
           v-for="(track, i) in tracks"
           :key="track.historyId ?? track._id"
+          :ref="el => setRowRef(i, el)"
             class="group relative grid grid-cols-[minmax(0,1fr),auto] items-center gap-4 rounded-xl px-3 py-3 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             :class="[
               track.deleted
@@ -577,6 +666,17 @@ defineExpose({ playAll, playShuffle });
                 label="Track actions"
                 @click.stop="openMenu($event, i, track)"
               />
+              <button
+                v-if="draggable"
+                type="button"
+                class="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500/80 transition-colors sm:hidden"
+                :class="{ 'text-zinc-200': dragIndex === i }"
+                aria-label="Reorder track"
+                style="touch-action: none"
+                @touchstart.prevent.stop="onHandleTouchStart($event, i)"
+              >
+                <Icon :path="mdiDragVertical" class="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>

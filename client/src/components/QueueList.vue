@@ -5,6 +5,7 @@ import Icon from './Icon.vue';
 import CoverArt from './CoverArt.vue';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { useDragAutoScroll } from '../composables/useDragAutoScroll.js';
 
 const props = defineProps({
   // Row horizontal padding — 'px-4' for QueueDrawer, 'px-3' for modal
@@ -92,9 +93,33 @@ defineExpose({ scrollToCurrent });
 const dragIndex = ref(null);
 const dragOverIndex = ref(null);
 let ghostEl = null;
+const { start: startAutoScroll, update: updateAutoScroll, stop: stopAutoScroll } = useDragAutoScroll({
+  onScroll: updateTouchDragOverIndex,
+  onStop: clearDragState,
+});
+
+function clearDragState() {
+  dragIndex.value = null;
+  dragOverIndex.value = null;
+  touchDragIndex = null;
+  if (ghostEl) {
+    document.body.removeChild(ghostEl);
+    ghostEl = null;
+  }
+}
+
+function updateTouchDragOverIndex(clientY) {
+  const container = scrollContainer.value;
+  if (!container || clientY === null) return;
+  const rect = container.getBoundingClientRect();
+  const relativeY = clientY - rect.top + container.scrollTop;
+  const overIndex = Math.floor(relativeY / ITEM_HEIGHT.value);
+  dragOverIndex.value = Math.max(0, Math.min(state.queue.length - 1, overIndex));
+}
 
 function onDragStart(e, index) {
   dragIndex.value = index;
+  startAutoScroll(scrollContainer.value, e.clientY);
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', String(index));
   const row = e.currentTarget;
@@ -118,6 +143,7 @@ function onDragOver(e, index) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   dragOverIndex.value = index;
+  updateAutoScroll(e.clientY);
 }
 
 function onDragLeave(e) {
@@ -131,14 +157,11 @@ function onDrop(e, toIndex) {
   e.preventDefault();
   const fromIndex = dragIndex.value;
   if (fromIndex !== null && fromIndex !== toIndex) moveTrack(fromIndex, toIndex);
-  dragIndex.value = null;
-  dragOverIndex.value = null;
+  stopAutoScroll();
 }
 
 function onDragEnd() {
-  dragIndex.value = null;
-  dragOverIndex.value = null;
-  if (ghostEl) { document.body.removeChild(ghostEl); ghostEl = null; }
+  stopAutoScroll();
 }
 
 // --- Touch drag (mobile) via drag handle ---
@@ -151,6 +174,7 @@ function onHandleTouchStart(e, index) {
   e.stopPropagation();
   touchDragIndex = index;
   dragIndex.value = index;
+  startAutoScroll(scrollContainer.value, e.touches[0]?.clientY ?? null);
   document.addEventListener('touchmove', onTouchDragMove, { passive: false });
   document.addEventListener('touchend', onTouchDragEnd);
 }
@@ -159,12 +183,8 @@ function onTouchDragMove(e) {
   if (touchDragIndex === null) return;
   e.preventDefault(); // block scroll during drag; works because handle has touch-action: none
   const touch = e.touches[0];
-  const container = scrollContainer.value;
-  if (!container) return;
-  const rect = container.getBoundingClientRect();
-  const relativeY = touch.clientY - rect.top + container.scrollTop;
-  const overIndex = Math.floor(relativeY / ITEM_HEIGHT.value);
-  dragOverIndex.value = Math.max(0, Math.min(state.queue.length - 1, overIndex));
+  updateTouchDragOverIndex(touch.clientY);
+  updateAutoScroll(touch.clientY);
 }
 
 function onTouchDragEnd() {
@@ -175,15 +195,14 @@ function onTouchDragEnd() {
   if (fromIndex !== null && toIndex !== null && fromIndex !== toIndex) {
     moveTrack(fromIndex, toIndex);
   }
-  touchDragIndex = null;
-  dragIndex.value = null;
-  dragOverIndex.value = null;
+  stopAutoScroll();
 }
 
 onUnmounted(() => {
   // Clean up if component unmounts mid-drag
   document.removeEventListener('touchmove', onTouchDragMove);
   document.removeEventListener('touchend', onTouchDragEnd);
+  stopAutoScroll();
   if (mediaQuery && mediaQueryListener) {
     if (mediaQuery.removeEventListener) mediaQuery.removeEventListener('change', mediaQueryListener);
     else mediaQuery.removeListener(mediaQueryListener);
