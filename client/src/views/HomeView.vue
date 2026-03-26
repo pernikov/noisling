@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum } from '@mdi/js';
+import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum, mdiDisc } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
@@ -13,7 +13,7 @@ import Spinner from '../components/Spinner.vue';
 
 const api = useApi();
 const router = useRouter();
-const { state: playerState, playAlbum, shuffleAll } = usePlayer();
+const { state: playerState, playAlbum, playAlbumOnce, shuffleAll } = usePlayer();
 const { homeAlbumsMode } = useTheme();
 
 const lovedTracks = ref([]);
@@ -61,6 +61,7 @@ localStorage.setItem('noisling-greeting-idx', String(nextIdx));
 const greeting = GREETINGS[nextIdx];
 
 const loadingShuffleAll = ref(false);
+const loadingRandomAlbum = ref(false);
 const loadingTopTracks = ref(false);
 const completingRecentTrack = ref(null);
 let completingRecentTimer = null;
@@ -142,6 +143,24 @@ async function playTopTracks() {
     if (tracks.length) playAlbum(tracks, 0);
   } finally {
     loadingTopTracks.value = false;
+  }
+}
+
+async function playRandomAlbum() {
+  loadingRandomAlbum.value = true;
+  try {
+    const [album] = await api.getRandomAlbums(1, 2);
+    if (!album) return;
+
+    const artist = album.artistsNorm?.[0] ?? album.artists?.[0];
+    if (!artist) return;
+
+    const data = await api.getAlbum(artist, album.name);
+    if (data.tracks?.length) playAlbumOnce(data.tracks, 0);
+  } catch (err) {
+    console.error('Failed to play random album:', err);
+  } finally {
+    loadingRandomAlbum.value = false;
   }
 }
 
@@ -318,40 +337,53 @@ function goToAlbum(album) {
     <!-- Quick Actions -->
     <section>
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Quick Play</h2>
-      <div class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:overflow-visible">
+      <div class="no-scrollbar flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 xl:grid-cols-4 sm:overflow-visible">
         <!-- Shuffle All -->
         <button
           @click="playShuffleAll"
           :disabled="loadingShuffleAll"
-          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+          class="relative min-w-[220px] shrink-0 snap-start overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-violet-500 to-purple-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingShuffleAll" class="absolute inset-0 flex items-center justify-center bg-black/20">
             <Spinner class="w-8 h-8 text-white" />
           </div>
           <Icon :path="mdiShuffle" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
           <div class="text-base sm:text-lg font-bold font-display text-white">Shuffle All</div>
-          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Play your entire library in random order</div>
+          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Randomize your whole library</div>
         </button>
 
         <!-- Top Tracks -->
         <button
+          @click="playRandomAlbum"
+          :disabled="loadingRandomAlbum"
+          class="relative min-w-[220px] shrink-0 snap-start overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-sky-500 to-cyan-700 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+        >
+          <div v-if="loadingRandomAlbum" class="absolute inset-0 flex items-center justify-center bg-black/20">
+            <Spinner class="w-8 h-8 text-white" />
+          </div>
+          <Icon :path="mdiDisc" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
+          <div class="text-base sm:text-lg font-bold font-display text-white">Random Album</div>
+          <div class="hidden sm:block text-sm text-white/70 mt-0.5">One 2+ track album, in order</div>
+        </button>
+
+        <button
           @click="playTopTracks"
           :disabled="loadingTopTracks"
-          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
+          class="relative min-w-[220px] shrink-0 snap-start overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
         >
           <div v-if="loadingTopTracks" class="absolute inset-0 flex items-center justify-center bg-black/20">
             <Spinner class="w-8 h-8 text-white" />
           </div>
           <Icon :path="mdiFire" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
           <div class="text-base sm:text-lg font-bold font-display text-white">Top Tracks</div>
-          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Your 50 most listened-to tracks</div>
+          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Your 50 most-played tracks</div>
         </button>
 
         <!-- Loved Tracks -->
         <button
           @click="playLovedTracks"
           :disabled="loadingLoved || lovedTracks.length === 0"
-          class="relative min-w-[220px] shrink-0 overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
+          class="relative min-w-[220px] shrink-0 snap-start overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-rose-500 to-pink-700 hover:scale-[1.02] active:scale-[0.98] transition-[transform,opacity] duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 shadow-lg"
         >
           <Icon :path="mdiHeart" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
           <div class="text-base sm:text-lg font-bold font-display text-white">Loved Tracks</div>

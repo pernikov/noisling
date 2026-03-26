@@ -457,6 +457,14 @@ const {
   needsTranscode,
 });
 
+function playAlbumOnce(tracks, startIndex = 0) {
+  state.shuffle = false;
+  state.repeat = 'off';
+  savePrefs({ shuffle: false, repeat: 'off' });
+  api.saveSettings({ shuffle: false, repeatMode: 'off' }).catch(() => {});
+  playAlbum(tracks, startIndex);
+}
+
 const {
   updateMediaSession,
   updateMediaSessionPositionState,
@@ -507,6 +515,7 @@ export function usePlayer() {
   return {
     state,
     playAlbum,
+    playAlbumOnce,
     playAll,
     playShuffled,
     shuffleAll,

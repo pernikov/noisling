@@ -23,7 +23,11 @@ export function useApi() {
     },
     getArtistTracks: (name) => request(`/artists/${encodeURIComponent(name)}/tracks`),
     getRecentAlbums: (limit = 12) => request(`/albums/recent?limit=${limit}`),
-    getRandomAlbums: (limit = 12) => request(`/albums/random?limit=${limit}`),
+    getRandomAlbums: (limit = 12, minTrackCount = 0) => {
+      const params = new URLSearchParams({ limit });
+      if (minTrackCount > 0) params.set('minTrackCount', minTrackCount);
+      return request(`/albums/random?${params}`);
+    },
     getTopAlbums: (limit = 12) => request(`/albums/top?limit=${limit}`),
     getAlbums: () => request('/albums'),
     getAlbum: (artist, album) =>

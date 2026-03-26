@@ -124,7 +124,7 @@ async function aggregateArtistSummaries({ search, page = 1, limit = 60, random =
   };
 }
 
-async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 }, random = false } = {}) {
+async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 }, random = false, minTrackCount = 0 } = {}) {
   const regex = buildSearchRegex(search);
 
   const albums = await Track.aggregate([
@@ -214,6 +214,7 @@ async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 
         addedAt: 1,
       },
     },
+    ...(minTrackCount > 0 ? [{ $match: { trackCount: { $gte: minTrackCount } } }] : []),
     ...(random
       ? [{ $sample: { size: limit ?? 12 } }]
       : [{ $sort: sort }, ...(limit != null ? [{ $limit: limit }] : [])]),
@@ -421,7 +422,8 @@ router.get('/albums/recent', async (req, res) => {
 // GET /api/albums/random — random sample of albums
 router.get('/albums/random', async (req, res) => {
   const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
-  const albums = await aggregateAlbumSummaries({ limit, random: true });
+  const minTrackCount = Math.max(0, parseInt(req.query.minTrackCount, 10) || 0);
+  const albums = await aggregateAlbumSummaries({ limit, random: true, minTrackCount });
   res.json(albums);
 });
 

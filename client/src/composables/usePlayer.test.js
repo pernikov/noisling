@@ -169,4 +169,25 @@ describe('usePlayer orchestration', () => {
     expect(warmTranscode).toHaveBeenNthCalledWith(1, 'track-2');
     expect(warmTranscode).toHaveBeenNthCalledWith(2, 'track-3');
   });
+
+  it('starts album playback with shuffle and repeat reset for play-once flows', async () => {
+    const saveSettings = vi.fn(() => Promise.resolve({}));
+    const { state, playAlbumOnce } = await importUsePlayerWithApi({ saveSettings });
+    const tracks = [
+      { _id: 'track-1', title: 'One', format: 'mp3' },
+      { _id: 'track-2', title: 'Two', format: 'mp3' },
+    ];
+
+    state.shuffle = true;
+    state.repeat = 'all';
+
+    playAlbumOnce(tracks, 0);
+
+    expect(state.shuffle).toBe(false);
+    expect(state.repeat).toBe('off');
+    expect(state.queue.map((track) => track._id)).toEqual(['track-1', 'track-2']);
+    expect(state.queueIndex).toBe(0);
+    expect(state.currentTrack?._id).toBe('track-1');
+    expect(saveSettings).toHaveBeenCalledWith({ shuffle: false, repeatMode: 'off' });
+  });
 });

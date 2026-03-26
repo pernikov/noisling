@@ -7,6 +7,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 :root {
   --theme-bg-rgb: 15, 23, 42;
   --theme-bg-dark-rgb: 9, 9, 11;
