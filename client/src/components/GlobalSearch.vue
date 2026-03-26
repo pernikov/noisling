@@ -160,28 +160,31 @@ function onTrackResultKeydown(event, track) {
   </button>
 
   <!-- Modal -->
-  <BaseModal :show="open" align="top" @close="closeSearch">
+  <BaseModal :show="open" align="top" mobile-full-screen @close="closeSearch">
         <div
-          class="bg-zinc-900 border border-zinc-700/80 rounded-lg shadow-2xl w-full max-w-xl overflow-hidden flex flex-col"
-          style="max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 5rem);"
+          class="bg-zinc-900/98 border-y border-zinc-800/90 shadow-2xl w-full max-w-none min-h-svh flex flex-col sm:min-h-0 sm:max-w-xl sm:rounded-lg sm:border sm:border-zinc-700/80 sm:bg-zinc-900 overflow-hidden"
+          style="max-height: 100svh;"
         >
 
           <!-- Input -->
-          <div class="flex items-center px-4 border-b border-zinc-800 shrink-0">
-            <Icon :path="mdiMagnify" class="w-5 h-5 text-zinc-500 shrink-0 mr-3" />
+          <div class="flex items-center gap-3 px-4 pt-[calc(env(safe-area-inset-top)+0.875rem)] pb-3 border-b border-zinc-800 shrink-0 sm:px-4 sm:py-0">
+            <div class="flex items-center justify-center w-10 h-10 rounded-2xl bg-white/5 border border-white/10 shrink-0 sm:w-auto sm:h-auto sm:rounded-none sm:bg-transparent sm:border-0">
+              <Icon :path="mdiMagnify" class="w-5 h-5 text-zinc-400 shrink-0 sm:mr-3" />
+            </div>
             <input
               ref="inputRef"
               v-model="query"
               type="text"
               placeholder="Search tracks, albums, artists..."
-              class="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-500 text-sm py-5 sm:py-4"
+              class="flex-1 bg-transparent outline-none text-zinc-100 placeholder:text-zinc-500 text-base sm:text-sm py-3 sm:py-4"
               @keydown="onInputKeydown"
             />
             <button
               @click="closeSearch"
-              class="text-zinc-600 hover:text-zinc-400 transition-colors p-1 ml-2 rounded-lg"
+              class="flex items-center justify-center w-10 h-10 text-zinc-500 hover:text-zinc-200 hover:bg-white/5 transition-colors rounded-2xl shrink-0"
+              aria-label="Close search"
             >
-              <Icon :path="mdiClose" class="w-4 h-4" />
+              <Icon :path="mdiClose" class="w-5 h-5 sm:w-4 sm:h-4" />
             </button>
           </div>
 
@@ -220,7 +223,7 @@ function onTrackResultKeydown(event, track) {
 
               <!-- Tracks -->
               <template v-if="results.tracks.length">
-                <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Tracks</p>
+                <p class="px-4 pt-3 pb-2 text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.18em]">Tracks</p>
                 <div
                   v-for="(track, i) in results.tracks"
                   :key="track._id"
@@ -259,7 +262,7 @@ function onTrackResultKeydown(event, track) {
 
               <!-- Artists -->
               <template v-if="results.artists.length">
-                <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Artists</p>
+                <p class="px-4 pt-3 pb-2 text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.18em]">Artists</p>
                 <button
                   v-for="(artist, i) in results.artists"
                   :key="artist.name"
@@ -284,7 +287,7 @@ function onTrackResultKeydown(event, track) {
 
               <!-- Albums -->
               <template v-if="results.albums.length">
-                <p class="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Albums</p>
+                <p class="px-4 pt-3 pb-2 text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.18em]">Albums</p>
                 <button
                   v-for="(album, i) in results.albums"
                   :key="album.name"
@@ -309,13 +312,16 @@ function onTrackResultKeydown(event, track) {
             </template>
 
             <!-- No results -->
-            <div v-else-if="query.trim() && !loading" class="py-12 text-center text-sm text-zinc-500">
+            <div v-else-if="query.trim() && !loading" class="py-12 px-6 text-center text-sm text-zinc-500">
               No results for "{{ query }}"
             </div>
 
             <!-- Idle -->
-            <div v-else class="py-10 text-center text-sm text-zinc-600">
-              Type to search your library
+            <div v-else class="px-6 py-10 sm:py-12 text-center">
+              <div class="mx-auto max-w-xs sm:max-w-none">
+                <p class="text-base text-zinc-300">Search your library</p>
+                <p class="mt-2 text-sm text-zinc-500">Find tracks, albums, and artists in one place.</p>
+              </div>
             </div>
           </div>
 

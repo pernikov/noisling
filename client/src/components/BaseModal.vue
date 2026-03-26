@@ -4,6 +4,7 @@ import { watch, onUnmounted } from 'vue';
 const props = defineProps({
   show: { type: Boolean, required: true },
   align: { type: String, default: 'center' }, // 'center' | 'top'
+  mobileFullScreen: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close']);
@@ -25,10 +26,15 @@ onUnmounted(() => document.removeEventListener('keydown', onKeydown));
     <Transition name="modal" appear>
       <div
         v-if="show"
-        class="fixed inset-0 z-[80] flex overflow-y-auto overscroll-contain px-4 bg-zinc-950/80 backdrop-blur-sm"
-        :class="align === 'top'
-          ? 'items-start justify-center pt-[calc(env(safe-area-inset-top)+4rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]'
-          : 'items-center justify-center py-[calc(env(safe-area-inset-top)+1rem)]'"
+        class="fixed inset-0 z-[80] flex overflow-y-auto overscroll-contain bg-zinc-950/80 backdrop-blur-sm"
+        :class="[
+          props.mobileFullScreen ? 'px-0 sm:px-4' : 'px-4',
+          align === 'top'
+            ? props.mobileFullScreen
+              ? 'items-start justify-center pt-0 pb-0 sm:pt-[calc(env(safe-area-inset-top)+4rem)] sm:pb-[calc(env(safe-area-inset-bottom)+1rem)]'
+              : 'items-start justify-center pt-[calc(env(safe-area-inset-top)+4rem)] pb-[calc(env(safe-area-inset-bottom)+1rem)]'
+            : 'items-center justify-center py-[calc(env(safe-area-inset-top)+1rem)]',
+        ]"
         @click.self="$emit('close')"
       >
         <div
