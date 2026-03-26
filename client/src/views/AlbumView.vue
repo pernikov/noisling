@@ -35,6 +35,13 @@ const coverModalOpen = ref(false);
 const coverModalLoaded = ref(false);
 const editCoverOpen = ref(false);
 
+const releaseTypeLabel = computed(() => {
+  const value = albumInfo.value?.releaseType?.trim();
+  return value || 'Album';
+});
+
+const releaseTypeBadgeStyle = computed(() => ({ '--release-badge-rgb': '212 212 216' }));
+
 function syncAlbumInfoFromTracks() {
   if (!tracks.value.length) return;
 
@@ -212,7 +219,14 @@ async function onTrackUpdated() {
           </div>
         </button>
         <div class="min-w-0 flex-1">
-          <div class="text-xs uppercase text-zinc-500 mb-1">{{ albumInfo.releaseType || 'Album' }}</div>
+          <div class="mb-2">
+            <span
+              class="release-type-badge"
+              :style="releaseTypeBadgeStyle"
+            >
+              <span class="release-type-badge__text">{{ releaseTypeLabel }}</span>
+            </span>
+          </div>
           <h1 class="text-2xl sm:text-3xl font-bold font-display mb-2">{{ albumInfo.name }}</h1>
           <div class="text-zinc-400 mb-4">
             <template v-for="(artist, ai) in albumInfo.artists" :key="ai">
@@ -261,3 +275,28 @@ async function onTrackUpdated() {
   />
   </div>
 </template>
+
+<style scoped>
+.release-type-badge {
+  --release-badge-rgb: 244 244 245;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.3rem 0.7rem;
+  background: color-mix(in srgb, rgb(var(--release-badge-rgb)) 8%, rgb(24 24 27 / 0.36));
+  color: color-mix(in srgb, rgb(var(--release-badge-rgb)) 52%, white);
+}
+
+.release-type-badge__text {
+  position: relative;
+}
+
+.release-type-badge__text {
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+</style>
