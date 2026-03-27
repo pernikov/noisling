@@ -122,23 +122,28 @@ const hoverTime = computed(() => {
           <CoverArt :key="state.currentTrack._id" :cover="state.currentTrack.cover" size="w-11 h-11" show-spinner />
         </Transition>
       </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center gap-1 min-w-0 text-[15px] font-medium">
-          <span class="truncate">{{ state.currentTrack.title }}</span>
-          <span
-            v-if="state.transcodeWaiting || state.transcodeActive"
-            class="inline-flex flex-none h-1.5 w-1.5 rounded-full"
-            :class="state.transcodeWaiting ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"
-            aria-label="Transcode status"
-            :title="state.transcodeWaiting ? 'Transcoding' : 'Transcoded'"
-          />
+      <Transition name="track-fade" mode="out-in">
+        <div
+          :key="`${state.currentTrack._id}-${state.transcodeWaiting ? 'waiting' : state.transcodeActive ? 'active' : 'native'}`"
+          class="flex-1 min-w-0"
+        >
+          <div class="flex items-center gap-1 min-w-0 text-[15px] font-medium">
+            <span class="truncate">{{ state.currentTrack.title }}</span>
+            <span
+              v-if="state.transcodeWaiting || state.transcodeActive"
+              class="inline-flex flex-none h-1.5 w-1.5 rounded-full"
+              :class="state.transcodeWaiting ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'"
+              aria-label="Transcode status"
+              :title="state.transcodeWaiting ? 'Transcoding' : 'Transcoded'"
+            />
+          </div>
+          <span class="text-[13px] text-zinc-400 truncate block mt-0.5">
+            <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
+              <span v-if="ai > 0">, </span>{{ artist }}
+            </template>
+          </span>
         </div>
-        <span class="text-[13px] text-zinc-400 truncate block mt-0.5">
-          <template v-for="(artist, ai) in state.currentTrack.artists" :key="ai">
-            <span v-if="ai > 0">, </span>{{ artist }}
-          </template>
-        </span>
-      </div>
+      </Transition>
       <div class="flex h-9 w-9 items-center justify-center rounded-full text-zinc-500/90">
         <Icon :path="mdiChevronUp" class="h-4 w-4" aria-hidden="true" />
       </div>
