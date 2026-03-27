@@ -67,6 +67,14 @@ export function useDragAutoScroll(options = {}) {
   let frameId = null;
   let cleanupRegistered = false;
 
+  function pause() {
+    clientY = null;
+    if (frameId !== null) {
+      window.cancelAnimationFrame(frameId);
+      frameId = null;
+    }
+  }
+
   function onWindowBlur() {
     stop();
   }
@@ -75,11 +83,30 @@ export function useDragAutoScroll(options = {}) {
     if (document.visibilityState !== 'visible') stop();
   }
 
+  function onGlobalDragOver(e) {
+    if (!target) return;
+
+    const metrics = getMetrics(target);
+    const insideActiveBand =
+      target === window ||
+      (e.clientY >= metrics.top - EDGE_THRESHOLD && e.clientY <= metrics.bottom + EDGE_THRESHOLD);
+
+    if (!insideActiveBand) {
+      pause();
+      options.onPause?.();
+      return;
+    }
+
+    clientY = e.clientY;
+    ensureRunning();
+  }
+
   function registerCleanupListeners() {
     if (cleanupRegistered) return;
     cleanupRegistered = true;
     window.addEventListener('dragend', stop);
     window.addEventListener('drop', stop);
+    window.addEventListener('dragover', onGlobalDragOver, true);
     window.addEventListener('mouseup', stop);
     window.addEventListener('blur', onWindowBlur);
     document.addEventListener('visibilitychange', onVisibilityChange);
@@ -90,6 +117,7 @@ export function useDragAutoScroll(options = {}) {
     cleanupRegistered = false;
     window.removeEventListener('dragend', stop);
     window.removeEventListener('drop', stop);
+    window.removeEventListener('dragover', onGlobalDragOver, true);
     window.removeEventListener('mouseup', stop);
     window.removeEventListener('blur', onWindowBlur);
     document.removeEventListener('visibilitychange', onVisibilityChange);
@@ -133,11 +161,7 @@ export function useDragAutoScroll(options = {}) {
 
   function stop() {
     target = null;
-    clientY = null;
-    if (frameId !== null) {
-      window.cancelAnimationFrame(frameId);
-      frameId = null;
-    }
+    pause();
     unregisterCleanupListeners();
     options.onStop?.();
   }
