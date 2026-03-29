@@ -884,28 +884,40 @@ defineExpose({ playAll, playShuffle });
   transform: none;
 }
 
-.track-list-item-move,
-.track-list-item-enter-active,
-.track-list-item-leave-active {
+.track-list-item-move {
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.track-list-item-enter-active {
   transition:
     transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
     opacity 260ms ease,
     filter 260ms ease;
 }
 
-.track-list-item-enter-from,
-.track-list-item-leave-to {
+.track-list-item-enter-from {
   opacity: 0;
   transform: translateY(12px) scale(0.98);
   filter: blur(4px);
 }
 
+.track-list-item-leave-to {
+  opacity: 0;
+  transform: translateY(10px) scale(0.985);
+  filter: blur(3px);
+}
+
 .track-list-item-leave-active {
+  transition:
+    opacity 220ms ease,
+    filter 220ms ease,
+    transform 240ms cubic-bezier(0.2, 0.8, 0.2, 1);
   position: absolute;
   left: 0;
   right: 0;
   z-index: 0;
   pointer-events: none;
+  transform-origin: center bottom;
 }
 
 @media (prefers-reduced-motion: reduce) {

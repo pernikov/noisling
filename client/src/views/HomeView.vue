@@ -35,6 +35,7 @@ const loadingAlbumModes = ref({
 });
 const loadingLoved = ref(true);
 const loadingRecent = ref(true);
+const recentLoaded = ref(false);
 const lovedError = ref(false);
 const recentError = ref(false);
 const albumModeErrors = ref({
@@ -66,6 +67,7 @@ const loadingTopTracks = ref(false);
 const completingRecentTrack = ref(null);
 let completingRecentTimer = null;
 let completingRecentFadeTimer = null;
+const RECENT_TRACK_LIMIT = 10;
 
 const recentTracksForDisplay = computed(() => {
   const pendingTrack = pendingPlayStatus.value;
@@ -77,7 +79,8 @@ const recentTracksForDisplay = computed(() => {
     return trackId !== pendingTrackId;
   });
 
-  return [pendingTrack, ...dedupedRecentTracks];
+  const visibleRecentTracks = dedupedRecentTracks.slice(0, Math.max(0, RECENT_TRACK_LIMIT - 1));
+  return [pendingTrack, ...visibleRecentTracks];
 });
 const currentAlbumModeLabel = computed(() => {
   if (homeAlbumsMode.value === 'random') return 'Random Albums';
@@ -183,17 +186,47 @@ function playLovedTracks() {
   playAlbum(lovedTracks.value, 0);
 }
 
-async function loadRecent() {
-  loadingRecent.value = true;
-  recentError.value = false;
+function applyReportedPlayToRecent(trackId) {
+  if (!trackId) return;
+
+  const normalizedTrackId = trackId?.toString?.() ?? trackId;
+  const currentTrackId = playerState.currentTrack?._id?.toString?.() ?? playerState.currentTrack?._id ?? null;
+  const recentMatch = recentTracks.value.find((track) => (track._id?.toString?.() ?? track._id) === normalizedTrackId);
+  const sourceTrack = currentTrackId === normalizedTrackId ? playerState.currentTrack : recentMatch;
+  if (!sourceTrack) return;
+
+  const playedAt = playerState.currentTrack?.lastPlayedAt ?? new Date().toISOString();
+  const playCount = currentTrackId === normalizedTrackId
+    ? (playerState.currentTrack?.playCount ?? sourceTrack.playCount ?? 0)
+    : (sourceTrack.playCount || 0) + 1;
+
+  recentTracks.value = [
+    {
+      ...sourceTrack,
+      playCount,
+      lastPlayedAt: playedAt,
+      playedAt,
+    },
+    ...recentTracks.value.filter((track) => (track._id?.toString?.() ?? track._id) !== normalizedTrackId),
+  ].slice(0, RECENT_TRACK_LIMIT);
+}
+
+async function loadRecent({ silent = false } = {}) {
+  const showLoadingState = !silent || !recentLoaded.value;
+  if (showLoadingState) loadingRecent.value = true;
+    if (!silent || !recentLoaded.value) recentError.value = false;
   try {
-    recentTracks.value = await api.getRecentTracks(10);
+    recentTracks.value = await api.getRecentTracks(RECENT_TRACK_LIMIT);
+    recentLoaded.value = true;
+    recentError.value = false;
   } catch (err) {
     console.error('Failed to load recent tracks:', err);
-    recentTracks.value = [];
-    recentError.value = true;
+    if (!silent || !recentLoaded.value) {
+      recentTracks.value = [];
+      recentError.value = true;
+    }
   } finally {
-    loadingRecent.value = false;
+    if (showLoadingState) loadingRecent.value = false;
   }
 }
 
@@ -292,14 +325,16 @@ onBeforeUnmount(() => {
 });
 
 useLibraryEvents(() => {
-  loadRecent();
+  loadRecent({ silent: true });
   loadAlbums(homeAlbumsMode.value, { force: true });
 });
 
 watch(() => playerState.playReportCount, async (count) => {
   if (count > 0) {
-    stageCompletedPendingRow(playerState.lastReportedTrackId);
-    await loadRecent();
+    const reportedTrackId = playerState.lastReportedTrackId;
+    stageCompletedPendingRow(reportedTrackId);
+    applyReportedPlayToRecent(reportedTrackId);
+    await loadRecent({ silent: true });
   }
 });
 
