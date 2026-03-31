@@ -29,13 +29,11 @@ function createQueueHarness(overrides = {}) {
 
   const audio = { currentTime: 0 };
   const api = {
-    saveSettings: vi.fn(() => Promise.resolve()),
     getTracksByIds: vi.fn(() => Promise.resolve([])),
     shuffleQueue: vi.fn(() => Promise.resolve({ total: 0, ids: [], tracks: [] })),
     warmTranscode: vi.fn(() => Promise.resolve({ status: 'ready' })),
     ...overrides.api,
   };
-  const savePrefs = vi.fn();
   const play = vi.fn((track) => {
     state.currentTrack = track;
   });
@@ -45,12 +43,11 @@ function createQueueHarness(overrides = {}) {
     state,
     audio,
     api,
-    savePrefs,
     play,
     needsTranscode,
   });
 
-  return { state, audio, api, savePrefs, play, queue };
+  return { state, audio, api, play, queue };
 }
 
 beforeEach(() => {
@@ -74,7 +71,7 @@ describe('createPlayerQueue', () => {
   });
 
   it('keeps the current track first when shuffle is toggled on', async () => {
-    const { state, api, savePrefs, queue } = createQueueHarness();
+    const { state, queue } = createQueueHarness();
     const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
     state.queue = [...tracks];
     state.originalQueue = [...tracks];
@@ -87,8 +84,6 @@ describe('createPlayerQueue', () => {
     expect(state.queue[0]._id).toBe('2');
     expect(new Set(state.queue.map((track) => track._id))).toEqual(new Set(['1', '2', '3']));
     expect(state.queueIndex).toBe(0);
-    expect(savePrefs).toHaveBeenCalledWith({ shuffle: true });
-    expect(api.saveSettings).toHaveBeenCalledWith({ shuffle: true });
   });
 
   it('clears playback state when advancing past the last track with repeat off', () => {

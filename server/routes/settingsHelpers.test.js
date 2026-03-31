@@ -10,8 +10,6 @@ test('buildSettingsResponse fills defaults for missing optional settings', () =>
   const response = buildSettingsResponse({
     accentColor: 'violet',
     volume: 1,
-    shuffle: false,
-    repeatMode: 'off',
   });
 
   assert.equal(response.themeColor, 'none');
@@ -25,8 +23,6 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
   const response = buildSettingsResponse({
     accentColor: 'sky',
     volume: 0.5,
-    shuffle: true,
-    repeatMode: 'all',
     tracksSort: { field: 'plays', dir: 'desc' },
     homeAlbumsMode: 'top',
     butterchurnPresetMode: 'single',

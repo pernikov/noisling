@@ -61,8 +61,8 @@ const state = reactive({
   currentTime:       0,
   duration:          0,
   volume:         (typeof _savedPrefs.volume === 'number')  ? Math.max(0, Math.min(1, _savedPrefs.volume)) : 1,
-  shuffle:        (typeof _savedPrefs.shuffle === 'boolean')  ? _savedPrefs.shuffle  : false,
-  repeat:         (['off', 'all', 'one'].includes(_savedPrefs.repeat)) ? _savedPrefs.repeat : 'off',
+  shuffle:        false,
+  repeat:         'off',
   originalQueue:     [],
   showVisualizer:    false,
   showNowPlaying:    false,
@@ -260,14 +260,6 @@ async function loadPlayerPrefs() {
       audio.volume = state.volume;
       updates.volume = state.volume;
     }
-    if (typeof data.shuffle === 'boolean') {
-      state.shuffle = data.shuffle;
-      updates.shuffle = state.shuffle;
-    }
-    if (['off', 'all', 'one'].includes(data.repeatMode)) {
-      state.repeat = data.repeatMode;
-      updates.repeat = state.repeat;
-    }
     if (Object.keys(updates).length) savePrefs(updates);
   } catch (_) {
     // fall back to localStorage values already applied at init
@@ -428,8 +420,6 @@ function cycleRepeat() {
   const modes = ['off', 'all', 'one'];
   const i = modes.indexOf(state.repeat);
   state.repeat = modes[(i + 1) % modes.length];
-  savePrefs({ repeat: state.repeat });
-  api.saveSettings({ repeatMode: state.repeat }).catch(() => {});
 }
 
 const {
@@ -460,8 +450,6 @@ const {
 function playAlbumOnce(tracks, startIndex = 0) {
   state.shuffle = false;
   state.repeat = 'off';
-  savePrefs({ shuffle: false, repeat: 'off' });
-  api.saveSettings({ shuffle: false, repeatMode: 'off' }).catch(() => {});
   playAlbum(tracks, startIndex);
 }
 

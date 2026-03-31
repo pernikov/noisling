@@ -12,8 +12,6 @@ function shuffleArray(arr) {
 export function createPlayerQueue({
   state,
   audio,
-  api,
-  savePrefs,
   play,
   needsTranscode,
 }) {
@@ -158,8 +156,6 @@ export function createPlayerQueue({
     state.shuffle = !state.shuffle;
 
     if (state.queue.length === 0 || state.isLargeQueue) {
-      savePrefs({ shuffle: state.shuffle });
-      api.saveSettings({ shuffle: state.shuffle }).catch(() => {});
       return;
     }
 
@@ -174,8 +170,6 @@ export function createPlayerQueue({
       if (state.queueIndex === -1) state.queueIndex = 0;
     }
 
-    savePrefs({ shuffle: state.shuffle });
-    api.saveSettings({ shuffle: state.shuffle }).catch(() => {});
   }
 
   function next() {

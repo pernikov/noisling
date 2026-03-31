@@ -106,7 +106,7 @@ beforeEach(() => {
 });
 
 describe('usePlayer orchestration', () => {
-  it('loads player prefs from settings into state and audio', async () => {
+  it('loads only volume from settings into state and audio', async () => {
     const { state, loadPlayerPrefs } = await importUsePlayerWithApi({
       getSettings: vi.fn(() => Promise.resolve({
         volume: 0.4,
@@ -119,8 +119,8 @@ describe('usePlayer orchestration', () => {
 
     expect(state.volume).toBe(0.4);
     expect(FakeAudio.lastInstance.volume).toBe(0.4);
-    expect(state.shuffle).toBe(true);
-    expect(state.repeat).toBe('all');
+    expect(state.shuffle).toBe(false);
+    expect(state.repeat).toBe('off');
   });
 
   it('applies a successful love toggle to the track and current player state', async () => {
@@ -171,8 +171,7 @@ describe('usePlayer orchestration', () => {
   });
 
   it('starts album playback with shuffle and repeat reset for play-once flows', async () => {
-    const saveSettings = vi.fn(() => Promise.resolve({}));
-    const { state, playAlbumOnce } = await importUsePlayerWithApi({ saveSettings });
+    const { state, api, playAlbumOnce } = await importUsePlayerWithApi();
     const tracks = [
       { _id: 'track-1', title: 'One', format: 'mp3' },
       { _id: 'track-2', title: 'Two', format: 'mp3' },
@@ -188,6 +187,6 @@ describe('usePlayer orchestration', () => {
     expect(state.queue.map((track) => track._id)).toEqual(['track-1', 'track-2']);
     expect(state.queueIndex).toBe(0);
     expect(state.currentTrack?._id).toBe('track-1');
-    expect(saveSettings).toHaveBeenCalledWith({ shuffle: false, repeatMode: 'off' });
+    expect(api.saveSettings).not.toHaveBeenCalled();
   });
 });

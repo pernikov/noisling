@@ -1,6 +1,5 @@
 export const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 export const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
-export const VALID_REPEAT = ['off', 'all', 'one'];
 export const VALID_FONT = ['small', 'medium', 'large'];
 export const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
 export const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
@@ -21,8 +20,6 @@ export function buildSettingsResponse(settings) {
     accentColor: settings.accentColor,
     themeColor: settings.themeColor ?? 'none',
     volume: settings.volume,
-    shuffle: settings.shuffle,
-    repeatMode: settings.repeatMode,
     fontSize: settings.fontSize ?? 'medium',
     tracksSort: { field: tracksSortField, dir: tracksSortDir },
     wideLayout: settings.wideLayout ?? false,
@@ -45,7 +42,7 @@ export function normalizeVizMode(value) {
 
 export function buildSettingsUpdate(body = {}) {
   const {
-    accentColor, themeColor, volume, shuffle, repeatMode,
+    accentColor, themeColor, volume,
     fontSize, tracksSort, wideLayout,
     homeAlbumsMode,
     vizMode, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, reduceMotion,
@@ -64,13 +61,6 @@ export function buildSettingsUpdate(body = {}) {
   if (volume !== undefined) {
     if (typeof volume !== 'number' || volume < 0 || volume > 1) return { error: 'Invalid volume' };
     update.volume = volume;
-  }
-  if (shuffle !== undefined) {
-    update.shuffle = Boolean(shuffle);
-  }
-  if (repeatMode !== undefined) {
-    if (!VALID_REPEAT.includes(repeatMode)) return { error: 'Invalid repeatMode' };
-    update.repeatMode = repeatMode;
   }
   if (fontSize !== undefined) {
     if (!VALID_FONT.includes(fontSize)) return { error: 'Invalid fontSize' };
