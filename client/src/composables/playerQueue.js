@@ -12,6 +12,7 @@ function shuffleArray(arr) {
 export function createPlayerQueue({
   state,
   audio,
+  api,
   play,
   needsTranscode,
 }) {
