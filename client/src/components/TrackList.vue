@@ -99,8 +99,11 @@ watch(() => state.playReportCount, (count) => {
   if (!match) return;
 
   const playedAt = new Date().toISOString();
+  const reportedPlayCount = state.lastReportedPlayCount;
   if (!isPendingRecentTrack(match)) {
-    match.playCount = (match.playCount || 0) + 1;
+    match.playCount = Number.isFinite(reportedPlayCount)
+      ? reportedPlayCount
+      : (match === state.currentTrack ? match.playCount : (match.playCount || 0) + 1);
   }
   match.lastPlayedAt = playedAt;
   match.playedAt = playedAt;

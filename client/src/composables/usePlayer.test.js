@@ -30,6 +30,10 @@ class FakeAudio {
     this._listeners.set(name, list);
   }
 
+  emit(name) {
+    for (const handler of this._listeners.get(name) ?? []) handler();
+  }
+
   removeAttribute(name) {
     if (name === 'src') this.src = '';
   }
@@ -188,5 +192,26 @@ describe('usePlayer orchestration', () => {
     expect(state.queueIndex).toBe(0);
     expect(state.currentTrack?._id).toBe('track-1');
     expect(api.saveSettings).not.toHaveBeenCalled();
+  });
+
+  it('uses the reported server play count for the current track', async () => {
+    const { state, api, playAlbum } = await importUsePlayerWithApi({
+      reportPlay: vi.fn(() => Promise.resolve({ playCount: 8 })),
+    });
+    const track = { _id: 'track-1', title: 'One', format: 'mp3', playCount: 7 };
+
+    playAlbum([track], 0);
+    FakeAudio.lastInstance.duration = 2;
+    FakeAudio.lastInstance.currentTime = 0;
+    FakeAudio.lastInstance.emit('timeupdate');
+    FakeAudio.lastInstance.currentTime = 1;
+    FakeAudio.lastInstance.emit('timeupdate');
+    await Promise.resolve();
+
+    expect(api.reportPlay).toHaveBeenCalledWith('track-1');
+    expect(track.playCount).toBe(8);
+    expect(state.currentTrack.playCount).toBe(8);
+    expect(state.lastReportedTrackId).toBe('track-1');
+    expect(state.lastReportedPlayCount).toBe(8);
   });
 });

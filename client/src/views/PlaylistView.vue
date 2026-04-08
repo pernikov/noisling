@@ -57,10 +57,15 @@ async function load() {
 onMounted(load);
 
 watch(() => playerState.playReportCount, () => {
-  const id = playerState.currentTrack?._id;
+  const id = playerState.lastReportedTrackId;
   if (!id) return;
   const track = tracks.value.find(t => t._id === id);
-  if (track) track.playCount = (track.playCount ?? 0) + 1;
+  if (!track) return;
+
+  const reportedPlayCount = playerState.lastReportedPlayCount;
+  track.playCount = Number.isFinite(reportedPlayCount)
+    ? reportedPlayCount
+    : (track === playerState.currentTrack ? track.playCount : (track.playCount ?? 0) + 1);
 });
 
 function playAll() {
