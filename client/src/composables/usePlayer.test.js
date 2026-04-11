@@ -174,6 +174,24 @@ describe('usePlayer orchestration', () => {
     expect(warmTranscode).toHaveBeenNthCalledWith(2, 'track-3');
   });
 
+  it('starts ordered playback in order and clears shuffle when shuffle was previously on', async () => {
+    const { state, playAlbum } = await importUsePlayerWithApi();
+    const tracks = [
+      { _id: 'track-1', title: 'One', format: 'mp3' },
+      { _id: 'track-2', title: 'Two', format: 'mp3' },
+      { _id: 'track-3', title: 'Three', format: 'mp3' },
+    ];
+
+    state.shuffle = true;
+
+    playAlbum(tracks, 1);
+
+    expect(state.shuffle).toBe(false);
+    expect(state.queue.map((track) => track._id)).toEqual(['track-1', 'track-2', 'track-3']);
+    expect(state.queueIndex).toBe(1);
+    expect(state.currentTrack?._id).toBe('track-2');
+  });
+
   it('starts album playback with shuffle and repeat reset for play-once flows', async () => {
     const { state, api, playAlbumOnce } = await importUsePlayerWithApi();
     const tracks = [

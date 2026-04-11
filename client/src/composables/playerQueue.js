@@ -19,6 +19,23 @@ export function createPlayerQueue({
   let prefetching = false;
   let deferredStartSeq = 0;
 
+  function loadOrderedQueue(tracks, startIndex = 0) {
+    state.shuffle = false;
+    state.originalQueue = [...tracks];
+    state.queue = [...tracks];
+    state.queueIndex = startIndex;
+  }
+
+  function loadShuffledQueue(tracks, startIndex = 0) {
+    state.shuffle = true;
+    state.originalQueue = [...tracks];
+
+    const startTrack = tracks[startIndex];
+    const rest = tracks.filter((_, i) => i !== startIndex);
+    state.queue = [startTrack, ...shuffleArray(rest)];
+    state.queueIndex = 0;
+  }
+
   function clearQueue() {
     state.isPlaying = false;
     state.currentTrack = null;
@@ -108,17 +125,7 @@ export function createPlayerQueue({
     state.isLargeQueue = false;
     state.queueTotal = 0;
     state.queueBufferOffset = 0;
-    state.originalQueue = [...tracks];
-
-    if (state.shuffle) {
-      const startTrack = tracks[startIndex];
-      const rest = tracks.filter((_, i) => i !== startIndex);
-      state.queue = [startTrack, ...shuffleArray(rest)];
-      state.queueIndex = 0;
-    } else {
-      state.queue = [...tracks];
-      state.queueIndex = startIndex;
-    }
+    loadOrderedQueue(tracks, startIndex);
 
     play(state.queue[state.queueIndex]);
   }
@@ -127,6 +134,7 @@ export function createPlayerQueue({
     const { total, ids, tracks } = await api.shuffleQueue();
     if (!total || !tracks.length) return;
 
+    state.shuffle = true;
     state.isLargeQueue = false;
     state.largeQueueIds = ids;
     state.queueTotal = total;
@@ -288,8 +296,11 @@ export function createPlayerQueue({
 
   function playShuffled(tracks, getAllTracks = null) {
     if (!tracks.length) return;
-    state.shuffle = true;
-    playAlbum(tracks, Math.floor(Math.random() * tracks.length));
+    state.isLargeQueue = false;
+    state.queueTotal = 0;
+    state.queueBufferOffset = 0;
+    loadShuffledQueue(tracks, Math.floor(Math.random() * tracks.length));
+    play(state.queue[state.queueIndex]);
     if (getAllTracks) {
       getAllTracks().then((allTracks) => {
         if (allTracks.length <= tracks.length) return;

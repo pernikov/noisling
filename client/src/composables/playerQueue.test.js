@@ -70,6 +70,20 @@ describe('createPlayerQueue', () => {
     expect(play).toHaveBeenCalledWith(tracks[1]);
   });
 
+  it('plays an album in order and clears shuffle when shuffle was previously on', () => {
+    const { state, play, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    state.shuffle = true;
+
+    queue.playAlbum(tracks, 1);
+
+    expect(state.shuffle).toBe(false);
+    expect(state.queue.map((track) => track._id)).toEqual(['1', '2', '3']);
+    expect(state.queueIndex).toBe(1);
+    expect(state.originalQueue.map((track) => track._id)).toEqual(['1', '2', '3']);
+    expect(play).toHaveBeenCalledWith(tracks[1]);
+  });
+
   it('keeps the current track first when shuffle is toggled on', async () => {
     const { state, queue } = createQueueHarness();
     const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
@@ -84,6 +98,40 @@ describe('createPlayerQueue', () => {
     expect(state.queue[0]._id).toBe('2');
     expect(new Set(state.queue.map((track) => track._id))).toEqual(new Set(['1', '2', '3']));
     expect(state.queueIndex).toBe(0);
+  });
+
+  it('restores the original queue order when shuffle is toggled back off', () => {
+    const { state, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+
+    state.queue = [tracks[1], tracks[2], tracks[0]];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[1];
+    state.queueIndex = 0;
+    state.shuffle = true;
+
+    queue.toggleShuffle();
+
+    expect(state.shuffle).toBe(false);
+    expect(state.queue.map((track) => track._id)).toEqual(['1', '2', '3']);
+    expect(state.queueIndex).toBe(1);
+  });
+
+  it('starts shuffled playback from an explicit shuffled action', () => {
+    const { state, play, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0.75);
+
+    queue.playShuffled(tracks);
+
+    expect(state.shuffle).toBe(true);
+    expect(state.queue[0]._id).toBe('3');
+    expect(new Set(state.queue.map((track) => track._id))).toEqual(new Set(['1', '2', '3']));
+    expect(state.originalQueue.map((track) => track._id)).toEqual(['1', '2', '3']);
+    expect(state.queueIndex).toBe(0);
+    expect(play).toHaveBeenCalledWith(state.queue[0]);
+
+    randomSpy.mockRestore();
   });
 
   it('clears playback state when advancing past the last track with repeat off', () => {
