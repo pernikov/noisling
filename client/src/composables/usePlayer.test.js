@@ -270,6 +270,11 @@ describe('usePlayer orchestration', () => {
     FakeAudio.lastInstance.emit('timeupdate');
     FakeAudio.lastInstance.currentTime = 1.1;
     FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.mediaSessionLocked).toBe(true);
+    FakeAudio.lastInstance.currentTime = 1.4;
+    FakeAudio.lastInstance.emit('timeupdate');
+    FakeAudio.lastInstance.currentTime = 1.7;
+    FakeAudio.lastInstance.emit('timeupdate');
     expect(state.mediaSessionLocked).toBe(false);
   });
 

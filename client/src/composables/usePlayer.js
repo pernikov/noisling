@@ -135,8 +135,8 @@ let _mediaSessionStableTicks = 0;
 
 const STARTUP_TIME_REGRESSION_GUARD_MS = 12000;
 const BACKWARD_TIME_JUMP_TOLERANCE_S = 0.35;
-const MEDIA_SESSION_STABILIZE_TICKS = 4;
-const MEDIA_SESSION_STABILIZE_TIME_S = 1.25;
+const MEDIA_SESSION_STABILIZE_TICKS = 6;
+const MEDIA_SESSION_STABILIZE_TIME_S = 2;
 
 // Throttle MediaSession position updates to once per second.
 let positionStateTimer = null;
