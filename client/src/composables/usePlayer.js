@@ -57,6 +57,7 @@ function debugHandoff(label, details = {}) {
     paused: audio.paused,
     ended: audio.ended,
     progressLocked: state.progressLocked,
+    mediaSessionLocked: state.mediaSessionLocked,
     transcodeWaiting: state.transcodeWaiting,
     transcodeActive: state.transcodeActive,
     hidden: typeof document !== 'undefined' ? document.visibilityState === 'hidden' : false,
@@ -95,6 +96,7 @@ const state = reactive({
   currentTime:       0,
   duration:          0,
   progressLocked:    false,
+  mediaSessionLocked: false,
   volume:         (typeof _savedPrefs.volume === 'number')  ? Math.max(0, Math.min(1, _savedPrefs.volume)) : 1,
   shuffle:        false,
   repeat:         'off',
@@ -129,9 +131,12 @@ let _trackStartSeq = 0;
 let _startupResetActive = false;
 let _trackStartedAtMs = 0;
 let _allowBackwardTimeUntilMs = 0;
+let _mediaSessionStableTicks = 0;
 
 const STARTUP_TIME_REGRESSION_GUARD_MS = 12000;
 const BACKWARD_TIME_JUMP_TOLERANCE_S = 0.35;
+const MEDIA_SESSION_STABILIZE_TICKS = 4;
+const MEDIA_SESSION_STABILIZE_TIME_S = 1.25;
 
 // Throttle MediaSession position updates to once per second.
 let positionStateTimer = null;
@@ -168,6 +173,15 @@ function isPlaybackHidden() {
   return typeof document !== 'undefined' && document.visibilityState === 'hidden';
 }
 
+function isAppleMobileEnvironment() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const platform = navigator.platform || '';
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+  return /iPhone|iPad|iPod/i.test(ua)
+    || (platform === 'MacIntel' && maxTouchPoints > 1);
+}
+
 function resetAudioForTrackStart() {
   try {
     audio.currentTime = 0;
@@ -183,6 +197,7 @@ function beginTrackStartupResetWindow() {
   _startupResetActive = true;
   _trackStartedAtMs = Date.now();
   _allowBackwardTimeUntilMs = 0;
+  _mediaSessionStableTicks = 0;
   return _trackStartSeq;
 }
 
@@ -192,6 +207,18 @@ function endTrackStartupResetWindow() {
 
 function allowBackwardTimeJumpsFor(ms = 1500) {
   _allowBackwardTimeUntilMs = Math.max(_allowBackwardTimeUntilMs, Date.now() + ms);
+}
+
+function maybeUnlockMediaSession(nextTime) {
+  if (!state.mediaSessionLocked) return;
+  _mediaSessionStableTicks += 1;
+  const stableEnough = _mediaSessionStableTicks >= MEDIA_SESSION_STABILIZE_TICKS
+    || nextTime >= MEDIA_SESSION_STABILIZE_TIME_S;
+  if (!stableEnough) return;
+  state.mediaSessionLocked = false;
+  debugHandoff('media-session:stabilized', { nextTime, stableTicks: _mediaSessionStableTicks });
+  updateMediaSessionPositionState();
+  setPlaybackState(true);
 }
 
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
@@ -283,8 +310,10 @@ function registerPlayerEventListeners() {
       }
       state.progressLocked = false;
       endTrackStartupResetWindow();
-      updateMediaSessionPositionState();
-      setPlaybackState(true);
+      if (!state.mediaSessionLocked) {
+        updateMediaSessionPositionState();
+        setPlaybackState(true);
+      }
       if (!audio.paused && _lastUpdateTime === null) {
         playedSeconds = Math.max(playedSeconds, nextTime);
       }
@@ -306,6 +335,7 @@ function registerPlayerEventListeners() {
     }
 
     state.currentTime = nextTime;
+    maybeUnlockMediaSession(nextTime);
 
     if (!audio.paused && _lastUpdateTime !== null) {
       const delta = nextTime - _lastUpdateTime;
@@ -384,6 +414,7 @@ function registerPlayerEventListeners() {
   audio.addEventListener('pause', () => {
     debugHandoff('audio:pause');
     state.isPlaying = false;
+    state.mediaSessionLocked = false;
     setPlaybackState(false);
   });
 
@@ -434,6 +465,7 @@ function play(track) {
   state.currentTime = 0;
   state.duration = Number(track?.duration) || 0;
   state.progressLocked = true;
+  state.mediaSessionLocked = isAppleMobileEnvironment() && isPlaybackHidden();
   resetPlayTracking();
   resetTranscodeAttempted();
 

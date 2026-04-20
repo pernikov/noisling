@@ -197,6 +197,20 @@ describe('usePlayer orchestration', () => {
       configurable: true,
       value: 'hidden',
     });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        userAgent: 'iPhone',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+        mediaSession: {
+          metadata: null,
+          playbackState: 'none',
+          setActionHandler: vi.fn(),
+          setPositionState: vi.fn(),
+        },
+      },
+    });
 
     let releaseWarm;
     const warmTranscode = vi.fn(() => new Promise((resolve) => {
@@ -218,6 +232,45 @@ describe('usePlayer orchestration', () => {
 
     expect(FakeAudio.lastInstance.src).toBe('/stream/track-hidden/transcoded');
     expect(api.transcodedStreamUrl).toHaveBeenCalledWith('track-hidden');
+  });
+
+  it('keeps media session locked briefly during hidden iOS handoff until playback stabilizes', async () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        userAgent: 'iPhone',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+        mediaSession: {
+          metadata: null,
+          playbackState: 'none',
+          setActionHandler: vi.fn(),
+          setPositionState: vi.fn(),
+        },
+      },
+    });
+
+    const { state, playAlbum } = await importUsePlayerWithApi();
+    const track = { _id: 'track-ios-hidden', title: 'Hidden iOS', format: 'mp3', duration: 180 };
+
+    playAlbum([track], 0);
+    expect(state.mediaSessionLocked).toBe(true);
+
+    FakeAudio.lastInstance.currentTime = 0.2;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.mediaSessionLocked).toBe(true);
+
+    FakeAudio.lastInstance.currentTime = 0.5;
+    FakeAudio.lastInstance.emit('timeupdate');
+    FakeAudio.lastInstance.currentTime = 0.8;
+    FakeAudio.lastInstance.emit('timeupdate');
+    FakeAudio.lastInstance.currentTime = 1.1;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.mediaSessionLocked).toBe(false);
   });
 
   it('keeps foreground transcoded playback immediate to preserve the user-gesture path', async () => {

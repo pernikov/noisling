@@ -31,6 +31,7 @@ export function createPlayerMediaSession({
       currentTime: Number.isFinite(state.currentTime) ? Number(state.currentTime.toFixed(3)) : null,
       duration: Number.isFinite(state.duration) ? Number(state.duration.toFixed(3)) : null,
       progressLocked: state.progressLocked,
+      mediaSessionLocked: state.mediaSessionLocked,
       playbackState: navigator.mediaSession?.playbackState ?? null,
       hidden: typeof document !== 'undefined' ? document.visibilityState === 'hidden' : false,
       ...details,
@@ -69,7 +70,7 @@ export function createPlayerMediaSession({
     if (!hasMediaSession()) return;
     const duration = state.duration;
     if (!duration || !isFinite(duration)) return;
-    const position = state.progressLocked
+    const position = (state.progressLocked || state.mediaSessionLocked)
       ? 0
       : Math.min(
         Number.isFinite(state.currentTime) ? state.currentTime : audio.currentTime,

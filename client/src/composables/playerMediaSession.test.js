@@ -11,6 +11,7 @@ function createHarness() {
     duration: 180,
     currentTime: 45,
     progressLocked: false,
+    mediaSessionLocked: false,
     isPlaying: false,
   });
 
@@ -107,6 +108,20 @@ describe('createPlayerMediaSession', () => {
   it('pins media session position to zero while progress is locked', () => {
     const { state, media, mediaSession } = createHarness();
     state.progressLocked = true;
+    state.currentTime = 32;
+
+    media.updateMediaSessionPositionState();
+
+    expect(mediaSession.setPositionState).toHaveBeenCalledWith({
+      duration: 180,
+      playbackRate: 1,
+      position: 0,
+    });
+  });
+
+  it('pins media session position to zero while media session stabilization is active', () => {
+    const { state, media, mediaSession } = createHarness();
+    state.mediaSessionLocked = true;
     state.currentTime = 32;
 
     media.updateMediaSessionPositionState();

@@ -50,6 +50,7 @@ export function createPlayerQueue({
     state.currentTime = 0;
     state.duration = 0;
     state.progressLocked = false;
+    state.mediaSessionLocked = false;
     state.showQueue = false;
     state.transcodeWaiting = false;
     state.transcodeActive = false;
