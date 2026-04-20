@@ -93,6 +93,11 @@ let _lastUpdateTime = null;
 let _pendingRestore = null;
 let _trackStartSeq = 0;
 let _startupResetActive = false;
+let _trackStartedAtMs = 0;
+let _allowBackwardTimeUntilMs = 0;
+
+const STARTUP_TIME_REGRESSION_GUARD_MS = 12000;
+const BACKWARD_TIME_JUMP_TOLERANCE_S = 0.35;
 
 // Throttle MediaSession position updates to once per second.
 let positionStateTimer = null;
@@ -142,11 +147,17 @@ function resetAudioForTrackStart() {
 function beginTrackStartupResetWindow() {
   _trackStartSeq += 1;
   _startupResetActive = true;
+  _trackStartedAtMs = Date.now();
+  _allowBackwardTimeUntilMs = 0;
   return _trackStartSeq;
 }
 
 function endTrackStartupResetWindow() {
   _startupResetActive = false;
+}
+
+function allowBackwardTimeJumpsFor(ms = 1500) {
+  _allowBackwardTimeUntilMs = Math.max(_allowBackwardTimeUntilMs, Date.now() + ms);
 }
 
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
@@ -213,8 +224,10 @@ function registerPlayerEventListeners() {
   });
 
   audio.addEventListener('timeupdate', () => {
+    const nextTime = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
+
     if (state.progressLocked) {
-      if (audio.currentTime <= 0.05) {
+      if (nextTime <= 0.05) {
         state.currentTime = 0;
         return;
       }
@@ -223,17 +236,27 @@ function registerPlayerEventListeners() {
       updateMediaSessionPositionState();
       setPlaybackState(true);
       if (!audio.paused && _lastUpdateTime === null) {
-        playedSeconds = Math.max(playedSeconds, audio.currentTime);
+        playedSeconds = Math.max(playedSeconds, nextTime);
       }
     }
 
-    state.currentTime = audio.currentTime;
+    const startupGuardActive = (
+      Date.now() - _trackStartedAtMs <= STARTUP_TIME_REGRESSION_GUARD_MS
+      && Date.now() > _allowBackwardTimeUntilMs
+      && nextTime + BACKWARD_TIME_JUMP_TOLERANCE_S < state.currentTime
+    );
+    if (startupGuardActive) {
+      _lastUpdateTime = nextTime;
+      return;
+    }
+
+    state.currentTime = nextTime;
 
     if (!audio.paused && _lastUpdateTime !== null) {
-      const delta = audio.currentTime - _lastUpdateTime;
+      const delta = nextTime - _lastUpdateTime;
       if (delta > 0 && delta < 2) playedSeconds += delta;
     }
-    _lastUpdateTime = audio.currentTime;
+    _lastUpdateTime = nextTime;
 
     if (!playReported && state.currentTrack && audio.duration > 0) {
       const threshold = Math.min(audio.duration * 0.5, 240);
@@ -279,6 +302,7 @@ function registerPlayerEventListeners() {
       const currentId = state.currentTrack?._id?.toString?.();
       if (trackId && currentId && trackId === currentId) {
         if (audio.seekable.length > 0 && state.duration > 0 && time < state.duration - 3) {
+          allowBackwardTimeJumpsFor();
           audio.currentTime = time;
         }
       }
@@ -424,6 +448,7 @@ function toggle() {
 }
 
 function seek(time) {
+  allowBackwardTimeJumpsFor();
   audio.currentTime = time;
   state.currentTime = time;
 }

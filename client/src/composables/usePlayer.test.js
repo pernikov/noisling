@@ -297,6 +297,21 @@ describe('usePlayer orchestration', () => {
     expect(state.currentTime).toBe(0.6);
   });
 
+  it('ignores backward time jumps during early startup unless they were intentional', async () => {
+    const { state, playAlbum } = await importUsePlayerWithApi();
+    const track = { _id: 'track-regression', title: 'Regression Guard', format: 'mp3', duration: 180 };
+
+    playAlbum([track], 0);
+
+    FakeAudio.lastInstance.currentTime = 2.4;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.currentTime).toBe(2.4);
+
+    FakeAudio.lastInstance.currentTime = 1.1;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.currentTime).toBe(2.4);
+  });
+
   it('starts ordered playback in order and clears shuffle when shuffle was previously on', async () => {
     const { state, playAlbum } = await importUsePlayerWithApi();
     const tracks = [
