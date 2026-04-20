@@ -24,6 +24,20 @@ export function createPlayerMediaSession({
     });
   }
 
+  function resetMediaSessionPositionState(duration = 0) {
+    if (!hasMediaSession()) return;
+    const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0.01;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: safeDuration,
+        playbackRate: 1,
+        position: 0,
+      });
+    } catch (_) {
+      // iOS can throw here during handoff; ignore and let the next real update win.
+    }
+  }
+
   function updateMediaSessionPositionState() {
     if (!hasMediaSession()) return;
     const duration = state.duration;
@@ -83,6 +97,7 @@ export function createPlayerMediaSession({
 
   return {
     updateMediaSession,
+    resetMediaSessionPositionState,
     updateMediaSessionPositionState,
     syncPlaybackStateFromElement,
     setPlaybackState,

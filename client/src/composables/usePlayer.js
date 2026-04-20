@@ -303,6 +303,10 @@ function play(track) {
   // load() after assigning src is enough to abort/reset the previous resource.
   const playSeq = nextRecoverySeq();
   installPlayStartGuard(track);
+  if (positionStateTimer) {
+    clearTimeout(positionStateTimer);
+    positionStateTimer = null;
+  }
   state.currentTrack = track;
   state.currentTime = 0;
   state.duration = Number(track?.duration) || 0;
@@ -315,6 +319,8 @@ function play(track) {
   state.transcodeWaiting = transcode;
 
   updateMediaSession(track);
+  resetMediaSessionPositionState(state.duration);
+  setPlaybackState(false);
   warmNextQueuedTrack();
 
   maybeResumeVisualizerContext();
@@ -490,6 +496,7 @@ function playAlbumOnce(tracks, startIndex = 0) {
 
 const {
   updateMediaSession,
+  resetMediaSessionPositionState,
   updateMediaSessionPositionState,
   syncPlaybackStateFromElement,
   setPlaybackState,

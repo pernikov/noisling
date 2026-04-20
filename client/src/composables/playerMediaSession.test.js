@@ -90,6 +90,18 @@ describe('createPlayerMediaSession', () => {
     });
   });
 
+  it('can reset media session position state to the start of a new track handoff', () => {
+    const { media, mediaSession } = createHarness();
+
+    media.resetMediaSessionPositionState(240);
+
+    expect(mediaSession.setPositionState).toHaveBeenCalledWith({
+      duration: 240,
+      playbackRate: 1,
+      position: 0,
+    });
+  });
+
   it('syncs playback state from the audio element', () => {
     const { state, audio, mediaSession, media } = createHarness();
     audio.paused = false;
