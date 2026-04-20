@@ -7,7 +7,6 @@ import { createPlayerVisualizer } from './playerVisualizer.js';
 import { readPlayerPrefs, writePlayerPrefs } from './playerPrefs.js';
 
 const api = useApi();
-const HANDOFF_DEBUG_KEY = 'noisling_debug_handoff';
 
 // usePlayer keeps the shared Audio element, persisted player prefs, and the
 // high-level playback flow. Queue mechanics, Media Session wiring, recovery,
@@ -31,40 +30,6 @@ const UNSUPPORTED_FORMATS = new Set(
 
 function needsTranscode(track) {
   return UNSUPPORTED_FORMATS.has((track.format || '').toLowerCase());
-}
-
-function isHandoffDebugEnabled() {
-  try {
-    return localStorage.getItem(HANDOFF_DEBUG_KEY) === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
-function debugHandoff(label, details = {}) {
-  if (!isHandoffDebugEnabled()) return;
-  const currentTrack = details.track ?? state.currentTrack;
-  const payload = {
-    label,
-    trackId: currentTrack?._id ?? null,
-    title: currentTrack?.title ?? '',
-    seq: _trackStartSeq,
-    currentTime: Number.isFinite(audio.currentTime) ? Number(audio.currentTime.toFixed(3)) : null,
-    stateTime: Number.isFinite(state.currentTime) ? Number(state.currentTime.toFixed(3)) : null,
-    duration: Number.isFinite(state.duration) ? Number(state.duration.toFixed(3)) : null,
-    readyState: audio.readyState,
-    networkState: audio.networkState,
-    paused: audio.paused,
-    ended: audio.ended,
-    progressLocked: state.progressLocked,
-    mediaSessionLocked: state.mediaSessionLocked,
-    transcodeWaiting: state.transcodeWaiting,
-    transcodeActive: state.transcodeActive,
-    hidden: typeof document !== 'undefined' ? document.visibilityState === 'hidden' : false,
-    ...details,
-  };
-  delete payload.track;
-  console.log('[handoff]', payload);
 }
 
 // ─── Persistence keys ────────────────────────────────────────────────────────
@@ -135,8 +100,8 @@ let _mediaSessionStableTicks = 0;
 
 const STARTUP_TIME_REGRESSION_GUARD_MS = 12000;
 const BACKWARD_TIME_JUMP_TOLERANCE_S = 0.35;
-const MEDIA_SESSION_STABILIZE_TICKS = 6;
-const MEDIA_SESSION_STABILIZE_TIME_S = 2;
+const MEDIA_SESSION_STABILIZE_TICKS = 4;
+const MEDIA_SESSION_STABILIZE_TIME_S = 1.25;
 
 // Throttle MediaSession position updates to once per second.
 let positionStateTimer = null;
@@ -216,7 +181,6 @@ function maybeUnlockMediaSession(nextTime) {
     || nextTime >= MEDIA_SESSION_STABILIZE_TIME_S;
   if (!stableEnough) return;
   state.mediaSessionLocked = false;
-  debugHandoff('media-session:stabilized', { nextTime, stableTicks: _mediaSessionStableTicks });
   updateMediaSessionPositionState();
   setPlaybackState(true);
 }
@@ -274,36 +238,20 @@ function warmNextQueuedTrack() {
 
 function registerPlayerEventListeners() {
   audio.addEventListener('loadstart', () => {
-    debugHandoff('audio:loadstart');
     if (!_startupResetActive) return;
     state.currentTime = 0;
     state.progressLocked = true;
   });
 
   audio.addEventListener('emptied', () => {
-    debugHandoff('audio:emptied');
     if (!_startupResetActive) return;
     state.currentTime = 0;
   });
 
-  audio.addEventListener('canplay', () => {
-    debugHandoff('audio:canplay');
-  });
-
-  audio.addEventListener('seeking', () => {
-    debugHandoff('audio:seeking');
-  });
-
-  audio.addEventListener('seeked', () => {
-    debugHandoff('audio:seeked');
-  });
-
   audio.addEventListener('timeupdate', () => {
     const nextTime = Number.isFinite(audio.currentTime) ? audio.currentTime : 0;
-    const previousTime = state.currentTime;
 
     if (state.progressLocked) {
-      debugHandoff('audio:timeupdate:locked', { nextTime });
       if (nextTime <= 0.05) {
         state.currentTime = 0;
         return;
@@ -325,13 +273,8 @@ function registerPlayerEventListeners() {
       && nextTime + BACKWARD_TIME_JUMP_TOLERANCE_S < state.currentTime
     );
     if (startupGuardActive) {
-      debugHandoff('audio:timeupdate:regression_ignored', { previousTime, nextTime });
       _lastUpdateTime = nextTime;
       return;
-    }
-
-    if (nextTime < 5 || Math.abs(nextTime - previousTime) > 1) {
-      debugHandoff('audio:timeupdate', { previousTime, nextTime });
     }
 
     state.currentTime = nextTime;
@@ -377,7 +320,6 @@ function registerPlayerEventListeners() {
   audio.addEventListener('error', handleError);
 
   audio.addEventListener('loadedmetadata', () => {
-    debugHandoff('audio:loadedmetadata');
     const audioDuration = isFinite(audio.duration) ? audio.duration : 0;
     const trackDuration = state.currentTrack?.duration ?? 0;
     state.duration = Math.max(audioDuration, trackDuration) || 0;
@@ -389,7 +331,6 @@ function registerPlayerEventListeners() {
       if (trackId && currentId && trackId === currentId) {
         if (audio.seekable.length > 0 && state.duration > 0 && time < state.duration - 3) {
           allowBackwardTimeJumpsFor();
-          debugHandoff('audio:restore_seek', { restoreTime: time });
           audio.currentTime = time;
         }
       }
@@ -398,21 +339,18 @@ function registerPlayerEventListeners() {
   });
 
   audio.addEventListener('playing', () => {
-    debugHandoff('audio:playing');
     state.transcodeWaiting = false;
   });
 
   audio.addEventListener('ended', handleEnded);
 
   audio.addEventListener('play', () => {
-    debugHandoff('audio:play');
     state.isPlaying = true;
     setConsecutiveErrors(0);
     setPlaybackState(!state.progressLocked);
   });
 
   audio.addEventListener('pause', () => {
-    debugHandoff('audio:pause');
     state.isPlaying = false;
     state.mediaSessionLocked = false;
     setPlaybackState(false);
@@ -454,7 +392,6 @@ function play(track) {
   // load() after assigning src is enough to abort/reset the previous resource.
   const playSeq = nextRecoverySeq();
   const trackStartSeq = beginTrackStartupResetWindow();
-  debugHandoff('play:start', { track, playSeq, trackStartSeq });
   installPlayStartGuard(track);
   if (positionStateTimer) {
     clearTimeout(positionStateTimer);
@@ -485,21 +422,17 @@ function play(track) {
 
   (async () => {
     if (transcode && hidden) {
-      debugHandoff('play:warm_wait:start', { track, playSeq, trackStartSeq });
       await waitForTranscodeReady(trackId, getAdaptiveTranscodeWaitMs(track, { hidden }));
-      debugHandoff('play:warm_wait:done', { track, playSeq, trackStartSeq });
       if (!matchesRecoverySeq(playSeq)) return;
       if (state.currentTrack?._id !== trackId) return;
       if (_trackStartSeq !== trackStartSeq) return;
     }
 
-    debugHandoff('play:set_source', { track, playSeq, trackStartSeq });
     _setTrackSource(track, { markWaiting: transcode });
     // Explicit load() after src assignment starts the new resource cleanly.
     audio.load();
 
     audio.play().catch(err => {
-      debugHandoff('play:play_failed', { track, playSeq, trackStartSeq, errorName: err?.name, errorMessage: err?.message });
       console.error('[player] play() failed:', err);
       if (err.name === 'NotAllowedError') {
         // iOS denied the play() call — audio session window was missed or there was no
@@ -546,7 +479,6 @@ function toggle() {
 
 function seek(time) {
   allowBackwardTimeJumpsFor();
-  debugHandoff('player:seek', { seekTime: time });
   audio.currentTime = time;
   state.currentTime = time;
 }
