@@ -8,12 +8,38 @@ export function createPlayerMediaSession({
   next,
   seek,
 }) {
+  const HANDOFF_DEBUG_KEY = 'noisling_debug_handoff';
+
   function hasMediaSession() {
     return typeof navigator !== 'undefined' && 'mediaSession' in navigator;
   }
 
+  function isHandoffDebugEnabled() {
+    try {
+      return localStorage.getItem(HANDOFF_DEBUG_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function debugMediaSession(label, details = {}) {
+    if (!isHandoffDebugEnabled()) return;
+    console.log('[handoff:media-session]', {
+      label,
+      trackId: state.currentTrack?._id ?? null,
+      title: state.currentTrack?.title ?? '',
+      currentTime: Number.isFinite(state.currentTime) ? Number(state.currentTime.toFixed(3)) : null,
+      duration: Number.isFinite(state.duration) ? Number(state.duration.toFixed(3)) : null,
+      progressLocked: state.progressLocked,
+      playbackState: navigator.mediaSession?.playbackState ?? null,
+      hidden: typeof document !== 'undefined' ? document.visibilityState === 'hidden' : false,
+      ...details,
+    });
+  }
+
   function updateMediaSession(track) {
     if (!hasMediaSession()) return;
+    debugMediaSession('metadata:update', { trackId: track._id ?? null, title: track.title ?? '' });
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title || '',
       artist: track.artist || '',
@@ -27,6 +53,7 @@ export function createPlayerMediaSession({
   function resetMediaSessionPositionState(duration = 0) {
     if (!hasMediaSession()) return;
     const safeDuration = Number.isFinite(duration) && duration > 0 ? duration : 0.01;
+    debugMediaSession('position:reset', { duration: safeDuration, position: 0 });
     try {
       navigator.mediaSession.setPositionState({
         duration: safeDuration,
@@ -51,6 +78,7 @@ export function createPlayerMediaSession({
     const playbackRate = Number.isFinite(audio.playbackRate) && audio.playbackRate > 0
       ? audio.playbackRate
       : 0.01;
+    debugMediaSession('position:update', { duration, position, playbackRate });
     try {
       navigator.mediaSession.setPositionState({
         duration,
@@ -64,6 +92,7 @@ export function createPlayerMediaSession({
 
   function setPlaybackState(isPlaying) {
     if (!hasMediaSession()) return;
+    debugMediaSession('playbackState:update', { isPlaying });
     navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   }
 
