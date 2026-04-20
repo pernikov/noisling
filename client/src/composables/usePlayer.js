@@ -91,6 +91,8 @@ let _lastUpdateTime = null;
 // One-time seek target after a page-reload restore.
 // Bound to a specific track so it cannot leak into a different track.
 let _pendingRestore = null;
+let _trackStartSeq = 0;
+let _startupResetActive = false;
 
 // Throttle MediaSession position updates to once per second.
 let positionStateTimer = null;
@@ -135,6 +137,16 @@ function resetAudioForTrackStart() {
   }
   audio.removeAttribute('src');
   audio.load();
+}
+
+function beginTrackStartupResetWindow() {
+  _trackStartSeq += 1;
+  _startupResetActive = true;
+  return _trackStartSeq;
+}
+
+function endTrackStartupResetWindow() {
+  _startupResetActive = false;
 }
 
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
@@ -190,11 +202,13 @@ function warmNextQueuedTrack() {
 
 function registerPlayerEventListeners() {
   audio.addEventListener('loadstart', () => {
+    if (!_startupResetActive) return;
     state.currentTime = 0;
     state.progressLocked = true;
   });
 
   audio.addEventListener('emptied', () => {
+    if (!_startupResetActive) return;
     state.currentTime = 0;
   });
 
@@ -205,6 +219,7 @@ function registerPlayerEventListeners() {
         return;
       }
       state.progressLocked = false;
+      endTrackStartupResetWindow();
       if (!audio.paused && _lastUpdateTime === null) {
         playedSeconds = Math.max(playedSeconds, audio.currentTime);
       }
@@ -321,6 +336,7 @@ function play(track) {
   // tear down the active media session and stall manual next-track starts.
   // load() after assigning src is enough to abort/reset the previous resource.
   const playSeq = nextRecoverySeq();
+  const trackStartSeq = beginTrackStartupResetWindow();
   installPlayStartGuard(track);
   if (positionStateTimer) {
     clearTimeout(positionStateTimer);
@@ -353,6 +369,7 @@ function play(track) {
       await waitForTranscodeReady(trackId, getAdaptiveTranscodeWaitMs(track, { hidden }));
       if (!matchesRecoverySeq(playSeq)) return;
       if (state.currentTrack?._id !== trackId) return;
+      if (_trackStartSeq !== trackStartSeq) return;
     }
 
     _setTrackSource(track, { markWaiting: transcode });

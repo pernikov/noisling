@@ -281,6 +281,22 @@ describe('usePlayer orchestration', () => {
     expect(state.currentTime).toBe(0.5);
   });
 
+  it('ignores late loadstart resets after progress has already unlocked', async () => {
+    const { state, playAlbum } = await importUsePlayerWithApi();
+    const track = { _id: 'track-late-loadstart', title: 'Late Loadstart', format: 'mp3', duration: 180 };
+
+    playAlbum([track], 0);
+
+    FakeAudio.lastInstance.currentTime = 0.6;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.progressLocked).toBe(false);
+    expect(state.currentTime).toBe(0.6);
+
+    FakeAudio.lastInstance.emit('loadstart');
+    expect(state.progressLocked).toBe(false);
+    expect(state.currentTime).toBe(0.6);
+  });
+
   it('starts ordered playback in order and clears shuffle when shuffle was previously on', async () => {
     const { state, playAlbum } = await importUsePlayerWithApi();
     const tracks = [
