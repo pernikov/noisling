@@ -127,6 +127,16 @@ function isPlaybackHidden() {
   return typeof document !== 'undefined' && document.visibilityState === 'hidden';
 }
 
+function resetAudioForTrackStart() {
+  try {
+    audio.currentTime = 0;
+  } catch (_) {
+    // Safari can throw if the previous source is already in a torn-down state.
+  }
+  audio.removeAttribute('src');
+  audio.load();
+}
+
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -179,6 +189,15 @@ function warmNextQueuedTrack() {
 }
 
 function registerPlayerEventListeners() {
+  audio.addEventListener('loadstart', () => {
+    state.currentTime = 0;
+    state.progressLocked = true;
+  });
+
+  audio.addEventListener('emptied', () => {
+    state.currentTime = 0;
+  });
+
   audio.addEventListener('timeupdate', () => {
     if (state.progressLocked) {
       if (audio.currentTime <= 0.05) {
@@ -307,6 +326,7 @@ function play(track) {
     clearTimeout(positionStateTimer);
     positionStateTimer = null;
   }
+  resetAudioForTrackStart();
   state.currentTrack = track;
   state.currentTime = 0;
   state.duration = Number(track?.duration) || 0;
@@ -336,7 +356,7 @@ function play(track) {
     }
 
     _setTrackSource(track, { markWaiting: transcode });
-    // Explicit load() clears stale ended/error state before play() on iOS.
+    // Explicit load() after src assignment starts the new resource cleanly.
     audio.load();
 
     audio.play().catch(err => {

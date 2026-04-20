@@ -18,6 +18,8 @@ class FakeAudio {
       end: () => 999,
     };
     this._listeners = new Map();
+    this.loadCallCount = 0;
+    this.removeSrcCallCount = 0;
   }
 
   canPlayType(mime) {
@@ -35,10 +37,16 @@ class FakeAudio {
   }
 
   removeAttribute(name) {
-    if (name === 'src') this.src = '';
+    if (name === 'src') {
+      this.removeSrcCallCount += 1;
+      this.src = '';
+    }
   }
 
-  load() {}
+  load() {
+    this.loadCallCount += 1;
+    this.emit('loadstart');
+  }
 
   play() {
     this.paused = false;
@@ -228,6 +236,25 @@ describe('usePlayer orchestration', () => {
 
     expect(FakeAudio.lastInstance.src).toBe('/stream/track-visible/transcoded');
     expect(api.transcodedStreamUrl).toHaveBeenCalledWith('track-visible');
+  });
+
+  it('hard-resets the previous source before starting the next track', async () => {
+    const { playAlbum, next } = await importUsePlayerWithApi();
+    const tracks = [
+      { _id: 'track-1', title: 'One', format: 'mp3', duration: 180 },
+      { _id: 'track-2', title: 'Two', format: 'mp3', duration: 180 },
+    ];
+
+    playAlbum(tracks, 0);
+    FakeAudio.lastInstance.currentTime = 12;
+
+    next();
+    await Promise.resolve();
+
+    expect(FakeAudio.lastInstance.removeSrcCallCount).toBeGreaterThan(0);
+    expect(FakeAudio.lastInstance.loadCallCount).toBeGreaterThan(2);
+    expect(FakeAudio.lastInstance.currentTime).toBe(0);
+    expect(FakeAudio.lastInstance.src).toBe('/stream/track-2');
   });
 
   it('keeps progress pinned until the new track reports real playback movement', async () => {
