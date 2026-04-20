@@ -190,6 +190,39 @@ describe('createPlayerQueue', () => {
     expect(queue.hasNext.value).toBe(false);
   });
 
+  it('removes a queued track before the current one and keeps indexes aligned', () => {
+    const { state, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[2];
+    state.queueIndex = 2;
+
+    queue.removeTrack(1);
+
+    expect(state.queue.map((track) => track._id)).toEqual(['1', '3']);
+    expect(state.originalQueue.map((track) => track._id)).toEqual(['1', '3']);
+    expect(state.queueIndex).toBe(1);
+    expect(state.currentTrack?._id).toBe('3');
+  });
+
+  it('removes the current track and immediately plays the next available one', () => {
+    const { state, play, queue } = createQueueHarness();
+    const tracks = [makeTrack('1'), makeTrack('2'), makeTrack('3')];
+    state.queue = [...tracks];
+    state.originalQueue = [...tracks];
+    state.currentTrack = tracks[1];
+    state.queueIndex = 1;
+
+    queue.removeTrack(1);
+
+    expect(state.queue.map((track) => track._id)).toEqual(['1', '3']);
+    expect(state.originalQueue.map((track) => track._id)).toEqual(['1', '3']);
+    expect(state.queueIndex).toBe(1);
+    expect(play).toHaveBeenLastCalledWith(tracks[2]);
+    expect(state.currentTrack?._id).toBe('3');
+  });
+
   it('starts the next transcoded track immediately in the foreground', () => {
     const { state, api, play, queue } = createQueueHarness({
       needsTranscode: () => true,

@@ -1,6 +1,6 @@
 <script setup>
 import { ref, nextTick, watch } from 'vue';
-import { mdiClose } from '@mdi/js';
+import { mdiClose, mdiTrashCanOutline } from '@mdi/js';
 import Icon from './Icon.vue';
 import QueueList from './QueueList.vue';
 import QueueActions from './QueueActions.vue';
@@ -13,9 +13,36 @@ const emit = defineEmits(['close']);
 
 const { state } = usePlayer();
 const queueList = ref(null);
+const queueDragState = ref({
+  dragging: false,
+  discardHovered: false,
+  activeIndex: null,
+});
+
+function handleDragState(nextState) {
+  queueDragState.value = {
+    dragging: !!nextState?.dragging,
+    discardHovered: !!nextState?.discardHovered,
+    activeIndex: Number.isInteger(nextState?.activeIndex) ? nextState.activeIndex : null,
+  };
+}
+
+function handleBackdropDragOver(e) {
+  if (!queueDragState.value.dragging) return;
+  e.preventDefault();
+}
+
+function handleBackdropDrop(e) {
+  if (!queueDragState.value.dragging) return;
+  e.preventDefault();
+  queueList.value?.removeDraggedTrack?.();
+}
 
 watch(() => props.open, async (isOpen) => {
   document.body.style.overflow = isOpen ? 'hidden' : '';
+  if (!isOpen) {
+    queueDragState.value = { dragging: false, discardHovered: false, activeIndex: null };
+  }
   if (isOpen) {
     await nextTick();
     queueList.value?.scrollToCurrent();
@@ -28,15 +55,48 @@ watch(() => props.open, async (isOpen) => {
   <Transition name="fade">
     <div
       v-if="open"
-      class="fixed inset-0 bg-black/50 z-50"
+      class="fixed inset-0 z-50 transition-all duration-150"
+      :class="[
+        queueDragState.dragging ? 'backdrop-blur-md' : '',
+        queueDragState.discardHovered ? 'bg-red-950/40' : 'bg-black/50',
+      ]"
       @click="emit('close')"
-    />
+      @dragover="handleBackdropDragOver"
+      @drop="handleBackdropDrop"
+    >
+      <div
+        v-if="queueDragState.dragging"
+        class="pointer-events-none absolute inset-y-0 left-0 flex items-center justify-center px-6 sm:w-[calc(100%-24rem)] sm:translate-x-6 sm:px-10"
+      >
+        <div
+          class="flex flex-col items-center text-center transition-all duration-150"
+          :class="queueDragState.discardHovered ? 'scale-110 text-red-100' : 'text-zinc-100'"
+        >
+          <div
+            class="flex h-20 w-20 items-center justify-center rounded-full transition-colors duration-150"
+            :class="queueDragState.discardHovered ? 'bg-red-500/20' : 'bg-white/8'"
+          >
+            <Icon :path="mdiTrashCanOutline" class="h-10 w-10" />
+          </div>
+          <div class="mt-3 text-xs uppercase tracking-[0.22em]">
+            {{ queueDragState.discardHovered ? 'Release to remove' : 'Drag here to remove' }}
+          </div>
+          <div
+            class="mt-1 text-[11px]"
+            :class="queueDragState.discardHovered ? 'text-red-100/80' : 'text-zinc-400'"
+          >
+            Remove from queue
+          </div>
+        </div>
+      </div>
+    </div>
   </Transition>
 
   <!-- Drawer -->
   <Transition name="slide">
     <div
       v-if="open"
+      data-queue-drawer
       class="fixed right-0 top-0 bottom-0 w-full max-w-sm bg-zinc-900 border-l border-zinc-800 z-50 flex flex-col"
     >
       <!-- Header -->
@@ -61,7 +121,11 @@ watch(() => props.open, async (isOpen) => {
         </div>
       </div>
 
-      <QueueList ref="queueList" @navigate="emit('close')" />
+      <QueueList
+        ref="queueList"
+        @navigate="emit('close')"
+        @drag-state="handleDragState"
+      />
     </div>
   </Transition>
 </template>

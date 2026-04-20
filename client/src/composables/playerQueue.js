@@ -267,6 +267,42 @@ export function createPlayerQueue({
     }
   }
 
+  function removeTrack(index) {
+    if (index < 0 || index >= state.queue.length) return;
+
+    const removed = state.queue[index];
+    state.queue.splice(index, 1);
+
+    if (state.isLargeQueue) {
+      const largeQueueIndex = state.largeQueueIds.findIndex((id) => id === removed?._id);
+      if (largeQueueIndex !== -1) state.largeQueueIds.splice(largeQueueIndex, 1);
+      if (state.queueTotal > 0) state.queueTotal--;
+    }
+
+    if (state.shuffle) {
+      const originalIndex = state.originalQueue.findIndex((track) => track === removed || track?._id === removed?._id);
+      if (originalIndex !== -1) state.originalQueue.splice(originalIndex, 1);
+    } else if (index < state.originalQueue.length) {
+      state.originalQueue.splice(index, 1);
+    }
+
+    if (state.queue.length === 0) {
+      clearQueue();
+      return;
+    }
+
+    if (index === state.queueIndex) {
+      const nextIndex = Math.min(index, state.queue.length - 1);
+      state.queueIndex = nextIndex;
+      play(state.queue[nextIndex]);
+      return;
+    }
+
+    if (index < state.queueIndex) {
+      state.queueIndex--;
+    }
+  }
+
   function playFromQueue(index) {
     state.queueIndex = index;
     play(state.queue[index]);
@@ -343,6 +379,7 @@ export function createPlayerQueue({
     keepCurrentOnly,
     playNext,
     moveTrack,
+    removeTrack,
     playFromQueue,
     queueMatches,
     playAll,
