@@ -60,6 +60,7 @@ const state = reactive({
   isPlaying:         false,
   currentTime:       0,
   duration:          0,
+  progressLocked:    false,
   volume:         (typeof _savedPrefs.volume === 'number')  ? Math.max(0, Math.min(1, _savedPrefs.volume)) : 1,
   shuffle:        false,
   repeat:         'off',
@@ -240,6 +241,7 @@ function registerPlayerEventListeners() {
 
   audio.addEventListener('playing', () => {
     state.transcodeWaiting = false;
+    state.progressLocked = false;
   });
 
   audio.addEventListener('ended', handleEnded);
@@ -293,6 +295,8 @@ function play(track) {
   installPlayStartGuard(track);
   state.currentTrack = track;
   state.currentTime = 0;
+  state.duration = Number(track?.duration) || 0;
+  state.progressLocked = true;
   resetPlayTracking();
   resetTranscodeAttempted();
 

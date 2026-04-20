@@ -21,12 +21,14 @@ export function useProgressScrub({ state, seek }) {
 
   const displayPercent = computed(() => {
     if (isScrubbing.value) return scrubPercent.value;
+    if (state.progressLocked) return 0;
     if (!state.duration || !isFinite(state.duration)) return 0;
     return (state.currentTime / state.duration) * 100;
   });
 
   const displayTime = computed(() => {
     if (isScrubbing.value && state.duration) return scrubPercent.value / 100 * state.duration;
+    if (state.progressLocked) return 0;
     return state.currentTime;
   });
 
@@ -41,6 +43,7 @@ export function useProgressScrub({ state, seek }) {
    * @param {Function} [opts.onEnd]   - Called once when the mouse is released.
    */
   function startMouseScrub(e, { seekDuringDrag = true, onStart, onEnd } = {}) {
+    if (state.progressLocked) return;
     if (!state.duration || !isFinite(state.duration)) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const clamp = (x) => Math.max(0, Math.min(100, (x - rect.left) / rect.width * 100));

@@ -49,6 +49,7 @@ export function createPlayerQueue({
     state.isLargeQueue = false;
     state.currentTime = 0;
     state.duration = 0;
+    state.progressLocked = false;
     state.showQueue = false;
     state.transcodeWaiting = false;
     state.transcodeActive = false;
