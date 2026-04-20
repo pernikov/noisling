@@ -42,6 +42,12 @@ export function createPlayerMediaSession({
     if (!hasMediaSession()) return;
     const duration = state.duration;
     if (!duration || !isFinite(duration)) return;
+    const position = state.progressLocked
+      ? 0
+      : Math.min(
+        Number.isFinite(state.currentTime) ? state.currentTime : audio.currentTime,
+        duration,
+      );
     const playbackRate = Number.isFinite(audio.playbackRate) && audio.playbackRate > 0
       ? audio.playbackRate
       : 0.01;
@@ -49,7 +55,7 @@ export function createPlayerMediaSession({
       navigator.mediaSession.setPositionState({
         duration,
         playbackRate,
-        position: Math.min(audio.currentTime, duration),
+        position,
       });
     } catch (_) {
       // iOS can throw TypeError here for transient invalid states; ignore.

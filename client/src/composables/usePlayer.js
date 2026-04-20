@@ -220,6 +220,8 @@ function registerPlayerEventListeners() {
       }
       state.progressLocked = false;
       endTrackStartupResetWindow();
+      updateMediaSessionPositionState();
+      setPlaybackState(true);
       if (!audio.paused && _lastUpdateTime === null) {
         playedSeconds = Math.max(playedSeconds, audio.currentTime);
       }
@@ -293,7 +295,7 @@ function registerPlayerEventListeners() {
   audio.addEventListener('play', () => {
     state.isPlaying = true;
     setConsecutiveErrors(0);
-    setPlaybackState(true);
+    setPlaybackState(!state.progressLocked);
   });
 
   audio.addEventListener('pause', () => {
