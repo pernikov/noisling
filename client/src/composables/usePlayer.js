@@ -180,6 +180,17 @@ function warmNextQueuedTrack() {
 
 function registerPlayerEventListeners() {
   audio.addEventListener('timeupdate', () => {
+    if (state.progressLocked) {
+      if (audio.currentTime <= 0.05) {
+        state.currentTime = 0;
+        return;
+      }
+      state.progressLocked = false;
+      if (!audio.paused && _lastUpdateTime === null) {
+        playedSeconds = Math.max(playedSeconds, audio.currentTime);
+      }
+    }
+
     state.currentTime = audio.currentTime;
 
     if (!audio.paused && _lastUpdateTime !== null) {
@@ -241,7 +252,6 @@ function registerPlayerEventListeners() {
 
   audio.addEventListener('playing', () => {
     state.transcodeWaiting = false;
-    state.progressLocked = false;
   });
 
   audio.addEventListener('ended', handleEnded);

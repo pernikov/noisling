@@ -230,6 +230,30 @@ describe('usePlayer orchestration', () => {
     expect(api.transcodedStreamUrl).toHaveBeenCalledWith('track-visible');
   });
 
+  it('keeps progress pinned until the new track reports real playback movement', async () => {
+    const { state, playAlbum } = await importUsePlayerWithApi();
+    const track = { _id: 'track-progress', title: 'Progress Lock', format: 'mp3', duration: 180 };
+
+    playAlbum([track], 0);
+
+    expect(state.progressLocked).toBe(true);
+    expect(state.currentTime).toBe(0);
+
+    FakeAudio.lastInstance.emit('playing');
+    expect(state.progressLocked).toBe(true);
+    expect(state.currentTime).toBe(0);
+
+    FakeAudio.lastInstance.currentTime = 0.02;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.progressLocked).toBe(true);
+    expect(state.currentTime).toBe(0);
+
+    FakeAudio.lastInstance.currentTime = 0.5;
+    FakeAudio.lastInstance.emit('timeupdate');
+    expect(state.progressLocked).toBe(false);
+    expect(state.currentTime).toBe(0.5);
+  });
+
   it('starts ordered playback in order and clears shuffle when shuffle was previously on', async () => {
     const { state, playAlbum } = await importUsePlayerWithApi();
     const tracks = [
