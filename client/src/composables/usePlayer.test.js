@@ -73,6 +73,16 @@ function setupGlobals() {
     },
   });
 
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    value: {
+      getItem: vi.fn(() => null),
+      setItem: vi.fn(),
+      removeItem: vi.fn(),
+      clear: vi.fn(),
+    },
+  });
+
   Object.defineProperty(document, 'visibilityState', {
     configurable: true,
     value: 'visible',
@@ -105,8 +115,8 @@ async function importUsePlayerWithApi(apiOverrides = {}) {
 beforeEach(() => {
   vi.resetModules();
   vi.clearAllMocks();
-  localStorage.clear();
   setupGlobals();
+  globalThis.localStorage.clear();
 });
 
 describe('usePlayer orchestration', () => {
@@ -172,6 +182,52 @@ describe('usePlayer orchestration', () => {
     expect(warmTranscode).toHaveBeenCalledTimes(2);
     expect(warmTranscode).toHaveBeenNthCalledWith(1, 'track-2');
     expect(warmTranscode).toHaveBeenNthCalledWith(2, 'track-3');
+  });
+
+  it('waits for warm transcode readiness before assigning a hidden transcoded track source', async () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    let releaseWarm;
+    const warmTranscode = vi.fn(() => new Promise((resolve) => {
+      releaseWarm = () => resolve({ status: 'ready' });
+    }));
+
+    const { playAlbum, api } = await importUsePlayerWithApi({ warmTranscode });
+    const track = { _id: 'track-hidden', title: 'Hidden FLAC', format: 'flac' };
+
+    playAlbum([track], 0);
+    await Promise.resolve();
+
+    expect(warmTranscode).toHaveBeenCalledWith('track-hidden');
+    expect(FakeAudio.lastInstance.src).toBe('');
+
+    releaseWarm();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(FakeAudio.lastInstance.src).toBe('/stream/track-hidden/transcoded');
+    expect(api.transcodedStreamUrl).toHaveBeenCalledWith('track-hidden');
+  });
+
+  it('keeps foreground transcoded playback immediate to preserve the user-gesture path', async () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+
+    const warmTranscode = vi.fn(() => Promise.resolve({ status: 'ready' }));
+
+    const { playAlbum, api } = await importUsePlayerWithApi({ warmTranscode });
+    const track = { _id: 'track-visible', title: 'Visible FLAC', format: 'flac' };
+
+    playAlbum([track], 0);
+    await Promise.resolve();
+
+    expect(FakeAudio.lastInstance.src).toBe('/stream/track-visible/transcoded');
+    expect(api.transcodedStreamUrl).toHaveBeenCalledWith('track-visible');
   });
 
   it('starts ordered playback in order and clears shuffle when shuffle was previously on', async () => {

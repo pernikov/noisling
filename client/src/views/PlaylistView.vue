@@ -28,6 +28,7 @@ const mosaicCovers = computed(() => {
     if (t.cover && !seen.has(t.cover)) {
       seen.add(t.cover);
       result.push(t.cover);
+      if (result.length === 16) break;
     }
   }
   return result;
@@ -204,7 +205,7 @@ async function deletePlaylist() {
             :style="mosaicStyle"
           >
             <div v-for="cover in mosaicCells" :key="cover" class="overflow-hidden bg-zinc-700">
-              <img :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" @load="e => e.target.style.opacity='1'" alt="" />
+              <img :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" loading="lazy" decoding="async" fetchpriority="low" @load="e => e.target.style.opacity='1'" alt="" />
             </div>
           </TransitionGroup>
           <div v-else class="w-full h-full flex items-center justify-center">

@@ -7,6 +7,9 @@ const props = defineProps({
   cover: { type: String, default: '' },
   size: { type: String, default: 'w-12 h-12' },
   showSpinner: { type: Boolean, default: false },
+  loading: { type: String, default: 'lazy' },
+  decoding: { type: String, default: 'async' },
+  fetchpriority: { type: String, default: 'auto' },
 });
 
 const api = useApi();
@@ -56,7 +59,9 @@ function onLoad() {
       class="w-full h-full object-cover transition-opacity duration-300"
       :class="loaded ? 'opacity-100' : 'opacity-0'"
       alt="Cover"
-      loading="eager"
+      :loading="props.loading"
+      :decoding="props.decoding"
+      :fetchpriority="props.fetchpriority"
       @load="onLoad"
     />
   </div>

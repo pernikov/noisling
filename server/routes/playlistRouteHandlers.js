@@ -4,7 +4,7 @@ export function createPlaylistRouteHandlers({ Playlist, Track, isValidObjectId }
   async function listPlaylists(req, res) {
     const playlists = await Playlist.find({ type: 'manual' }).sort({ name: 1 }).lean();
 
-    const allIds = playlists.flatMap((playlist) => playlist.trackIds.slice(0, 500));
+    const allIds = playlists.flatMap((playlist) => playlist.trackIds.slice(0, 32));
     const tracks = allIds.length
       ? await Track.find({ _id: { $in: allIds } }, { _id: 1, cover: 1 }).lean()
       : [];

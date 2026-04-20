@@ -1,3 +1,5 @@
+const DEFAULT_PLAYLIST_SUMMARY_COVERS = 16;
+
 export function buildCoverByTrack(tracks) {
   return Object.fromEntries(
     tracks.map((track) => [String(track._id), track.cover || null]),
@@ -14,7 +16,7 @@ export function collectPlaylistCovers(trackIds, coverByTrack, maxCovers = 100) {
   return covers;
 }
 
-export function buildPlaylistSummary(playlist, coverByTrack, maxCovers = 100) {
+export function buildPlaylistSummary(playlist, coverByTrack, maxCovers = DEFAULT_PLAYLIST_SUMMARY_COVERS) {
   return {
     _id: playlist._id,
     name: playlist.name,

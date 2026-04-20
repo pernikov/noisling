@@ -122,6 +122,10 @@ function _setTrackSource(track, { forceTranscode = false, markWaiting = true, ca
   return transcode;
 }
 
+function isPlaybackHidden() {
+  return typeof document !== 'undefined' && document.visibilityState === 'hidden';
+}
+
 async function waitForTranscodeReady(trackId, timeoutMs = 10000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -299,42 +303,52 @@ function play(track) {
   updateMediaSession(track);
   warmNextQueuedTrack();
 
-  _setTrackSource(track, { markWaiting: transcode });
-  // Explicit load() clears stale ended/error state before play() on iOS.
-  audio.load();
-
   maybeResumeVisualizerContext();
 
   const trackId = track._id;
-  audio.play().catch(err => {
-    console.error('[player] play() failed:', err);
-    if (err.name === 'NotAllowedError') {
-      // iOS denied the play() call — audio session window was missed or there was no
-      // user gesture. Mark as paused so the UI and lock screen reflect reality; the
-      // user can resume via the lock screen play button or by foregrounding the app.
-      state.isPlaying = false;
-      setPlaybackState(false);
-      return;
-    }
+  const hidden = isPlaybackHidden();
 
-    let retryDone = false;
-    const retryPlay = () => {
-      if (retryDone) return;
-      retryDone = true;
+  (async () => {
+    if (transcode && hidden) {
+      await waitForTranscodeReady(trackId, getAdaptiveTranscodeWaitMs(track, { hidden }));
       if (!matchesRecoverySeq(playSeq)) return;
       if (state.currentTrack?._id !== trackId) return;
-      if (audio.error) return;
-      audio.play().catch(e => console.error('[player] play() retry failed:', e));
-    };
+    }
 
-    // For transcoded/background starts, metadata/canplay often arrives after
-    // the first play() attempt. Retry on readiness events instead of depending
-    // only on timers, which iOS can throttle in background.
-    audio.addEventListener('loadedmetadata', retryPlay, { once: true });
-    audio.addEventListener('canplay', retryPlay, { once: true });
-    queueMicrotask(retryPlay);
-    setTimeout(retryPlay, 500);
-  });
+    _setTrackSource(track, { markWaiting: transcode });
+    // Explicit load() clears stale ended/error state before play() on iOS.
+    audio.load();
+
+    audio.play().catch(err => {
+      console.error('[player] play() failed:', err);
+      if (err.name === 'NotAllowedError') {
+        // iOS denied the play() call — audio session window was missed or there was no
+        // user gesture. Mark as paused so the UI and lock screen reflect reality; the
+        // user can resume via the lock screen play button or by foregrounding the app.
+        state.isPlaying = false;
+        setPlaybackState(false);
+        return;
+      }
+
+      let retryDone = false;
+      const retryPlay = () => {
+        if (retryDone) return;
+        retryDone = true;
+        if (!matchesRecoverySeq(playSeq)) return;
+        if (state.currentTrack?._id !== trackId) return;
+        if (audio.error) return;
+        audio.play().catch(e => console.error('[player] play() retry failed:', e));
+      };
+
+      // For transcoded/background starts, metadata/canplay often arrives after
+      // the first play() attempt. Retry on readiness events instead of depending
+      // only on timers, which iOS can throttle in background.
+      audio.addEventListener('loadedmetadata', retryPlay, { once: true });
+      audio.addEventListener('canplay', retryPlay, { once: true });
+      queueMicrotask(retryPlay);
+      setTimeout(retryPlay, 500);
+    });
+  })();
 }
 
 function pause() {
