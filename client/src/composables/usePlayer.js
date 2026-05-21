@@ -97,6 +97,8 @@ let _startupResetActive = false;
 let _trackStartedAtMs = 0;
 let _allowBackwardTimeUntilMs = 0;
 let _mediaSessionStableTicks = 0;
+let _volumeRevision = 0;
+let _applyingVolume = false;
 
 const STARTUP_TIME_REGRESSION_GUARD_MS = 12000;
 const BACKWARD_TIME_JUMP_TOLERANCE_S = 0.35;
@@ -131,6 +133,7 @@ function _setTrackSource(track, { forceTranscode = false, markWaiting = true, ca
     ? api.transcodedStreamUrl(track._id)
     : api.streamUrl(track._id, false);
   audio.src = cacheBust ? `${url}${url.includes('?') ? '&' : '?'}r=${Date.now()}` : url;
+  applyPlayerVolume();
   return transcode;
 }
 
@@ -176,6 +179,19 @@ function endTrackStartupResetWindow() {
 
 function allowBackwardTimeJumpsFor(ms = 1500) {
   _allowBackwardTimeUntilMs = Math.max(_allowBackwardTimeUntilMs, Date.now() + ms);
+}
+
+function applyPlayerVolume() {
+  _applyingVolume = true;
+  try {
+    audio.volume = state.volume;
+  } catch (_) {
+    // Some mobile browsers expose media volume as read-only/system-controlled.
+  } finally {
+    queueMicrotask(() => {
+      _applyingVolume = false;
+    });
+  }
 }
 
 function maybeUnlockMediaSession(nextTime) {
@@ -242,6 +258,7 @@ function warmNextQueuedTrack() {
 
 function registerPlayerEventListeners() {
   audio.addEventListener('loadstart', () => {
+    applyPlayerVolume();
     if (!_startupResetActive) return;
     state.currentTime = 0;
     state.progressLocked = true;
@@ -324,6 +341,7 @@ function registerPlayerEventListeners() {
   audio.addEventListener('error', handleError);
 
   audio.addEventListener('loadedmetadata', () => {
+    applyPlayerVolume();
     const audioDuration = isFinite(audio.duration) ? audio.duration : 0;
     const trackDuration = state.currentTrack?.duration ?? 0;
     state.duration = Math.max(audioDuration, trackDuration) || 0;
@@ -343,7 +361,14 @@ function registerPlayerEventListeners() {
   });
 
   audio.addEventListener('playing', () => {
+    applyPlayerVolume();
     state.transcodeWaiting = false;
+  });
+
+  audio.addEventListener('volumechange', () => {
+    if (_applyingVolume) return;
+    if (Math.abs(audio.volume - state.volume) <= 0.005) return;
+    applyPlayerVolume();
   });
 
   audio.addEventListener('ended', handleEnded);
@@ -367,12 +392,13 @@ function registerPlayerEventListeners() {
 
 
 async function loadPlayerPrefs() {
+  const requestedAtVolumeRevision = _volumeRevision;
   try {
     const data = await api.getSettings();
     const updates = {};
-    if (typeof data.volume === 'number') {
+    if (typeof data.volume === 'number' && _volumeRevision === requestedAtVolumeRevision) {
       state.volume = Math.max(0, Math.min(1, data.volume));
-      audio.volume = state.volume;
+      applyPlayerVolume();
       updates.volume = state.volume;
     }
     if (Object.keys(updates).length) savePrefs(updates);
@@ -489,8 +515,9 @@ function seek(time) {
 }
 
 function setVolume(v) {
+  _volumeRevision += 1;
   state.volume = Math.max(0, Math.min(1, v));
-  audio.volume = state.volume;
+  applyPlayerVolume();
   savePrefs({ volume: state.volume });
   clearTimeout(_volumeSaveTimer);
   _volumeSaveTimer = setTimeout(() => {

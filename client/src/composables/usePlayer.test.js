@@ -145,6 +145,35 @@ describe('usePlayer orchestration', () => {
     expect(state.repeat).toBe('off');
   });
 
+  it('does not let a late settings response overwrite a local volume change', async () => {
+    let resolveSettings;
+    const getSettings = vi.fn(() => new Promise((resolve) => {
+      resolveSettings = resolve;
+    }));
+    const { state, setVolume, loadPlayerPrefs } = await importUsePlayerWithApi({ getSettings });
+
+    const loading = loadPlayerPrefs();
+    setVolume(0.25);
+    resolveSettings({ volume: 0.8 });
+    await loading;
+
+    expect(state.volume).toBe(0.25);
+    expect(FakeAudio.lastInstance.volume).toBe(0.25);
+  });
+
+  it('reapplies the player volume when the audio element volume changes unexpectedly', async () => {
+    const { state, setVolume } = await importUsePlayerWithApi();
+
+    setVolume(0.35);
+    await Promise.resolve();
+    FakeAudio.lastInstance.volume = 1;
+    FakeAudio.lastInstance.emit('volumechange');
+    await Promise.resolve();
+
+    expect(state.volume).toBe(0.35);
+    expect(FakeAudio.lastInstance.volume).toBe(0.35);
+  });
+
   it('applies a successful love toggle to the track and current player state', async () => {
     const { state, toggleLove } = await importUsePlayerWithApi({
       toggleLove: vi.fn(() => Promise.resolve({ isLoved: true })),
