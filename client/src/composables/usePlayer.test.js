@@ -310,6 +310,45 @@ describe('usePlayer orchestration', () => {
     expect(FakeAudio.lastInstance.src).toBe('/stream/track-2');
   });
 
+  it('preserves the audio source during hidden iOS natural queue advance', async () => {
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        userAgent: 'iPhone',
+        platform: 'iPhone',
+        maxTouchPoints: 5,
+        mediaSession: {
+          metadata: null,
+          playbackState: 'none',
+          setActionHandler: vi.fn(),
+          setPositionState: vi.fn(),
+        },
+      },
+    });
+
+    const { state, playAlbum } = await importUsePlayerWithApi();
+    const tracks = [
+      { _id: 'track-1', title: 'One', format: 'mp3', duration: 180 },
+      { _id: 'track-2', title: 'Two', format: 'mp3', duration: 180 },
+    ];
+
+    playAlbum(tracks, 0);
+    const resetCountAfterFirstStart = FakeAudio.lastInstance.removeSrcCallCount;
+
+    FakeAudio.lastInstance.duration = 180;
+    FakeAudio.lastInstance.currentTime = 180;
+    FakeAudio.lastInstance.emit('timeupdate');
+    FakeAudio.lastInstance.emit('ended');
+
+    expect(state.currentTrack?._id).toBe('track-2');
+    expect(FakeAudio.lastInstance.removeSrcCallCount).toBe(resetCountAfterFirstStart);
+    expect(FakeAudio.lastInstance.src).toBe('/stream/track-2');
+  });
+
   it('keeps progress pinned until the new track reports real playback movement', async () => {
     const { state, playAlbum } = await importUsePlayerWithApi();
     const track = { _id: 'track-progress', title: 'Progress Lock', format: 'mp3', duration: 180 };

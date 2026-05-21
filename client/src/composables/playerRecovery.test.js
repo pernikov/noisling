@@ -94,9 +94,23 @@ describe('createPlayerRecovery', () => {
     audio.duration = 120;
 
     recovery.handleEnded();
-    await Promise.resolve();
 
+    expect(next).toHaveBeenCalledWith({ preserveMediaSession: true });
     expect(next).toHaveBeenCalledTimes(1);
+  });
+
+  it('repeats one-track natural ends without tearing down the media session', () => {
+    const { state, audio, play, recovery } = createRecoveryHarness();
+    state.repeat = 'one';
+    state.currentTrack = makeTrack('1', { duration: 120 });
+    state.currentTime = 120;
+    state.duration = 120;
+    audio.currentTime = 120;
+    audio.duration = 120;
+
+    recovery.handleEnded();
+
+    expect(play).toHaveBeenCalledWith(state.currentTrack, { preserveMediaSession: true });
   });
 
   it('stops playback after three consecutive unrecoverable errors', () => {

@@ -191,13 +191,11 @@ export function createPlayerRecovery({
 
     recoveryState.ignoreNextEnded = true;
     clearEndedTimer();
-    queueMicrotask(() => {
-      if (state.repeat === 'one') {
-        play(state.currentTrack);
-      } else {
-        next();
-      }
-    });
+    if (state.repeat === 'one') {
+      play(state.currentTrack, { preserveMediaSession: true });
+    } else {
+      next({ preserveMediaSession: true });
+    }
   }
 
   function resumePlayback({ forceReload = false, maybeResumeVisualizerContext }) {

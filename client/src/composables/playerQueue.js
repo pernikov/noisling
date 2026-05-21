@@ -19,6 +19,14 @@ export function createPlayerQueue({
   let prefetching = false;
   let deferredStartSeq = 0;
 
+  function startTrack(track, playOptions) {
+    if (playOptions && Object.keys(playOptions).length > 0) {
+      play(track, playOptions);
+      return;
+    }
+    play(track);
+  }
+
   function loadOrderedQueue(tracks, startIndex = 0) {
     state.shuffle = false;
     state.originalQueue = [...tracks];
@@ -84,15 +92,15 @@ export function createPlayerQueue({
     }
   }
 
-  function playWithWarmupIfNeeded(track, expectedIndex) {
+  function playWithWarmupIfNeeded(track, expectedIndex, playOptions = null) {
     const seq = ++deferredStartSeq;
 
     if (seq !== deferredStartSeq) return;
     if (state.queueIndex !== expectedIndex) return;
-    play(track);
+    startTrack(track, playOptions);
   }
 
-  async function fetchAndPlayAt(virtualIndex) {
+  async function fetchAndPlayAt(virtualIndex, playOptions = null) {
     try {
       const ids = state.largeQueueIds.slice(virtualIndex, virtualIndex + 50);
       const tracks = await api.getTracksByIds(ids);
@@ -103,13 +111,13 @@ export function createPlayerQueue({
       state.queueBufferOffset = virtualIndex;
       state.queue = tracks;
       state.queueIndex = 0;
-      play(tracks[0]);
+      startTrack(tracks[0], playOptions);
       prefetchIfNeeded();
     } catch (_) {
     }
   }
 
-  async function restartLargeQueue() {
+  async function restartLargeQueue(playOptions = null) {
     try {
       const ids = state.largeQueueIds.slice(0, 50);
       const tracks = await api.getTracksByIds(ids);
@@ -117,7 +125,7 @@ export function createPlayerQueue({
       state.queue = tracks;
       state.queueIndex = 0;
       state.queueBufferOffset = 0;
-      play(tracks[0]);
+      startTrack(tracks[0], playOptions);
       prefetchIfNeeded();
     } catch (_) {
     }
@@ -183,13 +191,13 @@ export function createPlayerQueue({
 
   }
 
-  function next() {
+  function next(playOptions = null) {
     if (state.queue.length === 0) {
       state.isPlaying = false;
       return;
     }
     if (state.repeat === 'one') {
-      play(state.currentTrack);
+      startTrack(state.currentTrack, playOptions);
       return;
     }
 
@@ -198,16 +206,16 @@ export function createPlayerQueue({
 
     if (nextIndex < state.queue.length) {
       state.queueIndex = nextIndex;
-      playWithWarmupIfNeeded(state.queue[nextIndex], nextIndex);
+      playWithWarmupIfNeeded(state.queue[nextIndex], nextIndex, playOptions);
       if (state.isLargeQueue) prefetchIfNeeded();
     } else if (state.isLargeQueue && virtualNext < state.queueTotal) {
-      fetchAndPlayAt(virtualNext);
+      fetchAndPlayAt(virtualNext, playOptions);
     } else if (state.repeat === 'all') {
       if (state.isLargeQueue) {
-        restartLargeQueue();
+        restartLargeQueue(playOptions);
       } else {
         state.queueIndex = 0;
-        play(state.queue[0]);
+        startTrack(state.queue[0], playOptions);
       }
     } else {
       clearQueue();

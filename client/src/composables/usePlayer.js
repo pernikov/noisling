@@ -147,7 +147,11 @@ function isAppleMobileEnvironment() {
     || (platform === 'MacIntel' && maxTouchPoints > 1);
 }
 
-function resetAudioForTrackStart() {
+function resetAudioForTrackStart({ preserveMediaSession = false } = {}) {
+  // Natural iOS background handoffs are fragile if the media element is emptied
+  // between tracks; let the following src assignment replace the resource.
+  if (preserveMediaSession) return;
+
   try {
     audio.currentTime = 0;
   } catch (_) {
@@ -347,7 +351,7 @@ function registerPlayerEventListeners() {
   audio.addEventListener('play', () => {
     state.isPlaying = true;
     setConsecutiveErrors(0);
-    setPlaybackState(!state.progressLocked);
+    setPlaybackState(state.mediaSessionLocked || !state.progressLocked);
   });
 
   audio.addEventListener('pause', () => {
@@ -379,7 +383,9 @@ async function loadPlayerPrefs() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function play(track) {
+function play(track, options = {}) {
+  const hidden = isPlaybackHidden();
+  const preserveMediaSession = Boolean(options.preserveMediaSession) && isAppleMobileEnvironment() && hidden;
   const previousTrackId = state.currentTrack?._id?.toString?.() ?? null;
   const nextTrackId = track?._id?.toString?.() ?? null;
   if (nextTrackId && nextTrackId !== previousTrackId) {
@@ -397,7 +403,7 @@ function play(track) {
     clearTimeout(positionStateTimer);
     positionStateTimer = null;
   }
-  resetAudioForTrackStart();
+  resetAudioForTrackStart({ preserveMediaSession });
   state.currentTrack = track;
   state.currentTime = 0;
   state.duration = Number(track?.duration) || 0;
@@ -412,16 +418,15 @@ function play(track) {
 
   updateMediaSession(track);
   resetMediaSessionPositionState(state.duration);
-  setPlaybackState(false);
+  setPlaybackState(preserveMediaSession);
   warmNextQueuedTrack();
 
   maybeResumeVisualizerContext();
 
   const trackId = track._id;
-  const hidden = isPlaybackHidden();
 
   (async () => {
-    if (transcode && hidden) {
+    if (transcode && hidden && !preserveMediaSession) {
       await waitForTranscodeReady(trackId, getAdaptiveTranscodeWaitMs(track, { hidden }));
       if (!matchesRecoverySeq(playSeq)) return;
       if (state.currentTrack?._id !== trackId) return;
