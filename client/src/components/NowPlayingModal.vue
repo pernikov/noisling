@@ -11,6 +11,7 @@ import QueueList from './QueueList.vue';
 import QueueActions from './QueueActions.vue';
 import AddToPlaylistModal from './AddToPlaylistModal.vue';
 import TransportButton from './TransportButton.vue';
+import DeferredImage from './DeferredImage.vue';
 import { useToast } from '../composables/useToast.js';
 import {
   mdiChevronDown,
@@ -391,21 +392,25 @@ onUnmounted(() => {
           class="absolute inset-0 overflow-hidden transition-opacity duration-[350ms]"
           :class="activeTab === 'nowplaying' ? 'opacity-100' : 'opacity-0'"
         >
-          <img
+          <DeferredImage
             v-if="prevCoverUrl"
             :src="prevCoverUrl"
             alt=""
             aria-hidden="true"
             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
             :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0 : 0.9 }"
+            eager
+            priority="high"
           />
-          <img
+          <DeferredImage
             v-if="displayedCoverUrl"
             :src="displayedCoverUrl"
             alt=""
             aria-hidden="true"
             class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
             :style="{ filter: 'blur(80px)', transform: 'scale(1.2)', opacity: currLoaded ? 0.9 : 0 }"
+            eager
+            priority="high"
           />
           <div class="absolute inset-0 bg-black/40" />
           <div class="absolute inset-0" :style="{ background: accentOverlay }" />
@@ -527,7 +532,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Previous cover stays mounted until the new one is ready -->
-                <img
+                <DeferredImage
                   v-if="prevCoverUrl"
                   :key="`prev-${prevCoverUrl}`"
                   :src="prevCoverUrl"
@@ -535,10 +540,14 @@ onUnmounted(() => {
                   aria-hidden="true"
                   class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
                   :class="currLoaded ? 'opacity-0' : 'opacity-100'"
+                  loaded-class=""
+                  pending-class=""
+                  eager
+                  priority="high"
                 />
 
                 <!-- Current cover fading in when loaded -->
-                <img
+                <DeferredImage
                   v-if="displayedCoverUrl"
                   :key="displayedCoverUrl"
                   :src="displayedCoverUrl"
@@ -546,7 +555,12 @@ onUnmounted(() => {
                   class="absolute inset-0 w-full h-full object-cover transition-opacity duration-300"
                   :class="currLoaded ? 'opacity-100' : 'opacity-0'"
                   loading="eager"
-                  @load="onCoverLoad"
+                  fetchpriority="low"
+                  eager
+                  priority="high"
+                  loaded-class=""
+                  pending-class=""
+                  @loaded="onCoverLoad"
                 />
               </div>
             </div>

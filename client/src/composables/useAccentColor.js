@@ -4,12 +4,16 @@ import { useApi } from './useApi.js';
 
 const accentColor = ref(null); // "r, g, b" string or null
 const accentPalette = ref([]);
+const extractedColorCache = new Map();
 
 let currentRgb = [0, 0, 0];
 let targetRgb = [0, 0, 0];
 let currentPalette = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 let targetPalette = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 let animFrame = null;
+let watcherStarted = false;
+let extractToken = 0;
+let idleHandle = null;
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -85,6 +89,14 @@ function getFallbackPalette(base) {
 }
 
 export function useAccentColor() {
+  ensureAccentWatcher();
+  return { accentColor, accentPalette };
+}
+
+function ensureAccentWatcher() {
+  if (watcherStarted) return;
+  watcherStarted = true;
+
   const { state } = usePlayer();
   const api = useApi();
 
@@ -92,22 +104,75 @@ export function useAccentColor() {
     () => state.currentTrack?.cover,
     (cover) => {
       if (!cover) {
+        extractToken += 1;
+        clearScheduledExtraction();
         setTargetColor(0, 0, 0);
         setTargetPalette([[0, 0, 0], [0, 0, 0], [0, 0, 0]]);
         return;
       }
-      extractColor(api.coverUrl(cover));
+      scheduleExtractColor(api.coverUrl(cover));
     },
     { immediate: true }
   );
-
-  return { accentColor, accentPalette };
 }
 
-function extractColor(url) {
+function scheduleIdle(callback) {
+  if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+    return window.requestIdleCallback(callback, { timeout: 500 });
+  }
+  return setTimeout(callback, 0);
+}
+
+function cancelIdle(handle) {
+  if (typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+    window.cancelIdleCallback(handle);
+  } else {
+    clearTimeout(handle);
+  }
+}
+
+function clearScheduledExtraction() {
+  if (idleHandle) {
+    cancelIdle(idleHandle);
+    idleHandle = null;
+  }
+}
+
+function applyExtractedColor({ rgb, palette }) {
+  setTargetPalette(palette);
+  setTargetColor(rgb[0], rgb[1], rgb[2]);
+}
+
+function rememberExtractedColor(url, value) {
+  extractedColorCache.set(url, value);
+  if (extractedColorCache.size > 80) {
+    const [oldest] = extractedColorCache.keys();
+    extractedColorCache.delete(oldest);
+  }
+}
+
+function scheduleExtractColor(url) {
+  clearScheduledExtraction();
+  const cached = extractedColorCache.get(url);
+  if (cached) {
+    applyExtractedColor(cached);
+    return;
+  }
+
+  const token = ++extractToken;
+  idleHandle = scheduleIdle(() => {
+    idleHandle = null;
+    extractColor(url, token);
+  });
+}
+
+function extractColor(url, token) {
   const img = new Image();
   img.crossOrigin = 'anonymous';
+  img.decoding = 'async';
   img.onload = () => {
+    if (token !== extractToken) return;
+
     const canvas = document.createElement('canvas');
     const size = 10;
     canvas.width = size;
@@ -136,8 +201,9 @@ function extractColor(url) {
     }
 
     if (count === 0) {
-      setTargetColor(0, 0, 0);
-      setTargetPalette([[0, 0, 0], [0, 0, 0], [0, 0, 0]]);
+      const fallback = { rgb: [0, 0, 0], palette: [[0, 0, 0], [0, 0, 0], [0, 0, 0]] };
+      rememberExtractedColor(url, fallback);
+      applyExtractedColor(fallback);
       return;
     }
 
@@ -156,14 +222,17 @@ function extractColor(url) {
         palette.push(candidate);
       }
     }
-    setTargetPalette(
-      (palette.length >= 2 ? palette : getFallbackPalette(dominant).map(value => value.split(', ').map(Number)))
+    const extracted = {
+      rgb: [r, g, b],
+      palette: (palette.length >= 2 ? palette : getFallbackPalette(dominant).map(value => value.split(', ').map(Number)))
         .slice(0, 3),
-    );
+    };
 
-    setTargetColor(r, g, b);
+    rememberExtractedColor(url, extracted);
+    if (token === extractToken) applyExtractedColor(extracted);
   };
   img.onerror = () => {
+    if (token !== extractToken) return;
     setTargetColor(0, 0, 0);
     setTargetPalette([[0, 0, 0], [0, 0, 0], [0, 0, 0]]);
   };

@@ -1,4 +1,4 @@
-const DEFAULT_PLAYLIST_SUMMARY_COVERS = 16;
+const DEFAULT_PLAYLIST_SUMMARY_COVERS = 4;
 
 export function buildCoverByTrack(tracks) {
   return Object.fromEntries(

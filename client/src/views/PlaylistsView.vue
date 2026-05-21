@@ -10,6 +10,7 @@ import IconButton from '../components/IconButton.vue';
 import TransportButton from '../components/TransportButton.vue';
 import Button from '../components/Button.vue';
 import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
+import DeferredImage from '../components/DeferredImage.vue';
 
 const api = useApi();
 const router = useRouter();
@@ -148,7 +149,12 @@ function onPlaylistCardKeydown(event, playlistId) {
                     :key="i"
                     class="overflow-hidden bg-zinc-700"
                   >
-                    <img v-if="cover" :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" loading="lazy" decoding="async" fetchpriority="low" @load="e => e.target.style.opacity='1'" alt="" />
+                    <DeferredImage
+                      v-if="cover"
+                      :src="api.coverUrl(cover)"
+                      class="w-full h-full object-cover transition-opacity duration-300"
+                      alt=""
+                    />
                   </div>
                 </div>
               </template>

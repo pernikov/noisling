@@ -12,6 +12,7 @@ import IconButton from '../components/IconButton.vue';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import BulkAddToPlaylistModal from '../components/BulkAddToPlaylistModal.vue';
 import CreatePlaylistModal from '../components/CreatePlaylistModal.vue';
+import DeferredImage from '../components/DeferredImage.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -205,7 +206,11 @@ async function deletePlaylist() {
             :style="mosaicStyle"
           >
             <div v-for="cover in mosaicCells" :key="cover" class="overflow-hidden bg-zinc-700">
-              <img :src="api.coverUrl(cover)" class="w-full h-full object-cover" style="opacity:0;transition:opacity 0.3s ease" loading="lazy" decoding="async" fetchpriority="low" @load="e => e.target.style.opacity='1'" alt="" />
+              <DeferredImage
+                :src="api.coverUrl(cover)"
+                class="w-full h-full object-cover transition-opacity duration-300"
+                alt=""
+              />
             </div>
           </TransitionGroup>
           <div v-else class="w-full h-full flex items-center justify-center">
