@@ -47,7 +47,8 @@ watch(page, load);
 useLibraryEvents(load);
 
 function goToAlbum(album) {
-  router.push({ name: 'album', params: { artist: artistName.value, album: album.name } });
+  const artist = album.albumArtistNorm ?? album.artistsNorm?.[0] ?? artistName.value;
+  router.push({ name: 'album', params: { artist, album: album.name } });
 }
 
 async function playAll() {
@@ -100,7 +101,7 @@ async function playShuffle() {
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
           <div
             v-for="album in albums"
-            :key="album.name"
+            :key="`${album.albumArtistNorm ?? album.artistsNorm?.[0] ?? artistName}-${album.name}`"
             class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors"
             @click="goToAlbum(album)"
           >

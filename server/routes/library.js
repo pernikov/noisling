@@ -3,6 +3,12 @@ import Track from '../models/Track.js';
 import { createLibraryRouteHandlers } from './libraryRouteHandlers.js';
 import { buildTrackOverrides, mergeTrackOverrides } from '../services/trackOverrides.js';
 import { buildSearchRegex } from './libraryHelpers.js';
+import {
+  buildAlbumArtistFields,
+  buildAlbumSummaries,
+  buildReleaseArtistFields,
+  getAlbumSummaryArtists,
+} from './albumGrouping.js';
 import { removeCoverIfUnused, saveCoverDataUrl } from '../services/coverStorage.js';
 
 const router = Router();
@@ -22,6 +28,8 @@ function buildResolvedArtistMatch(norm) {
     $or: [
       { artistsNorm: norm },
       { 'overrides.artistsNorm': norm },
+      { $expr: { $eq: [{ $toLower: { $trim: { input: { $ifNull: ['$albumArtist', ''] } } } }, norm] } },
+      { $expr: { $eq: [{ $toLower: { $trim: { input: { $ifNull: ['$overrides.albumArtist', ''] } } } }, norm] } },
     ],
   };
 }
@@ -133,6 +141,7 @@ async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 
         effectiveAlbum: effectiveField('album'),
         effectiveArtists: effectiveField('artists'),
         effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveAlbumArtist: effectiveField('albumArtist'),
         effectiveReleaseType: effectiveField('releaseType'),
         effectiveYear: effectiveField('year'),
         effectiveCover: effectiveField('cover'),
@@ -141,16 +150,20 @@ async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 
         hasCustomCover: { $cond: [{ $ne: ['$overrides.cover', null] }, 1, 0] },
       },
     },
+    { $addFields: buildAlbumArtistFields() },
+    { $addFields: buildReleaseArtistFields() },
     ...(regex ? [{ $match: { effectiveAlbum: regex } }] : []),
     {
       $group: {
         _id: {
-          artistNorm: { $arrayElemAt: ['$effectiveArtistsNorm', 0] },
+          artistNorm: '$effectiveAlbumArtistNorm',
           album: '$effectiveAlbum',
         },
         name: { $first: '$effectiveAlbum' },
-        artists: { $first: '$effectiveArtists' },
-        artistsNorm: { $first: '$effectiveArtistsNorm' },
+        artists: { $first: '$effectiveReleaseArtists' },
+        artistsNorm: { $first: '$effectiveReleaseArtistsNorm' },
+        albumArtist: { $first: '$effectiveAlbumArtistName' },
+        albumArtistNorm: { $first: '$effectiveAlbumArtistNorm' },
         releaseTypes: { $addToSet: '$effectiveReleaseType' },
         years: { $addToSet: '$effectiveYear' },
         covers: { $addToSet: '$effectiveCover' },
@@ -166,6 +179,8 @@ async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 
         name: 1,
         artists: 1,
         artistsNorm: 1,
+        albumArtist: 1,
+        albumArtistNorm: 1,
         releaseType: {
           $let: {
             vars: {
@@ -230,21 +245,26 @@ async function aggregateTopAlbumSummaries({ limit = 12 } = {}) {
         effectiveAlbum: effectiveField('album'),
         effectiveArtists: effectiveField('artists'),
         effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveAlbumArtist: effectiveField('albumArtist'),
         effectiveCover: effectiveField('cover'),
         scannedAt: 1,
         playCount: { $ifNull: ['$playCount', 0] },
       },
     },
+    { $addFields: buildAlbumArtistFields() },
+    { $addFields: buildReleaseArtistFields() },
     { $match: { playCount: { $gt: 0 } } },
     {
       $group: {
         _id: {
-          artistNorm: { $arrayElemAt: ['$effectiveArtistsNorm', 0] },
+          artistNorm: '$effectiveAlbumArtistNorm',
           album: '$effectiveAlbum',
         },
         name: { $first: '$effectiveAlbum' },
-        artists: { $first: '$effectiveArtists' },
-        artistsNorm: { $first: '$effectiveArtistsNorm' },
+        artists: { $first: '$effectiveReleaseArtists' },
+        artistsNorm: { $first: '$effectiveReleaseArtistsNorm' },
+        albumArtist: { $first: '$effectiveAlbumArtistName' },
+        albumArtistNorm: { $first: '$effectiveAlbumArtistNorm' },
         covers: { $addToSet: '$effectiveCover' },
         plays: { $sum: '$playCount' },
         addedAt: { $max: '$scannedAt' },
@@ -256,6 +276,8 @@ async function aggregateTopAlbumSummaries({ limit = 12 } = {}) {
         name: 1,
         artists: 1,
         artistsNorm: 1,
+        albumArtist: 1,
+        albumArtistNorm: 1,
         cover: {
           $let: {
             vars: {
@@ -311,43 +333,6 @@ function buildArtistSummaries(tracks) {
     trackCount: summary.trackCount,
     covers: Array.from(summary.coverSet),
   }));
-}
-
-function buildAlbumSummaries(tracks) {
-  const albumMap = new Map();
-
-  for (const track of tracks) {
-    const artistNorm = track.artistsNorm?.[0] ?? '';
-    const key = `${artistNorm}__${track.album}`;
-
-    if (!albumMap.has(key)) {
-      albumMap.set(key, {
-        name: track.album,
-        artists: track.artists,
-        artistsNorm: track.artistsNorm,
-        releaseType: track.releaseType || '',
-        year: track.year,
-        trackCount: 0,
-        cover: track.cover,
-        hasCustomCover: false,
-        duration: 0,
-        addedAt: track.scannedAt,
-      });
-    }
-
-    const summary = albumMap.get(key);
-    summary.trackCount += 1;
-    summary.duration += track.duration || 0;
-    if (!summary.cover && track.cover) summary.cover = track.cover;
-    if (!summary.releaseType && track.releaseType) summary.releaseType = track.releaseType;
-    if (!summary.year && track.year) summary.year = track.year;
-    if (track.overrides?.cover) summary.hasCustomCover = true;
-    if (!summary.addedAt || new Date(track.scannedAt) > new Date(summary.addedAt)) {
-      summary.addedAt = track.scannedAt;
-    }
-  }
-
-  return Array.from(albumMap.values());
 }
 
 function paginate(items, page, limit) {
@@ -451,9 +436,12 @@ router.get('/albums/:artist/:album', async (req, res) => {
     return res.status(404).json({ error: 'Album not found' });
   }
 
+  const albumArtistTrack = resolvedTracks.find((track) => track.albumArtist?.trim()) ?? resolvedTracks[0];
+  const albumArtists = getAlbumSummaryArtists(albumArtistTrack);
+
   const albumInfo = {
     name: resolvedTracks[0].album,
-    artists: resolvedTracks[0].artists,
+    artists: albumArtists.length ? albumArtists : resolvedTracks[0].artists,
     releaseType: resolvedTracks.find((track) => track.releaseType)?.releaseType || '',
     year: resolvedTracks[0].year,
     cover: resolvedTracks[0].cover,

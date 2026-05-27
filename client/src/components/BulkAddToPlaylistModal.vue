@@ -148,7 +148,7 @@ const showPrompt = computed(() => activeTab.value !== 'Genre' && !search.value.t
 // --- Selection ---
 function itemKey(item) {
   if (activeTab.value === 'Track') return String(item._id);
-  if (activeTab.value === 'Album') return `${item.name}__${item.artistsNorm?.[0] ?? ''}`;
+  if (activeTab.value === 'Album') return `${item.name}__${item.albumArtistNorm ?? item.artistsNorm?.[0] ?? ''}`;
   return item.name ?? '';
 }
 
@@ -191,7 +191,8 @@ async function addTracks() {
         const tracks = await api.getArtistTracks(item.name);
         allIds.push(...tracks.map(t => t._id));
       } else if (activeTab.value === 'Album') {
-        const { tracks } = await api.getAlbum(item.artistsNorm[0], item.name);
+        const artist = item.albumArtistNorm ?? item.artistsNorm?.[0] ?? item.artists?.[0] ?? '';
+        const { tracks } = await api.getAlbum(artist, item.name);
         allIds.push(...tracks.map(t => t._id));
       } else {
         allIds.push(item._id);

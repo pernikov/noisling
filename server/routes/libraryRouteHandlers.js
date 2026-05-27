@@ -1,5 +1,6 @@
 import { VALID_SORT_FIELDS, buildSearchRegex, buildSort, buildTrackFilter } from './libraryHelpers.js';
 import { mergeTrackOverrides } from '../services/trackOverrides.js';
+import { buildAlbumArtistFields, buildAlbumSummaries, buildReleaseArtistFields } from './albumGrouping.js';
 
 function buildArtistSummaries(tracks) {
   const artistMap = new Map();
@@ -32,35 +33,6 @@ function buildArtistSummaries(tracks) {
     trackCount: summary.trackCount,
     covers: Array.from(summary.coverSet),
   }));
-}
-
-function buildAlbumSummaries(tracks) {
-  const albumMap = new Map();
-
-  for (const track of tracks) {
-    const artistNorm = track.artistsNorm?.[0] ?? '';
-    const key = `${artistNorm}__${track.album}`;
-
-    if (!albumMap.has(key)) {
-      albumMap.set(key, {
-        name: track.album,
-        artists: track.artists,
-        artistsNorm: track.artistsNorm,
-        releaseType: track.releaseType || '',
-        year: track.year,
-        trackCount: 0,
-        cover: track.cover,
-      });
-    }
-
-    const summary = albumMap.get(key);
-    summary.trackCount += 1;
-    if (!summary.cover && track.cover) summary.cover = track.cover;
-    if (!summary.releaseType && track.releaseType) summary.releaseType = track.releaseType;
-    if (!summary.year && track.year) summary.year = track.year;
-  }
-
-  return Array.from(albumMap.values());
 }
 
 function effectiveField(field, fallback = `$${field}`) {
@@ -142,21 +114,26 @@ async function aggregateAlbumSearch(Track, regex, limit) {
         effectiveAlbum: effectiveField('album'),
         effectiveArtists: effectiveField('artists'),
         effectiveArtistsNorm: effectiveField('artistsNorm'),
+        effectiveAlbumArtist: effectiveField('albumArtist'),
         effectiveReleaseType: effectiveField('releaseType'),
         effectiveYear: effectiveField('year'),
         effectiveCover: effectiveField('cover'),
       },
     },
+    { $addFields: buildAlbumArtistFields() },
+    { $addFields: buildReleaseArtistFields() },
     { $match: { effectiveAlbum: regex } },
     {
       $group: {
         _id: {
-          artistNorm: { $arrayElemAt: ['$effectiveArtistsNorm', 0] },
+          artistNorm: '$effectiveAlbumArtistNorm',
           album: '$effectiveAlbum',
         },
         name: { $first: '$effectiveAlbum' },
-        artists: { $first: '$effectiveArtists' },
-        artistsNorm: { $first: '$effectiveArtistsNorm' },
+        artists: { $first: '$effectiveReleaseArtists' },
+        artistsNorm: { $first: '$effectiveReleaseArtistsNorm' },
+        albumArtist: { $first: '$effectiveAlbumArtistName' },
+        albumArtistNorm: { $first: '$effectiveAlbumArtistNorm' },
         releaseTypes: { $addToSet: '$effectiveReleaseType' },
         years: { $addToSet: '$effectiveYear' },
         covers: { $addToSet: '$effectiveCover' },
@@ -169,6 +146,8 @@ async function aggregateAlbumSearch(Track, regex, limit) {
         name: 1,
         artists: 1,
         artistsNorm: 1,
+        albumArtist: 1,
+        albumArtistNorm: 1,
         releaseType: {
           $let: {
             vars: {

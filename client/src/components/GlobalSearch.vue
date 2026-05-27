@@ -128,7 +128,7 @@ function selectItem(item) {
   } else if (item.type === 'artist') {
     router.push(`/artists/${encodeURIComponent(item.data.name)}`);
   } else if (item.type === 'album') {
-    const artistNorm = item.data.artistsNorm?.[0] || '';
+    const artistNorm = item.data.albumArtistNorm ?? item.data.artistsNorm?.[0] ?? '';
     router.push(`/albums/${encodeURIComponent(artistNorm)}/${encodeURIComponent(item.data.name)}`);
   }
   closeSearch();

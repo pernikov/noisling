@@ -155,7 +155,7 @@ async function playRandomAlbum() {
     const [album] = await api.getRandomAlbums(1, 2);
     if (!album) return;
 
-    const artist = album.artistsNorm?.[0] ?? album.artists?.[0];
+    const artist = album.albumArtistNorm ?? album.artistsNorm?.[0] ?? album.artists?.[0];
     if (!artist) return;
 
     const data = await api.getAlbum(artist, album.name);
@@ -359,7 +359,8 @@ watch(homeAlbumsMode, (mode) => {
 });
 
 function goToAlbum(album) {
-  router.push({ name: 'album', params: { artist: album.artistsNorm[0], album: album.name } });
+  const artist = album.albumArtistNorm ?? album.artistsNorm?.[0] ?? album.artists?.[0] ?? '';
+  router.push({ name: 'album', params: { artist, album: album.name } });
 }
 </script>
 
@@ -550,7 +551,7 @@ function goToAlbum(album) {
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-4">
         <div
           v-for="album in currentAlbumItems"
-          :key="`${album.artistsNorm?.[0] ?? album.artists?.[0] ?? 'album'}-${album.name}`"
+          :key="`${album.albumArtistNorm ?? album.artistsNorm?.[0] ?? album.artists?.[0] ?? 'album'}-${album.name}`"
           class="rounded-lg p-2 sm:p-4 hover:bg-zinc-900 cursor-pointer transition-colors group"
           @click="goToAlbum(album)"
         >
