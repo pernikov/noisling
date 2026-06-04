@@ -10,7 +10,7 @@ describe('formatExactDuration', () => {
     expect(formatExactDuration(3723)).toBe('1:02:03');
   });
 
-  it('rounds the summed total once before formatting', () => {
-    expect(formatExactDuration(59.6)).toBe('1:00');
+  it('truncates fractional seconds to match playback displays', () => {
+    expect(formatExactDuration(206.6)).toBe('3:26');
   });
 });
