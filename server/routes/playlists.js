@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import mongoose from 'mongoose';
 import Playlist from '../models/Playlist.js';
 import Track from '../models/Track.js';
 import { createPlaylistRouteHandlers } from './playlistRouteHandlers.js';
@@ -16,7 +15,7 @@ const {
 } = createPlaylistRouteHandlers({
   Playlist,
   Track,
-  isValidObjectId: mongoose.Types.ObjectId.isValid,
+  isValidObjectId: (id) => typeof id === 'string' && /^[a-f0-9]{24}$/i.test(id),
 });
 
 // GET /api/playlists

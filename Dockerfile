@@ -1,5 +1,5 @@
 # Stage 1: Build the Vue client
-FROM node:20-alpine AS client-build
+FROM node:24-alpine AS client-build
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
@@ -10,7 +10,7 @@ COPY client/ client/
 RUN pnpm --filter client build
 
 # Stage 2: Production server
-FROM node:20-alpine
+FROM node:24-alpine
 RUN apk add --no-cache ffmpeg git docker-cli docker-compose
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
@@ -22,4 +22,4 @@ COPY --from=client-build /app/client/dist client/dist
 
 EXPOSE 1994
 
-CMD ["node", "server/index.js"]
+CMD ["node", "--disable-warning=ExperimentalWarning", "server/index.js"]

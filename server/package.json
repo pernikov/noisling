@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch index.js",
-    "test": "node --test"
+    "dev": "node --disable-warning=ExperimentalWarning --watch index.js",
+    "migrate:mongo-to-sqlite": "node --disable-warning=ExperimentalWarning scripts/migrateMongoToSqlite.js",
+    "test": "node --disable-warning=ExperimentalWarning --test"
   },
   "dependencies": {
     "chalk": "^5.6.2",

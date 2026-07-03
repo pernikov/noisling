@@ -68,7 +68,7 @@ The server automatically looks for a git repository at `/repo`. No extra configu
 
 ## Running locally
 
-Requires Node.js 20+ and a running MongoDB instance.
+Requires Node.js 24+.
 
 ```bash
 pnpm install
@@ -76,6 +76,18 @@ pnpm dev
 ```
 
 Client dev server runs on `http://localhost:5173`, API on port 1994.
+
+## Migrating from MongoDB to SQLite
+
+If you already have a Mongo-backed Noisling library, run the migration once before switching to the app-only Docker setup:
+
+```bash
+MONGODB_URI=mongodb://localhost:27017/noisling \
+DATABASE_PATH=./server/data/noisling.sqlite \
+pnpm migrate:mongo-to-sqlite
+```
+
+If the SQLite database already contains data and you intentionally want to replace it, append `-- --replace`.
 
 ## Running tests
 
@@ -112,6 +124,6 @@ Play counts and last-played timestamps are stored directly on the track. If a fi
 | Variable | Default | Description |
 |---|---|---|
 | `MUSIC_DIR` | — | Path to your music directory (required) |
-| `MONGODB_URI` | `mongodb://localhost:27017/noisling` | MongoDB connection string |
+| `DATABASE_PATH` | `server/data/noisling.sqlite` | SQLite database path |
 | `PORT` | `1994` | Server port |
 | `REPO_DIR` | `/repo` | Path to the git repository inside the container (override if mounting at a different path) |

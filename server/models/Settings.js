@@ -1,21 +1,100 @@
-import mongoose from 'mongoose';
+import { getDB, serialize } from '../db.js';
+import { Query, applyUpdate, parseJson } from './sqliteModelUtils.js';
 
-const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
-const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
+const DEFAULT_SETTINGS = {
+  accentColor: 'violet',
+  themeColor: 'none',
+  volume: 1,
+  fontSize: 'medium',
+  tracksSort: { field: 'artist', dir: 'asc' },
+  wideLayout: false,
+  homeAlbumsMode: 'recent',
+  vizMode: 'pills',
+  randomizeOnNewTrack: false,
+  butterchurnPresetMode: 'random',
+  butterchurnPreset: 'Flexi, martin + geiss - dedicated to the sherwin maxawow',
+  reduceMotion: false,
+};
 
-const settingsSchema = new mongoose.Schema({
-  accentColor:        { type: String, enum: VALID_COLORS, default: 'violet' },
-  themeColor:         { type: String, enum: VALID_THEME_COLORS, default: 'none' },
-  volume:             { type: Number, default: 1, min: 0, max: 1 },
-  fontSize:           { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
-  tracksSort:          { type: mongoose.Schema.Types.Mixed, default: { field: 'artist', dir: 'asc' } },
-  wideLayout:         { type: Boolean, default: false },
-  homeAlbumsMode:     { type: String, enum: ['recent', 'random', 'top'], default: 'recent' },
-  vizMode:            { type: String, enum: ['pills', 'nucleus', 'butterchurn'], default: 'pills' },
-  randomizeOnNewTrack: { type: Boolean, default: false },
-  butterchurnPresetMode: { type: String, enum: ['single', 'random'], default: 'random' },
-  butterchurnPreset:  { type: String, default: 'Flexi, martin + geiss - dedicated to the sherwin maxawow' },
-  reduceMotion:       { type: Boolean, default: false },
-}, { collection: 'settings' });
+function rowToSettings(row) {
+  if (!row) return null;
+  return {
+    _id: 'settings',
+    accentColor: row.accent_color,
+    themeColor: row.theme_color,
+    volume: row.volume,
+    fontSize: row.font_size,
+    tracksSort: parseJson(row.tracks_sort_json, DEFAULT_SETTINGS.tracksSort),
+    wideLayout: Boolean(row.wide_layout),
+    homeAlbumsMode: row.home_albums_mode,
+    vizMode: row.viz_mode,
+    randomizeOnNewTrack: Boolean(row.randomize_on_new_track),
+    butterchurnPresetMode: row.butterchurn_preset_mode,
+    butterchurnPreset: row.butterchurn_preset,
+    reduceMotion: Boolean(row.reduce_motion),
+  };
+}
 
-export default mongoose.model('Settings', settingsSchema);
+function saveSettings(settings = {}) {
+  const doc = { ...DEFAULT_SETTINGS, ...settings };
+  getDB().prepare(`
+    INSERT INTO settings (
+      id,
+      accent_color,
+      theme_color,
+      volume,
+      font_size,
+      tracks_sort_json,
+      wide_layout,
+      home_albums_mode,
+      viz_mode,
+      randomize_on_new_track,
+      butterchurn_preset_mode,
+      butterchurn_preset,
+      reduce_motion
+    ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      accent_color = excluded.accent_color,
+      theme_color = excluded.theme_color,
+      volume = excluded.volume,
+      font_size = excluded.font_size,
+      tracks_sort_json = excluded.tracks_sort_json,
+      wide_layout = excluded.wide_layout,
+      home_albums_mode = excluded.home_albums_mode,
+      viz_mode = excluded.viz_mode,
+      randomize_on_new_track = excluded.randomize_on_new_track,
+      butterchurn_preset_mode = excluded.butterchurn_preset_mode,
+      butterchurn_preset = excluded.butterchurn_preset,
+      reduce_motion = excluded.reduce_motion
+  `).run(
+    doc.accentColor,
+    doc.themeColor,
+    doc.volume,
+    doc.fontSize,
+    serialize(doc.tracksSort),
+    doc.wideLayout ? 1 : 0,
+    doc.homeAlbumsMode,
+    doc.vizMode,
+    doc.randomizeOnNewTrack ? 1 : 0,
+    doc.butterchurnPresetMode,
+    doc.butterchurnPreset,
+    doc.reduceMotion ? 1 : 0,
+  );
+  return doc;
+}
+
+function getSettings() {
+  return rowToSettings(getDB().prepare('SELECT * FROM settings WHERE id = 1').get());
+}
+
+const Settings = {
+  findOneAndUpdate(_filter = {}, update = {}, options = {}) {
+    const current = getSettings();
+    const next = applyUpdate(current ?? DEFAULT_SETTINGS, update, { isInsert: !current });
+    if (!current && options.setDefaultsOnInsert) Object.assign(next, DEFAULT_SETTINGS, next);
+    const saved = saveSettings(next);
+    return new Query(() => saved, { single: true }).lean();
+  },
+};
+
+export default Settings;

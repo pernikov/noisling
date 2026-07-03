@@ -27,7 +27,7 @@ test('searchLibrary returns empty sections when the query is blank', async () =>
   assert.deepEqual(res.body, { tracks: [], artists: [], albums: [] });
 });
 
-test('searchLibrary runs track and aggregate queries with the capped limit', async () => {
+test('searchLibrary returns capped search sections from resolved tracks', async () => {
   let trackFindFilter;
   let trackFindSort;
   let trackFindLimit;

@@ -6,25 +6,18 @@ services:
     ports:
       - "1994:1994"
     environment:
-      - MONGODB_URI=mongodb://mongo:27017/noisling
+      - DATABASE_PATH=/app/server/data/noisling.sqlite
       - MUSIC_DIR=/music
       - PORT=1994
       - COMPOSE_PROJECT_NAME=noisling
     volumes:
       - /mnt/data/music:/music:ro
+      - sqlite-data:/app/server/data
       - covers:/app/server/covers
       - .:/repo
       - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      - mongo
-    restart: unless-stopped
-
-  mongo:
-    image: mongo:7
-    volumes:
-      - mongo-data:/data/db
     restart: unless-stopped
 
 volumes:
-  mongo-data:
+  sqlite-data:
   covers:
