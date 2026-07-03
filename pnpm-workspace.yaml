@@ -1,3 +1,7 @@
 packages:
   - "server"
   - "client"
+
+allowBuilds:
+  core-js: true
+  esbuild: true
