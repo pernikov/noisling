@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "node --disable-warning=ExperimentalWarning --watch index.js",
-    "migrate:mongo-to-sqlite": "node --disable-warning=ExperimentalWarning scripts/migrateMongoToSqlite.js",
     "test": "node --disable-warning=ExperimentalWarning --test"
   },
   "dependencies": {
@@ -15,7 +14,6 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "mime-types": "^2.1.35",
-    "mongoose": "^8.9.5",
     "music-metadata": "^10.6.3"
   }
 }

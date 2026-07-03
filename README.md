@@ -77,18 +77,6 @@ pnpm dev
 
 Client dev server runs on `http://localhost:5173`, API on port 1994.
 
-## Migrating from MongoDB to SQLite
-
-If you already have a Mongo-backed Noisling library, run the migration once before switching to the app-only Docker setup:
-
-```bash
-MONGODB_URI=mongodb://localhost:27017/noisling \
-DATABASE_PATH=./server/data/noisling.sqlite \
-pnpm migrate:mongo-to-sqlite
-```
-
-If the SQLite database already contains data and you intentionally want to replace it, append `-- --replace`.
-
 ## Running tests
 
 Run the full test suite from the repo root:

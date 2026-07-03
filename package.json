@@ -7,7 +7,6 @@
     "start": "concurrently \"pnpm --filter server dev\" \"pnpm --filter client dev\"",
     "start:server": "pnpm --filter server dev",
     "start:client": "pnpm --filter client dev",
-    "migrate:mongo-to-sqlite": "pnpm --filter server migrate:mongo-to-sqlite",
     "test": "pnpm --filter server test && pnpm --filter client test"
   },
   "devDependencies": {

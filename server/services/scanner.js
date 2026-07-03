@@ -22,7 +22,13 @@ const BATCH_SIZE = 5;
 
 async function walkDir(dir) {
   const files = [];
-  const entries = await readdir(dir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    log.warn(`Skipping unreadable directory: ${dir} (${err.message})`);
+    return files;
+  }
 
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
@@ -145,7 +151,14 @@ export async function scanLibrary({ forceMetadata = false } = {}) {
   const toProcess = [];
   for (const filePath of files) {
     scannedPaths.add(filePath);
-    const fileStat = await stat(filePath);
+    let fileStat;
+    try {
+      fileStat = await stat(filePath);
+    } catch (err) {
+      log.warn(`Skipping missing/unreadable file: ${filePath} (${err.message})`);
+      stats.errors++;
+      continue;
+    }
     const existingMtime = existingMap.get(filePath);
 
     if (!forceMetadata && existingMtime !== undefined && Math.abs(fileStat.mtimeMs - existingMtime) < 1000) {
