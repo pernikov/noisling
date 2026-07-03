@@ -2,6 +2,7 @@ name: noisling
 
 services:
   app:
+    container_name: noisling
     build: .
     ports:
       - "1994:1994"
