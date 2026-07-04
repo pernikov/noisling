@@ -136,6 +136,8 @@ let nucleusBeatPulse = 0;
 let smoothNucleusBody = 0;
 let smoothNucleusDetail = 0;
 let nucleusBackdropPulse = 0;
+let nucleusWireColor = null;
+let nucleusFillColor = null;
 let prevFrequencyFrame = null;
 let orbThree = null;
 let orbEffectComposerCtor = null;
@@ -355,6 +357,7 @@ function getNucleusVertexShader() {
   return `
     uniform float uTime;
     uniform float uFrequency;
+    varying vec3 vViewNormal;
 
     vec3 mod289(vec3 x) {
       return x - floor(x * (1.0 / 289.0)) * 289.0;
@@ -448,6 +451,7 @@ function getNucleusVertexShader() {
       float noise = 3.0 * pnoise(position + uTime, vec3(10.0));
       float displacement = (uFrequency / 30.0) * (noise / 10.0);
       vec3 newPosition = position + normal * displacement;
+      vViewNormal = normalize(normalMatrix * normal);
       gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
     }
   `;
@@ -456,11 +460,22 @@ function getNucleusVertexShader() {
 function getNucleusFragmentShader() {
   return `
     uniform vec3 uAccent;
+    uniform float uAlpha;
+    uniform float uFill;
+    varying vec3 vViewNormal;
 
     void main() {
-      gl_FragColor = vec4(uAccent, 1.0);
+      float rim = pow(1.0 - abs(normalize(vViewNormal).z), 1.7);
+      vec3 fillColor = mix(uAccent * 0.72, uAccent * 1.24, rim * 0.62);
+      gl_FragColor = vec4(mix(uAccent, fillColor, uFill), uAlpha);
     }
   `;
+}
+
+function getNucleusCameraBaseZ() {
+  const aspect = viewportWidth && viewportHeight ? viewportWidth / viewportHeight : 1;
+  const portraitPullback = Math.min(1.72, 0.78 / Math.max(0.1, aspect));
+  return 14 * Math.max(1, portraitPullback);
 }
 
 function isNucleusAvailable() {
@@ -548,13 +563,35 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
 
     orbScene = new orbThree.Scene();
     orbCamera = new orbThree.PerspectiveCamera(45, 1, 0.1, 100);
-    orbCamera.position.set(0, -2, 14);
+    orbCamera.position.set(0, -2, getNucleusCameraBaseZ());
 
     const uniforms = {
       uTime: { value: 0 },
       uFrequency: { value: 0 },
       uAccent: { value: new orbThree.Color(0x34d399) },
+      uAlpha: { value: 1 },
+      uFill: { value: 0 },
     };
+    const fillUniforms = {
+      uTime: { value: 0 },
+      uFrequency: { value: 0 },
+      uAccent: { value: new orbThree.Color(0x7c3aed) },
+      uAlpha: { value: 1 },
+      uFill: { value: 1 },
+    };
+
+    orbAuraMesh = new orbThree.Mesh(
+      new orbThree.IcosahedronGeometry(3.86, 18),
+      new orbThree.ShaderMaterial({
+        uniforms: fillUniforms,
+        vertexShader: getNucleusVertexShader(),
+        fragmentShader: getNucleusFragmentShader(),
+        transparent: false,
+        depthWrite: true,
+      }),
+    );
+    orbAuraMesh.renderOrder = 2;
+    orbScene.add(orbAuraMesh);
 
     orbMesh = new orbThree.Mesh(
       new orbThree.IcosahedronGeometry(4, 30),
@@ -566,6 +603,7 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
         transparent: false,
       }),
     );
+    orbMesh.renderOrder = 3;
     orbScene.add(orbMesh);
 
     orbComposer = new orbEffectComposerCtor(orbRenderer);
@@ -909,6 +947,8 @@ function resetMotionState() {
   smoothNucleusBody = 0;
   smoothNucleusDetail = 0;
   nucleusBackdropPulse = 0;
+  nucleusWireColor = null;
+  nucleusFillColor = null;
   prevBass = 0;
   beatBoost = 0;
   visualTime = 0;
@@ -962,6 +1002,7 @@ function resizeCanvas() {
       orb.renderer.setSize(viewportWidth, viewportHeight, false);
       orb.composer.setSize(viewportWidth, viewportHeight);
       orb.camera.aspect = viewportWidth / viewportHeight;
+      orb.camera.position.z = getNucleusCameraBaseZ();
       orb.camera.updateProjectionMatrix();
     }
   }
@@ -1214,17 +1255,37 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
     * (state.isPlaying ? 0.22 : 0.08);
   const mixAmount = 0.28 + Math.min(0.2, smoothNucleusFrequency / 255 * 0.2);
   const wireColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
+  const fillBaseColor = primaryColor.clone().lerp(secondaryColor, 0.36);
+  const fillHsl = {};
+  fillBaseColor.getHSL(fillHsl);
+  const fillColor = new orbThree.Color().setHSL(
+    fillHsl.h,
+    Math.max(0.48, fillHsl.s * 0.95),
+    Math.min(0.34, Math.max(0.18, fillHsl.l * 0.46)),
+  );
+  if (!nucleusWireColor) nucleusWireColor = wireColor.clone();
+  else nucleusWireColor.lerp(wireColor, 0.075);
+  if (!nucleusFillColor) nucleusFillColor = fillColor.clone();
+  else nucleusFillColor.lerp(fillColor, 0.055);
 
   const uniforms = orb.mesh.material.uniforms;
   const elapsedTime = orb.clock.getElapsedTime();
   uniforms.uTime.value = elapsedTime;
   uniforms.uFrequency.value = smoothNucleusFrequency * 0.84;
-  uniforms.uAccent.value.copy(wireColor);
+  uniforms.uAccent.value.copy(nucleusWireColor);
+  if (orb.auraMesh) {
+    const fillUniforms = orb.auraMesh.material.uniforms;
+    fillUniforms.uTime.value = elapsedTime;
+    fillUniforms.uFrequency.value = smoothNucleusFrequency * 0.84;
+    fillUniforms.uAccent.value.copy(nucleusFillColor);
+    fillUniforms.uAlpha.value = 1;
+  }
 
   const orbitAmount = 0.35 + nucleusBackdropPulse * 0.12;
+  const baseCameraZ = getNucleusCameraBaseZ();
   const targetCameraX = Math.sin(elapsedTime * 0.14) * orbitAmount;
   const targetCameraY = -2 + Math.cos(elapsedTime * 0.1) * 0.18;
-  const targetCameraZ = 14 + Math.sin(elapsedTime * 0.08) * 0.25;
+  const targetCameraZ = baseCameraZ + Math.sin(elapsedTime * 0.08) * 0.25;
   orb.camera.position.x += (targetCameraX - orb.camera.position.x) * 0.035;
   orb.camera.position.y += (targetCameraY - orb.camera.position.y) * 0.08;
   orb.camera.position.z += (targetCameraZ - orb.camera.position.z) * 0.05;
@@ -1235,6 +1296,10 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
   orb.mesh.rotation.y = elapsedTime * 0.1;
   orb.mesh.rotation.x = Math.sin(elapsedTime * 0.16) * 0.08 + nucleusBeatPulse * 0.056;
   orb.mesh.rotation.z = Math.cos(elapsedTime * 0.12) * 0.05 + transient * 0.024;
+  if (orb.auraMesh) {
+    orb.auraMesh.scale.setScalar(orbPulseScale * 0.965);
+    orb.auraMesh.rotation.copy(orb.mesh.rotation);
+  }
   if (orbBloomPass) {
     orbBloomPass.strength = 0.44 + nucleusBackdropPulse * 0.15 + transient * 0.18;
   }
