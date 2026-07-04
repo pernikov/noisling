@@ -7,7 +7,6 @@ const routes = [
   { path: '/albums/:artist/:album', name: 'album', component: () => import('./views/AlbumView.vue') },
   { path: '/tracks', name: 'tracks', component: () => import('./views/TracksView.vue') },
   { path: '/recent', name: 'recent', component: () => import('./views/RecentView.vue') },
-  { path: '/stats', redirect: { name: 'settings', query: { tab: 'stats' } } },
   { path: '/playlists', name: 'playlists', component: () => import('./views/PlaylistsView.vue') },
   { path: '/playlists/:id', name: 'playlist', component: () => import('./views/PlaylistView.vue') },
   { path: '/settings', name: 'settings', component: () => import('./views/SettingsView.vue') },

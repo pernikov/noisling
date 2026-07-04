@@ -20,6 +20,8 @@ import {
 const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indigo', 'violet', 'slate'];
 const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 const VALID_FONT_SIZES = ['small', 'medium', 'large'];
+const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'lastPlayed', 'duration'];
+const VALID_HOME_ALBUM_MODES = ['recent', 'random'];
 const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
 
 const COLOR_RGB = {
@@ -88,6 +90,12 @@ const DEFAULT_COLOR = 'violet';
 const DEFAULT_THEME_COLOR = 'none';
 const DEFAULT_SORT = { field: 'artist', dir: 'asc' };
 
+function normalizeTracksSort(value) {
+  const field = VALID_TRACK_SORT_FIELDS.includes(value?.field) ? value.field : DEFAULT_SORT.field;
+  const dir = value?.dir === 'desc' ? 'desc' : 'asc';
+  return { field, dir };
+}
+
 function normalizeVizMode(value) {
   if (value === 'nebula') return 'pills';
   if (value === 'spiral' || value === 'orb') return 'nucleus';
@@ -128,13 +136,13 @@ const storedFont = readStoredValue(FONT_KEY);
 const fontSize = ref(VALID_FONT_SIZES.includes(storedFont) ? storedFont : 'medium');
 applyFontSize(fontSize.value);
 
-const tracksSort = ref(readStoredJson(TRACKS_SORT_KEY, DEFAULT_SORT));
+const tracksSort = ref(normalizeTracksSort(readStoredJson(TRACKS_SORT_KEY, DEFAULT_SORT)));
 const wideLayout = ref(readStoredBool(WIDE_LAYOUT_KEY, false));
 const reduceMotion = ref(readStoredBool(MOTION_KEY, false));
 applyReduceMotion(reduceMotion.value);
 
 const storedHomeAlbumMode = readStoredValue(HOME_ALBUM_MODE_KEY);
-const homeAlbumsMode = ref(['recent', 'random', 'top'].includes(storedHomeAlbumMode) ? storedHomeAlbumMode : 'recent');
+const homeAlbumsMode = ref(VALID_HOME_ALBUM_MODES.includes(storedHomeAlbumMode) ? storedHomeAlbumMode : 'recent');
 
 const storedViz = normalizeVizMode(readStoredValue(VIZ_MODE_KEY));
 const vizMode = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'pills');
@@ -181,7 +189,7 @@ export function useTheme() {
         applyFontSize(data.fontSize);
       }
       if (data.tracksSort && typeof data.tracksSort.field === 'string') {
-        tracksSort.value = { field: data.tracksSort.field, dir: data.tracksSort.dir };
+        tracksSort.value = normalizeTracksSort(data.tracksSort);
         writeStoredJson(TRACKS_SORT_KEY, tracksSort.value);
       }
       if (typeof data.wideLayout === 'boolean') {
@@ -193,7 +201,7 @@ export function useTheme() {
         writeStoredBool(MOTION_KEY, data.reduceMotion);
         applyReduceMotion(data.reduceMotion);
       }
-      if (['recent', 'random', 'top'].includes(data.homeAlbumsMode)) {
+      if (VALID_HOME_ALBUM_MODES.includes(data.homeAlbumsMode)) {
         homeAlbumsMode.value = data.homeAlbumsMode;
         writeStoredValue(HOME_ALBUM_MODE_KEY, data.homeAlbumsMode);
       }
@@ -303,7 +311,7 @@ export function useTheme() {
   }
 
   async function setTracksSort(field, dir) {
-    const next = { field, dir };
+    const next = normalizeTracksSort({ field, dir });
     await applyStoredObjectSetting({
       current: tracksSort,
       previous: { ...tracksSort.value },
@@ -340,7 +348,7 @@ export function useTheme() {
   }
 
   async function setHomeAlbumsMode(value) {
-    if (!['recent', 'random', 'top'].includes(value)) return;
+    if (!VALID_HOME_ALBUM_MODES.includes(value)) return;
     await applyStoredSetting({
       current: homeAlbumsMode,
       previous: homeAlbumsMode.value,

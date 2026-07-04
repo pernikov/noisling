@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed, TransitionGroup, onUnmounted } from 'vue';
-import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiCheck, mdiDragVertical } from '@mdi/js';
+import { mdiPlay, mdiShuffle, mdiHeart, mdiHeartOutline, mdiDotsVertical, mdiRepeatOnce, mdiChevronUp, mdiChevronDown, mdiDragVertical } from '@mdi/js';
 import Icon from './Icon.vue';
 import IconButton from './IconButton.vue';
 import TransportButton from './TransportButton.vue';
@@ -21,7 +21,6 @@ const props = defineProps({
   showCover: { type: Boolean, default: false },
   showArtist: { type: Boolean, default: false },
   showAlbum: { type: Boolean, default: false },
-  showPlays: { type: Boolean, default: false },
   showLastPlayed: { type: Boolean, default: false },
   startIndex: { type: Number, default: 0 },
   getAllTracks: { type: Function, default: null }, // () => Promise<Track[]> for full library play/shuffle
@@ -53,6 +52,33 @@ function sortIcon(field) {
 }
 
 const { state, playAlbum, playAll: _playAll, playShuffled: _playShuffled, playFromQueue, queueMatches, toggleLove } = usePlayer();
+const relativeTimeNow = ref(Date.now());
+let relativeTimeTimer = null;
+
+function updateRelativeTimeNow() {
+  relativeTimeNow.value = Date.now();
+}
+
+function startRelativeTimeTimer() {
+  if (!props.showLastPlayed || relativeTimeTimer !== null || typeof window === 'undefined') return;
+  relativeTimeTimer = window.setInterval(updateRelativeTimeNow, 30_000);
+}
+
+function stopRelativeTimeTimer() {
+  if (relativeTimeTimer === null || typeof window === 'undefined') return;
+  window.clearInterval(relativeTimeTimer);
+  relativeTimeTimer = null;
+}
+
+startRelativeTimeTimer();
+watch(() => props.showLastPlayed, (showLastPlayed) => {
+  if (showLastPlayed) {
+    updateRelativeTimeNow();
+    startRelativeTimeTimer();
+  } else {
+    stopRelativeTimeTimer();
+  }
+});
 
 const menuRowIndex = ref(null);
 const { menuTrack, menuStyle, openMenu: _openMenu, closeMenu: _closeMenu, scheduleClose: scheduleCloseMenu, cancelClose: cancelCloseMenu } = useContextMenu({ menuWidth: 196, menuHeight: 208, align: 'left' });
@@ -99,18 +125,13 @@ watch(() => state.playReportCount, (count) => {
   if (!match) return;
 
   const playedAt = new Date().toISOString();
-  const reportedPlayCount = state.lastReportedPlayCount;
-  if (!isPendingRecentTrack(match)) {
-    match.playCount = Number.isFinite(reportedPlayCount)
-      ? reportedPlayCount
-      : (match === state.currentTrack ? match.playCount : (match.playCount || 0) + 1);
-  }
   match.lastPlayedAt = playedAt;
   match.playedAt = playedAt;
+  updateRelativeTimeNow();
 });
 
 function timeAgo(date) {
-  const seconds = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  const seconds = Math.floor((relativeTimeNow.value - new Date(date).getTime()) / 1000);
   if (seconds < 60) return 'just now';
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -138,35 +159,12 @@ function isPrimaryPendingRecentTrack(track, index) {
   return index === 0 && isPendingRecentTrack(track);
 }
 
-function pendingRecentStatus(track) {
-  const phase = pendingRecentPhase(track);
-  if (!phase) return '';
-  if (phase === 'completed' || phase === 'fading') return 'Played';
-
-  const duration = Number(track?.duration) || Number(state.duration) || 0;
-  const threshold = duration > 0 ? Math.min(duration * 0.5, 240) : 0;
-  if (threshold <= 0) return 'Marking played';
-
-  const isCurrentPendingTrack = state.currentTrack?._id === track?._id;
-  const progress = isCurrentPendingTrack ? clampProgress(state.currentTrackPlayProgress) : 0;
-  const remaining = Math.max(0, threshold * (1 - progress));
-  return `Counts in ${formatTime(remaining)}`;
-}
-
 function pendingRecentProgress(track) {
   const phase = pendingRecentPhase(track);
   if (!phase) return 0;
   if (phase !== 'counting') return 100;
   if (state.currentTrack?._id !== track?._id) return 0;
   return clampProgress(state.currentTrackPlayProgress) * 100;
-}
-
-function pendingBadgeWidth(track) {
-  const phase = pendingRecentPhase(track);
-  if (!phase) return undefined;
-  if (phase === 'completed' || phase === 'fading') return '2rem';
-  const label = pendingRecentStatus(track);
-  return `${Math.max(5.75, Math.min(9.5, label.length * 0.42 + 2.4))}rem`;
 }
 
 function playTrack(index) {
@@ -225,14 +223,12 @@ function mobileMeta(track) {
   const bits = [];
   if (showArtistValue.value && track.artists?.length) bits.push(track.artists.join(', '));
   if (showAlbumValue.value && track.album) bits.push(track.album);
-  if (showPlaysValue.value) bits.push(`${track.playCount || 0} play${(track.playCount || 0) === 1 ? '' : 's'}`);
   if (showLastPlayedValue.value && (track.playedAt ?? track.lastPlayedAt)) bits.push(timeAgo(track.playedAt ?? track.lastPlayedAt));
   return bits.join(' · ');
 }
 
 const showArtistValue = computed(() => props.showArtist);
 const showAlbumValue = computed(() => props.showAlbum);
-const showPlaysValue = computed(() => props.showPlays);
 const showLastPlayedValue = computed(() => props.showLastPlayed);
 const listContainerTag = computed(() => (props.animateList ? TransitionGroup : 'div'));
 const listContainerProps = computed(() => (props.animateList ? { name: 'track-list-item', tag: 'div' } : {}));
@@ -402,7 +398,10 @@ function onTouchDragCancel() {
   stopAutoScroll();
 }
 
-onUnmounted(removeTouchListeners);
+onUnmounted(() => {
+  removeTouchListeners();
+  stopRelativeTimeTimer();
+});
 
 
 defineExpose({ playAll, playShuffle });
@@ -552,12 +551,6 @@ defineExpose({ playAll, playShuffle });
                       </template>
 
                       <template v-else>
-                        <span v-if="showPlays" class="shrink-0">{{ track.playCount || 0 }} play{{ (track.playCount || 0) === 1 ? '' : 's' }}</span>
-                        <span
-                          v-if="showPlays && showLastPlayed && (track.playedAt ?? track.lastPlayedAt)"
-                          class="shrink-0 px-0.5 text-white/10"
-                          aria-hidden="true"
-                        >•</span>
                         <span v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt)" class="shrink-0">
                           Last played {{ timeAgo(track.playedAt ?? track.lastPlayedAt) }}
                         </span>
@@ -590,14 +583,7 @@ defineExpose({ playAll, playShuffle });
                       >{{ track.album }}</router-link>
 
                       <span
-                        v-if="showPlays && (showArtist || showAlbum)"
-                        class="shrink-0 px-0.5 text-white/10"
-                        aria-hidden="true"
-                      >•</span>
-                      <span v-if="showPlays" class="shrink-0">{{ track.playCount || 0 }} play{{ (track.playCount || 0) === 1 ? '' : 's' }}</span>
-
-                      <span
-                        v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt) && (showArtist || showAlbum || showPlays)"
+                        v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt) && (showArtist || showAlbum)"
                         class="shrink-0 px-0.5 text-white/10"
                         aria-hidden="true"
                       >•</span>
@@ -613,38 +599,9 @@ defineExpose({ playAll, playShuffle });
           </div>
 
       <div class="relative z-10 flex items-center gap-3 shrink-0 sm:min-w-[8.5rem] sm:justify-end">
-            <Transition name="pending-recent-badge">
-              <div
-                v-if="isPrimaryPendingRecentTrack(track, i)"
-                class="pending-recent-pill-wrap hidden sm:flex"
-                :class="{ 'pending-recent-pill-wrap--completed': pendingRecentPhase(track) !== 'counting' }"
-              >
-                <div
-                  class="pending-recent-pill tabular-nums text-[10px] font-medium uppercase tracking-[0.18em]"
-                  :class="{ 'pending-recent-pill--completed': pendingRecentPhase(track) !== 'counting' }"
-                  :style="{ width: pendingBadgeWidth(track), minWidth: pendingBadgeWidth(track), '--pending-pill-accent': `rgb(${accentRgb})` }"
-                >
-                  <span
-                    class="pending-recent-pill__label"
-                    :class="{ 'pending-recent-pill__label--hidden': pendingRecentPhase(track) !== 'counting' }"
-                  >
-                    {{ pendingRecentStatus(track) }}
-                  </span>
-                  <span
-                    class="pending-recent-pill__check"
-                    :class="{ 'pending-recent-pill__check--visible': pendingRecentPhase(track) === 'completed' }"
-                  >
-                    <Icon :path="mdiCheck" class="h-3.5 w-3.5" />
-                  </span>
-                </div>
-              </div>
-            </Transition>
             <span
               class="hidden w-12 text-right text-[12px] font-medium tabular-nums tracking-[0.08em] sm:inline"
-              :class="[
-                isCurrentTrack(track) ? 'text-zinc-200/70' : 'text-zinc-500/80',
-                isPrimaryPendingRecentTrack(track, i) ? 'hidden' : '',
-              ]"
+              :class="isCurrentTrack(track) ? 'text-zinc-200/70' : 'text-zinc-500/80'"
             >{{ formatTime(track.duration) }}</span>
             <div
               v-if="!track.deleted"
@@ -735,74 +692,10 @@ defineExpose({ playAll, playShuffle });
 .pending-recent-track.pending-recent-track .pending-recent-track__sheen {
   animation: pending-recent-sheen 2.4s ease-in-out infinite;
 }
-.track-list-rows > :not(:first-child) .pending-recent-pill-wrap,
 .track-list-rows > :not(:first-child) .pending-recent-track__backdrop,
 .track-list-rows > :not(:first-child) .pending-recent-track__fill,
 .track-list-rows > :not(:first-child) .pending-recent-track__sheen {
   display: none !important;
-}
-.pending-recent-pill-wrap {
-  width: 0;
-  overflow: visible;
-  justify-content: flex-end;
-}
-.pending-recent-pill-wrap--completed {
-  transform: translateX(-0.12rem);
-}
-.pending-recent-pill {
-  position: relative;
-  overflow: hidden;
-  min-height: 2rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.48rem 0.9rem;
-  border-radius: 999px;
-  background: rgb(10 10 12 / 0.28);
-  color: rgb(212 212 216 / 0.74);
-  backdrop-filter: blur(10px);
-  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.02);
-  transition: width 420ms cubic-bezier(0.22, 1, 0.36, 1), min-width 420ms cubic-bezier(0.22, 1, 0.36, 1), padding 420ms cubic-bezier(0.22, 1, 0.36, 1), background-color 320ms ease-out, color 320ms ease-out, transform 420ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 320ms ease-out;
-}
-.pending-recent-pill--completed {
-  padding-left: 0;
-  padding-right: 0;
-  background: color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 18%, rgb(9 9 11 / 0.82));
-  color: color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 62%, white);
-  transform: scale(1.02);
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 30%, rgb(255 255 255 / 0.06)),
-    0 14px 28px -24px color-mix(in srgb, var(--pending-pill-accent, rgb(255 255 255)) 45%, transparent);
-}
-.pending-recent-pill__label {
-  display: inline-block;
-  max-width: 14rem;
-  white-space: nowrap;
-  overflow: hidden;
-  transition: opacity 220ms ease-out, transform 380ms cubic-bezier(0.22, 1, 0.36, 1), filter 220ms ease-out;
-}
-.pending-recent-pill__label--hidden {
-  max-width: 0;
-  opacity: 0;
-  transform: translateY(-7px) scale(0.92);
-  filter: blur(3px);
-}
-.pending-recent-pill__check {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transform: translate(-50%, -50%) rotate(-10deg) scale(0.6);
-  filter: blur(5px);
-  transition: opacity 260ms ease-out 80ms, transform 520ms cubic-bezier(0.2, 0.9, 0.2, 1.2) 80ms, filter 260ms ease-out 80ms;
-}
-.pending-recent-pill__check--visible {
-  opacity: 1;
-  transform: translate(-50%, -50%) rotate(0deg) scale(1);
-  filter: blur(0);
 }
 @keyframes pending-recent-sheen {
   0%, 100% {

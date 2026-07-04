@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { mdiPlay, mdiShuffle, mdiTrashCan, mdiPencil, mdiPlaylistMusic, mdiPlus } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
@@ -17,7 +17,7 @@ import DeferredImage from '../components/DeferredImage.vue';
 const route = useRoute();
 const router = useRouter();
 const api = useApi();
-const { playAlbum, playShuffled, state: playerState } = usePlayer();
+const { playAlbum, playShuffled } = usePlayer();
 
 const playlist = ref(null);
 const tracks = ref([]);
@@ -57,18 +57,6 @@ async function load() {
 }
 
 onMounted(load);
-
-watch(() => playerState.playReportCount, () => {
-  const id = playerState.lastReportedTrackId;
-  if (!id) return;
-  const track = tracks.value.find(t => t._id === id);
-  if (!track) return;
-
-  const reportedPlayCount = playerState.lastReportedPlayCount;
-  track.playCount = Number.isFinite(reportedPlayCount)
-    ? reportedPlayCount
-    : (track === playerState.currentTrack ? track.playCount : (track.playCount ?? 0) + 1);
-});
 
 function playAll() {
   if (tracks.value.length) playAlbum(tracks.value, 0);
@@ -259,7 +247,6 @@ async function deletePlaylist() {
         show-cover
         show-artist
         show-album
-        show-plays
         hide-controls
         draggable
         :playlist-id="playlist._id"

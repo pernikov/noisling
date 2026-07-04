@@ -185,7 +185,6 @@ function prevPage() {
         show-cover
         show-artist
         show-album
-        show-plays
         show-last-played
         sortable
         :sort-by="tracksSort.field"

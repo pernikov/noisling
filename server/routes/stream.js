@@ -258,15 +258,15 @@ router.get('/stream/:id', async (req, res) => {
   }
 });
 
-// POST /api/tracks/:id/play — increment play count
+// POST /api/tracks/:id/play — update the recent-play timestamp
 router.post('/tracks/:id/play', async (req, res) => {
   const track = await Track.findByIdAndUpdate(
     req.params.id,
-    { $inc: { playCount: 1 }, lastPlayedAt: new Date() },
+    { lastPlayedAt: new Date() },
     { new: true },
   ).lean();
   if (!track) return res.status(404).json({ error: 'Track not found' });
-  res.json({ playCount: track.playCount });
+  res.json({ lastPlayedAt: track.lastPlayedAt });
 });
 
 // GET /api/covers/:filename — serve cover art

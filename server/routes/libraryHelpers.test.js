@@ -13,7 +13,6 @@ test('VALID_SORT_FIELDS exposes the supported route sort keys', () => {
     'title',
     'artist',
     'album',
-    'plays',
     'lastPlayed',
     'added',
     'duration',
@@ -38,8 +37,8 @@ test('buildSort returns descending artist sort with stable album ordering', () =
   });
 });
 
-test('buildSort maps play and duration sorts to the stored fields', () => {
-  assert.deepEqual(buildSort('plays', 'desc'), { playCount: -1 });
+test('buildSort maps recent-play and duration sorts to the stored fields', () => {
+  assert.deepEqual(buildSort('lastPlayed', 'desc'), { lastPlayedAt: -1 });
   assert.deepEqual(buildSort('duration', 'asc'), { duration: 1 });
 });
 

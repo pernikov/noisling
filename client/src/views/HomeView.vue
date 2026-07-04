@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { mdiShuffle, mdiFire, mdiHeart, mdiHistory, mdiAlbum, mdiDisc } from '@mdi/js';
+import { mdiShuffle, mdiHeart, mdiHistory, mdiAlbum, mdiDisc } from '@mdi/js';
 import { useApi } from '../composables/useApi.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useLibraryEvents } from '../composables/useLibraryEvents.js';
@@ -21,17 +21,14 @@ const recentTracks = ref([]);
 const albumModeItems = ref({
   recent: [],
   random: [],
-  top: [],
 });
 const albumModeLoaded = ref({
   recent: false,
   random: false,
-  top: false,
 });
 const loadingAlbumModes = ref({
   recent: true,
   random: false,
-  top: false,
 });
 const loadingLoved = ref(true);
 const loadingRecent = ref(true);
@@ -41,7 +38,6 @@ const recentError = ref(false);
 const albumModeErrors = ref({
   recent: false,
   random: false,
-  top: false,
 });
 
 const GREETINGS = [
@@ -63,7 +59,6 @@ const greeting = GREETINGS[nextIdx];
 
 const loadingShuffleAll = ref(false);
 const loadingRandomAlbum = ref(false);
-const loadingTopTracks = ref(false);
 const completingRecentTrack = ref(null);
 let completingRecentTimer = null;
 let completingRecentFadeTimer = null;
@@ -84,7 +79,6 @@ const recentTracksForDisplay = computed(() => {
 });
 const currentAlbumModeLabel = computed(() => {
   if (homeAlbumsMode.value === 'random') return 'Random Albums';
-  if (homeAlbumsMode.value === 'top') return 'Top Albums';
   return 'Recently Added';
 });
 const currentAlbumItems = computed(() => albumModeItems.value[homeAlbumsMode.value] ?? []);
@@ -95,13 +89,6 @@ const currentAlbumEmptyState = computed(() => {
     return {
       title: 'No albums to shuffle through',
       body: 'Scan your library to start exploring albums at random.',
-    };
-  }
-
-  if (homeAlbumsMode.value === 'top') {
-    return {
-      title: 'No top albums yet',
-      body: 'Play some tracks and your most played albums will show up here.',
     };
   }
 
@@ -136,16 +123,6 @@ async function playShuffleAll() {
     await shuffleAll();
   } finally {
     loadingShuffleAll.value = false;
-  }
-}
-
-async function playTopTracks() {
-  loadingTopTracks.value = true;
-  try {
-    const tracks = await api.getTopTracks(50);
-    if (tracks.length) playAlbum(tracks, 0);
-  } finally {
-    loadingTopTracks.value = false;
   }
 }
 
@@ -196,14 +173,9 @@ function applyReportedPlayToRecent(trackId) {
   if (!sourceTrack) return;
 
   const playedAt = playerState.currentTrack?.lastPlayedAt ?? new Date().toISOString();
-  const playCount = currentTrackId === normalizedTrackId
-    ? (playerState.currentTrack?.playCount ?? sourceTrack.playCount ?? 0)
-    : (sourceTrack.playCount || 0) + 1;
-
   recentTracks.value = [
     {
       ...sourceTrack,
-      playCount,
       lastPlayedAt: playedAt,
       playedAt,
     },
@@ -284,9 +256,7 @@ async function loadAlbums(mode = homeAlbumsMode.value, { force = false } = {}) {
   try {
     const albums = mode === 'random'
       ? await api.getRandomAlbums(12)
-      : mode === 'top'
-        ? await api.getTopAlbums(12)
-        : await api.getRecentAlbums(12);
+      : await api.getRecentAlbums(12);
 
     albumModeItems.value = {
       ...albumModeItems.value,
@@ -373,7 +343,7 @@ function goToAlbum(album) {
     <!-- Quick Actions -->
     <section>
       <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider mb-3">Quick Play</h2>
-      <div class="no-scrollbar flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 xl:grid-cols-4 sm:overflow-visible">
+      <div class="no-scrollbar flex gap-3 overflow-x-auto snap-x snap-mandatory pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0 sm:grid sm:grid-cols-2 xl:grid-cols-3 sm:overflow-visible">
         <!-- Shuffle All -->
         <button
           @click="playShuffleAll"
@@ -388,7 +358,7 @@ function goToAlbum(album) {
           <div class="hidden sm:block text-sm text-white/70 mt-0.5">Randomize your whole library</div>
         </button>
 
-        <!-- Top Tracks -->
+        <!-- Random Album -->
         <button
           @click="playRandomAlbum"
           :disabled="loadingRandomAlbum"
@@ -400,19 +370,6 @@ function goToAlbum(album) {
           <Icon :path="mdiDisc" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
           <div class="text-base sm:text-lg font-bold font-display text-white">Random Album</div>
           <div class="hidden sm:block text-sm text-white/70 mt-0.5">One 2+ track album, in order</div>
-        </button>
-
-        <button
-          @click="playTopTracks"
-          :disabled="loadingTopTracks"
-          class="relative min-w-[220px] shrink-0 snap-start overflow-hidden rounded-lg p-4 sm:min-w-0 sm:p-5 text-left bg-gradient-to-br from-amber-500 to-orange-600 hover:scale-[1.02] active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed shadow-lg"
-        >
-          <div v-if="loadingTopTracks" class="absolute inset-0 flex items-center justify-center bg-black/20">
-            <Spinner class="w-8 h-8 text-white" />
-          </div>
-          <Icon :path="mdiFire" class="w-7 h-7 mb-2 sm:w-8 sm:h-8 sm:mb-3 text-white/90" />
-          <div class="text-base sm:text-lg font-bold font-display text-white">Top Tracks</div>
-          <div class="hidden sm:block text-sm text-white/70 mt-0.5">Your 50 most-played tracks</div>
         </button>
 
         <!-- Loved Tracks -->
@@ -509,7 +466,6 @@ function goToAlbum(album) {
           show-cover
           show-artist
           show-album
-          show-plays
           show-last-played
           hide-controls
         />
@@ -541,10 +497,7 @@ function goToAlbum(album) {
         <Icon :path="mdiAlbum" class="w-8 h-8 text-zinc-600" />
         <p class="text-sm font-medium text-zinc-400">{{ currentAlbumEmptyState.title }}</p>
         <p class="text-xs text-zinc-600">
-          <template v-if="homeAlbumsMode === 'recent' || homeAlbumsMode === 'random'">
-            <router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
-          </template>
-          <template v-else>{{ currentAlbumEmptyState.body }}</template>
+          <router-link to="/settings?tab=library" class="text-zinc-400 hover:text-zinc-200 underline">Scan your library</router-link> to discover your music.
         </p>
       </div>
 

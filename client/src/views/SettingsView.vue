@@ -12,42 +12,39 @@ import {
   mdiContentDuplicate,
   mdiTextBoxSearchOutline,
   mdiPalette,
-  mdiChartBar,
   mdiClose,
-  mdiChevronDown,
 } from '@mdi/js';
 import Icon from '../components/Icon.vue';
 import Spinner from '../components/Spinner.vue';
 import TabBar from '../components/TabBar.vue';
 import { useTheme } from '../composables/useTheme.js';
-import { usePlayer } from '../composables/usePlayer.js';
 import { useSettingsLibrary } from '../composables/useSettingsLibrary.js';
-import { useSettingsStats } from '../composables/useSettingsStats.js';
 import ConfirmModal from '../components/ConfirmModal.vue';
 import BaseModal from '../components/BaseModal.vue';
-import ArtistCover from '../components/ArtistCover.vue';
 import CoverArt from '../components/CoverArt.vue';
 import IconButton from '../components/IconButton.vue';
 import EditTrackMetadataModal from '../components/EditTrackMetadataModal.vue';
 import EditAlbumCoverModal from '../components/EditAlbumCoverModal.vue';
-import TrackList from '../components/TrackList.vue';
 
 const route = useRoute();
 const router = useRouter();
 const appVersion = __APP_VERSION__;
 const {
-  accentColor, accentRgb, themeColor, VALID_COLORS,
+  accentColor, themeColor, VALID_COLORS,
   fontSize, reduceMotion, wideLayout, homeAlbumsMode,
   setAccentColor, setThemeColor, setFontSize,
   setWideLayout, setReduceMotion, setHomeAlbumsMode,
 } = useTheme();
 
-const VALID_TABS = ['appearance', 'library', 'stats'];
+const VALID_TABS = ['appearance', 'library'];
 const activeTab = ref(VALID_TABS.includes(route.query.tab) ? route.query.tab : 'appearance');
+if (route.query.tab && !VALID_TABS.includes(route.query.tab)) {
+  const nextQuery = { ...route.query, tab: activeTab.value };
+  router.replace({ query: nextQuery });
+}
 const TABS = [
   { value: 'appearance', label: 'Appearance', icon: mdiPalette },
   { value: 'library', label: 'Library', icon: mdiFolderOpen },
-  { value: 'stats', label: 'Stats', icon: mdiChartBar },
 ];
 const FONT_SIZE_TABS = [
   { value: 'small', label: 'Small' },
@@ -57,7 +54,6 @@ const FONT_SIZE_TABS = [
 const HOME_ALBUM_MODE_TABS = [
   { value: 'recent', label: 'Recently Added' },
   { value: 'random', label: 'Random Albums' },
-  { value: 'top', label: 'Top Albums' },
 ];
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } });
@@ -66,9 +62,6 @@ watch(activeTab, (tab) => {
     loadLibraryHealth();
   }
 });
-
-const { state: playerState } = usePlayer();
-const playerStateRef = computed(() => playerState);
 
 const {
   scanning,
@@ -119,47 +112,6 @@ function openAlbumCoverEditor(album) {
 
 async function onHealthAlbumSaved() {
   await refreshLibraryHealth();
-}
-
-const {
-  stats,
-  statsLoading,
-  statsOpen,
-  toggleStats,
-  formatDuration,
-  formatSize,
-} = useSettingsStats({
-  activeTab,
-  playerState: playerStateRef,
-});
-
-const TOP_SECTION_PREVIEW_COUNT = 5;
-const expandedTopSections = ref({
-  topTracks: false,
-  topArtists: false,
-  topAlbums: false,
-});
-
-function visibleTopItems(key, items = []) {
-  return expandedTopSections.value[key] ? items : items.slice(0, TOP_SECTION_PREVIEW_COUNT);
-}
-
-function toggleTopSectionExpanded(key) {
-  expandedTopSections.value[key] = !expandedTopSections.value[key];
-}
-
-function hasTopSectionOverflow(items = []) {
-  return items.length > TOP_SECTION_PREVIEW_COUNT;
-}
-
-function topSectionToggleLabel(key, items = []) {
-  const hiddenCount = Math.max(items.length - TOP_SECTION_PREVIEW_COUNT, 0);
-  if (expandedTopSections.value[key]) return 'Show less';
-  return `Show ${hiddenCount} more`;
-}
-
-function formatPlaysLabel(plays) {
-  return `${plays.toLocaleString()} play${plays === 1 ? '' : 's'}`;
 }
 
 const LIBRARY_HEALTH_ITEMS = [
@@ -555,250 +507,6 @@ watch(
           </div>
         </div>
       </section>
-    </div>
-
-    <!-- Stats tab -->
-    <div v-else-if="activeTab === 'stats'" class="space-y-4">
-      <div v-if="statsLoading" class="space-y-4 animate-pulse">
-        <!-- Library Overview + Formats skeleton -->
-        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-          <div class="h-3 bg-zinc-800 rounded w-36 mb-4"></div>
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div v-for="i in 4" :key="`primary-${i}`" class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="h-7 bg-zinc-800 rounded w-16 mb-2"></div>
-              <div class="h-2.5 bg-zinc-800/60 rounded w-12"></div>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-3">
-            <div v-for="i in 3" :key="`secondary-${i}`" class="bg-zinc-800/30 rounded-lg p-4">
-              <div class="h-6 bg-zinc-800 rounded w-20 mb-2"></div>
-              <div class="h-2.5 bg-zinc-800/60 rounded w-16"></div>
-            </div>
-          </div>
-          <div class="border-t border-zinc-800 mt-6 pt-6">
-            <div class="h-2.5 bg-zinc-800 rounded w-20 mb-4"></div>
-            <div class="space-y-3">
-            <div v-for="i in 3" :key="i" class="flex items-center gap-3">
-              <div class="h-2.5 bg-zinc-800 rounded w-14"></div>
-              <div class="flex-1 h-2 bg-zinc-800 rounded"></div>
-              <div class="h-2.5 bg-zinc-800 rounded w-8"></div>
-            </div>
-            </div>
-          </div>
-        </div>
-        <!-- Most Played Tracks skeleton -->
-        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-          <div class="h-3 bg-zinc-800 rounded w-44 mb-4"></div>
-          <div class="space-y-1">
-            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
-              <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
-              <div class="w-8 h-8 bg-zinc-800 rounded shrink-0"></div>
-              <div class="flex-1 min-w-0 space-y-1.5">
-                <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${55 + (i * 13) % 30}%` }"></div>
-                <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${30 + (i * 17) % 25}%` }"></div>
-              </div>
-              <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
-            </div>
-          </div>
-        </div>
-        <!-- Top Artists skeleton -->
-        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-          <div class="h-3 bg-zinc-800 rounded w-28 mb-4"></div>
-          <div class="space-y-1">
-            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
-              <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
-              <div class="flex-1 min-w-0 space-y-1.5">
-                <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${40 + (i * 11) % 35}%` }"></div>
-                <div class="h-2.5 bg-zinc-800/60 rounded w-16"></div>
-              </div>
-              <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
-            </div>
-          </div>
-        </div>
-        <!-- Top Albums skeleton -->
-        <div class="bg-zinc-900 rounded-lg border border-zinc-800 p-6">
-          <div class="h-3 bg-zinc-800 rounded w-28 mb-4"></div>
-          <div class="space-y-1">
-            <div v-for="i in 5" :key="i" class="flex items-center gap-3 px-1 py-2">
-              <div class="w-5 h-3 bg-zinc-800 rounded shrink-0"></div>
-              <div class="w-8 h-8 bg-zinc-800 rounded shrink-0"></div>
-              <div class="flex-1 min-w-0 space-y-1.5">
-                <div class="h-3 bg-zinc-800 rounded" :style="{ width: `${45 + (i * 13) % 35}%` }"></div>
-                <div class="h-2.5 bg-zinc-800/60 rounded" :style="{ width: `${25 + (i * 11) % 25}%` }"></div>
-              </div>
-              <div class="h-2.5 bg-zinc-800 rounded w-10"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <template v-else-if="stats">
-        <!-- Library Overview -->
-        <section class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
-          <button class="flex items-center justify-between w-full" @click="toggleStats('overview')">
-            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Library Overview</h2>
-            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.overview ? '' : '-rotate-90'" />
-          </button>
-          <div v-show="statsOpen.overview" class="mt-4">
-          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display text-rose-400">{{ (stats.totalLoved || 0).toLocaleString() }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Loved</div>
-            </div>
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display">{{ stats.totalTracks.toLocaleString() }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Tracks</div>
-            </div>
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display">{{ stats.totalArtists.toLocaleString() }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Artists</div>
-            </div>
-            <div class="bg-zinc-800/50 rounded-lg p-4">
-              <div class="text-2xl font-bold font-display">{{ stats.totalAlbums.toLocaleString() }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Albums</div>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 gap-3 mt-3 sm:grid-cols-3">
-            <div class="bg-zinc-800/30 rounded-lg p-4">
-              <div class="text-xl font-bold font-display">{{ formatDuration(stats.totalDuration) }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Duration</div>
-            </div>
-            <div class="bg-zinc-800/30 rounded-lg p-4">
-              <div class="text-xl font-bold font-display">{{ formatSize(stats.totalFileSize) }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Size</div>
-            </div>
-            <div class="bg-zinc-800/30 rounded-lg p-4">
-              <div class="text-xl font-bold font-display">{{ stats.totalPlays.toLocaleString() }}</div>
-              <div class="text-xs text-zinc-400 mt-1">Total Plays</div>
-            </div>
-          </div>
-
-          <!-- Format Breakdown -->
-          <div v-if="stats.formats.length > 0" class="border-t border-zinc-800 mt-6 pt-6">
-            <div class="flex items-center justify-between gap-3 mb-4">
-              <h3 class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">File Types</h3>
-              <span class="text-xs text-zinc-600">{{ stats.formats.length }} format{{ stats.formats.length === 1 ? '' : 's' }}</span>
-            </div>
-            <div class="space-y-3">
-            <div v-for="f in stats.formats" :key="f.format" class="flex items-center gap-3">
-              <span class="text-sm text-zinc-300 w-14 text-left uppercase">{{ f.format || '?' }}</span>
-              <div class="flex-1 h-2.5 bg-zinc-800 rounded-full overflow-hidden">
-                <div
-                  class="h-full rounded-full"
-                  :style="{ width: (f.count / stats.totalTracks * 100) + '%', backgroundColor: `rgba(${accentRgb}, 0.6)` }"
-                />
-              </div>
-              <span class="text-xs text-zinc-500 w-24 text-right">{{ Math.round((f.count / stats.totalTracks) * 100) }}% · {{ f.count }}</span>
-            </div>
-            </div>
-          </div>
-          </div>
-        </section>
-
-        <!-- Most Played Tracks -->
-        <section v-if="stats.topTracks.length > 0" class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
-          <button class="flex items-center justify-between w-full" @click="toggleStats('topTracks')">
-            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Most Played Tracks</h2>
-            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topTracks ? '' : '-rotate-90'" />
-          </button>
-          <div v-show="statsOpen.topTracks" class="mt-4">
-            <TrackList
-              :tracks="visibleTopItems('topTracks', stats.topTracks)"
-              :play-tracks="stats.topTracks"
-              show-cover
-              show-artist
-              show-album
-              show-plays
-              hide-controls
-            />
-            <button
-              v-if="hasTopSectionOverflow(stats.topTracks)"
-              class="pt-3 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
-              @click="toggleTopSectionExpanded('topTracks')"
-            >
-              {{ topSectionToggleLabel('topTracks', stats.topTracks) }}
-            </button>
-          </div>
-        </section>
-
-        <!-- Top Artists -->
-        <section v-if="stats.topArtists.length > 0" class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
-          <button class="flex items-center justify-between w-full" @click="toggleStats('topArtists')">
-            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Artists</h2>
-            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topArtists ? '' : '-rotate-90'" />
-          </button>
-          <div v-show="statsOpen.topArtists" class="mt-4 space-y-2">
-            <button
-              v-for="(artist, i) in visibleTopItems('topArtists', stats.topArtists)"
-              :key="artist.name"
-              class="group flex w-full items-center gap-3 rounded-lg bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
-              type="button"
-              @click="router.push({ name: 'artist', params: { name: artist.name } })"
-            >
-              <ArtistCover :covers="artist.covers || []" size="w-10 h-10 shrink-0" wrapper-class="mb-0" />
-              <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-medium text-zinc-100">{{ artist.name }}</div>
-                <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-zinc-500">
-                  <span>{{ artist.trackCount.toLocaleString() }} track{{ artist.trackCount !== 1 ? 's' : '' }}</span>
-                  <span class="shrink-0 px-0.5 text-white/10" aria-hidden="true">•</span>
-                  <span>{{ formatPlaysLabel(artist.plays) }}</span>
-                </div>
-              </div>
-            </button>
-            <button
-              v-if="hasTopSectionOverflow(stats.topArtists)"
-              class="pt-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
-              @click="toggleTopSectionExpanded('topArtists')"
-            >
-              {{ topSectionToggleLabel('topArtists', stats.topArtists) }}
-            </button>
-          </div>
-        </section>
-
-        <!-- Top Albums -->
-        <section v-if="stats.topAlbums.length > 0" class="bg-zinc-900 rounded-lg border border-zinc-800 px-6 py-4">
-          <button class="flex items-center justify-between w-full" @click="toggleStats('topAlbums')">
-            <h2 class="text-sm font-medium text-zinc-500 uppercase tracking-wider">Top Albums</h2>
-            <Icon :path="mdiChevronDown" class="w-4 h-4 text-zinc-500 transition-transform duration-200" :class="statsOpen.topAlbums ? '' : '-rotate-90'" />
-          </button>
-          <div v-show="statsOpen.topAlbums" class="mt-4 space-y-2">
-            <button
-              v-for="(album, i) in visibleTopItems('topAlbums', stats.topAlbums)"
-              :key="`${album.name}-${album.artists?.[0] ?? 'unknown'}`"
-              class="group flex w-full items-center gap-3 rounded-lg bg-zinc-800/35 px-3 py-3 text-left transition-colors hover:bg-zinc-800/55"
-              type="button"
-              @click="router.push({ name: 'album', params: { artist: album.artists?.[0], album: album.name } })"
-            >
-              <CoverArt :cover="album.cover" size="w-10 h-10 shrink-0 rounded-md" />
-              <div class="min-w-0 flex-1">
-                <div class="truncate text-sm font-medium text-zinc-100">{{ album.name }}</div>
-                <div class="flex flex-wrap items-center gap-x-1 gap-y-1 text-xs text-zinc-500">
-                  <span class="truncate max-w-full">{{ album.artists?.join(', ') }}</span>
-                  <span class="shrink-0 px-0.5 text-white/10" aria-hidden="true">•</span>
-                  <span>{{ album.trackCount?.toLocaleString?.() ?? 0 }} track{{ album.trackCount === 1 ? '' : 's' }}</span>
-                  <span class="shrink-0 px-0.5 text-white/10" aria-hidden="true">•</span>
-                  <span>{{ formatPlaysLabel(album.plays) }}</span>
-                </div>
-              </div>
-            </button>
-            <button
-              v-if="hasTopSectionOverflow(stats.topAlbums)"
-              class="pt-1 text-xs font-medium text-zinc-400 transition-colors hover:text-zinc-200"
-              @click="toggleTopSectionExpanded('topAlbums')"
-            >
-              {{ topSectionToggleLabel('topAlbums', stats.topAlbums) }}
-            </button>
-          </div>
-        </section>
-
-        <!-- Empty state -->
-        <div v-if="stats.totalPlays === 0" class="bg-zinc-900 rounded-lg border border-zinc-800 p-10 flex flex-col items-center gap-3 text-center">
-          <Icon :path="mdiHeadphones" class="w-8 h-8 text-zinc-600" />
-          <p class="text-sm font-medium text-zinc-400">No listening data yet</p>
-          <p class="text-xs text-zinc-600">Play some tracks and your stats will show up here.</p>
-        </div>
-      </template>
     </div>
 
     <p class="text-xs text-zinc-700 text-right mt-6">Noisling v{{ appVersion }}</p>

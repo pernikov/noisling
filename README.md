@@ -1,6 +1,6 @@
 # Noisling
 
-A small, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by album or track. Tracks are the main focus — there are no dedicated artist pages, just your music organized by albums and tracks.
+A small, self-hosted music streaming server with a web UI. Point it at a directory of audio files and browse your library by artists, albums, tracks, playlists, and recently played music.
 
 There is no authentication — this is meant to run on a trusted local network for a single user. Settings are fetched once on startup and saved immediately on each change; there is no polling or per-route sync because concurrent multi-user access is out of scope.
 
@@ -10,7 +10,7 @@ Noisling reads tags embedded in your audio files (ID3, Vorbis, MP4, etc.) to pop
 
 It works best with libraries that are already mostly well tagged. Noisling does not try to infer missing artist or album structure from folder names. If needed, you can make small local metadata or artwork overrides inside Noisling, but those tools are meant for quick fixes rather than full library curation.
 
-In rare cases, Noisling may start reading a new metadata field that older scans did not import yet. For those one-off backfills, open `http://localhost:1994/settings?tab=library&rewriteTags=true`. That triggers a forced metadata refresh for all files once, then removes the query flag from the URL. Existing play counts, last-played timestamps, likes, and local overrides are preserved.
+In rare cases, Noisling may start reading a new metadata field that older scans did not import yet. For those one-off backfills, open `http://localhost:1994/settings?tab=library&rewriteTags=true`. That triggers a forced metadata refresh for all files once, then removes the query flag from the URL. Existing last-played timestamps, likes, and local overrides are preserved.
 
 Untagged files still appear in the library, but only with limited fallback metadata:
 
@@ -97,9 +97,11 @@ Run server tests only:
 pnpm --filter server test
 ```
 
-## Play statistics
+## Recently played
 
-Play counts and last-played timestamps are stored directly on the track. If a file is removed from the library or moved to a different path, that data is lost. This is intentional — Noisling is a player, not a scrobbler. If you need durable listening history, use something like Last.fm alongside it.
+Noisling stores a last-played timestamp on each track so the app can show Recently Played. A track is marked as played only after it has been listened to for a while, which keeps quick skips and accidental clicks out of your recent history.
+
+If a file is removed from the library or moved to a different path, that recent-play timestamp is lost. This is intentional — Noisling is a player, not a scrobbler or listening analytics tool. If you need durable listening history, use something like Last.fm alongside it.
 
 ## Known issues
 

@@ -75,7 +75,6 @@ const state = reactive({
   currentTrackReported: true,
   currentTrackPlayProgress: 0,
   lastReportedTrackId: null,
-  lastReportedPlayCount: null,
   visualizerTrackTick: 0,
   transcodeWaiting:  false,
   transcodeActive:   false,
@@ -236,14 +235,11 @@ function updateCurrentTrackLove(track, isLoved) {
   }
 }
 
-function markCurrentTrackReported(trackId, playCount = null) {
+function markCurrentTrackReported(trackId) {
   const currentTrackId = state.currentTrack?._id?.toString?.() ?? state.currentTrack?._id ?? null;
   const normalizedTrackId = trackId?.toString?.() ?? trackId ?? null;
   if (!currentTrackId || currentTrackId !== normalizedTrackId || !state.currentTrack) return;
 
-  state.currentTrack.playCount = Number.isFinite(playCount)
-    ? playCount
-    : (state.currentTrack.playCount || 0) + 1;
   state.currentTrack.lastPlayedAt = new Date().toISOString();
 }
 
@@ -316,14 +312,11 @@ function registerPlayerEventListeners() {
         playReported = true;
         const reportedTrackId = state.currentTrack._id;
         api.reportPlay(state.currentTrack._id)
-          .then((report) => {
-            const reportedPlayCount = Number(report?.playCount);
-            const canonicalPlayCount = Number.isFinite(reportedPlayCount) ? reportedPlayCount : null;
-            markCurrentTrackReported(reportedTrackId, canonicalPlayCount);
+          .then(() => {
+            markCurrentTrackReported(reportedTrackId);
             state.currentTrackReported = true;
             state.currentTrackPlayProgress = 1;
             state.lastReportedTrackId = reportedTrackId;
-            state.lastReportedPlayCount = canonicalPlayCount;
             state.playReportCount++;
           })
           .catch(() => {});

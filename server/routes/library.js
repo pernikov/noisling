@@ -47,36 +47,6 @@ async function aggregateAlbumSummaries({ search, limit = null, sort = { name: 1 
   return limit == null ? albums : albums.slice(0, limit);
 }
 
-async function aggregateTopAlbumSummaries({ limit = 12 } = {}) {
-  const tracks = (await loadResolvedTracks()).filter((track) => track.playCount > 0);
-  const albumMap = new Map();
-
-  for (const track of tracks) {
-    const key = `${track.albumArtist?.trim().toLowerCase() || track.artistsNorm?.[0] || ''}__${track.album}`;
-    if (!albumMap.has(key)) {
-      albumMap.set(key, {
-        name: track.album,
-        artists: track.albumArtist?.trim() ? [track.albumArtist.trim()] : track.artists,
-        artistsNorm: track.albumArtist?.trim() ? [track.albumArtist.trim().toLowerCase()] : track.artistsNorm,
-        albumArtist: track.albumArtist?.trim() || '',
-        albumArtistNorm: track.albumArtist?.trim().toLowerCase() || track.artistsNorm?.[0] || '',
-        cover: track.cover || '',
-        plays: 0,
-        addedAt: track.scannedAt,
-      });
-    }
-
-    const album = albumMap.get(key);
-    album.plays += track.playCount || 0;
-    if (!album.cover && track.cover) album.cover = track.cover;
-    if (!album.addedAt || new Date(track.scannedAt) > new Date(album.addedAt)) album.addedAt = track.scannedAt;
-  }
-
-  return Array.from(albumMap.values())
-    .sort((a, b) => b.plays - a.plays || new Date(b.addedAt) - new Date(a.addedAt) || a.name.localeCompare(b.name))
-    .slice(0, limit);
-}
-
 function buildArtistSummaries(tracks) {
   const artistMap = new Map();
 
@@ -198,13 +168,6 @@ router.get('/albums/random', async (req, res) => {
   res.json(albums);
 });
 
-// GET /api/albums/top — most played albums
-router.get('/albums/top', async (req, res) => {
-  const limit = Math.min(50, parseInt(req.query.limit, 10) || 12);
-  const albums = await aggregateTopAlbumSummaries({ limit });
-  res.json(albums);
-});
-
 // GET /api/albums — all albums
 router.get('/albums', async (req, res) => {
   const albums = await aggregateAlbumSummaries({ sort: { name: 1 } });
@@ -268,80 +231,6 @@ router.get('/tracks/recent', async (req, res) => {
     .limit(limit)
     .lean();
   res.json(tracks.map(mergeTrackOverrides));
-});
-
-// GET /api/stats — library and listening statistics
-router.get('/stats', async (req, res) => {
-  const tracks = await loadResolvedTracks();
-  const artists = new Set();
-  const albums = new Set();
-  const formatMap = new Map();
-  const artistMap = new Map();
-
-  for (const track of tracks) {
-    if (track.artistsNorm?.[0]) artists.add(track.artistsNorm[0]);
-    if (track.album) albums.add(track.album);
-    formatMap.set(track.format, (formatMap.get(track.format) ?? 0) + 1);
-
-    track.artists?.forEach((artist, index) => {
-      const key = track.artistsNorm?.[index] ?? artist.toLowerCase();
-      const current = artistMap.get(key) ?? { name: artist, plays: 0, trackCount: 0, coverSet: new Set() };
-      current.plays += track.playCount || 0;
-      current.trackCount += 1;
-      if (track.cover) current.coverSet.add(track.cover);
-      artistMap.set(key, current);
-    });
-  }
-
-  const overview = {
-    totalTracks: tracks.length,
-    totalDuration: tracks.reduce((sum, track) => sum + (track.duration || 0), 0),
-    totalPlays: tracks.reduce((sum, track) => sum + (track.playCount || 0), 0),
-    totalFileSize: tracks.reduce((sum, track) => sum + (track.fileSize || 0), 0),
-    totalLoved: tracks.filter((track) => track.isLoved).length,
-    totalArtists: artists.size,
-    totalAlbums: albums.size,
-  };
-
-  const formats = Array.from(formatMap.entries())
-    .map(([format, count]) => ({ format, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const topTracks = tracks
-    .filter((track) => track.playCount > 0)
-    .sort((a, b) => b.playCount - a.playCount)
-    .slice(0, 10)
-    .map(({ title, artists: trackArtists, album, cover, duration, playCount, isLoved }) => ({
-      title,
-      artists: trackArtists,
-      album,
-      cover,
-      duration,
-      playCount,
-      isLoved,
-    }));
-
-  const topArtists = Array.from(artistMap.values())
-    .filter((artist) => artist.plays > 0)
-    .sort((a, b) => b.plays - a.plays)
-    .slice(0, 10)
-    .map((artist) => ({
-      name: artist.name,
-      plays: artist.plays,
-      trackCount: artist.trackCount,
-      covers: Array.from(artist.coverSet),
-    }));
-
-  const topAlbums = (await aggregateTopAlbumSummaries({ limit: 10 }))
-    .map(({ name, artists: albumArtists, cover, plays }) => ({ name, artists: albumArtists, cover, plays }));
-
-  res.json({
-    ...overview,
-    formats,
-    topTracks,
-    topArtists,
-    topAlbums,
-  });
 });
 
 // GET /api/tracks/loved — all loved tracks

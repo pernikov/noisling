@@ -28,7 +28,6 @@ export function useApi() {
       if (minTrackCount > 0) params.set('minTrackCount', minTrackCount);
       return request(`/albums/random?${params}`);
     },
-    getTopAlbums: (limit = 12) => request(`/albums/top?limit=${limit}`),
     getAlbums: () => request('/albums'),
     getAlbum: (artist, album) =>
       request(`/albums/${encodeURIComponent(artist)}/${encodeURIComponent(album)}`),
@@ -79,15 +78,12 @@ export function useApi() {
       const params = new URLSearchParams({ q, limit });
       return request(`/search?${params}`);
     },
-    getStats: () => request('/stats'),
     getSettings: () => request('/settings'),
     saveSettings: (body) => request('/settings', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
-    getTopTracks: (limit = 50) =>
-      request(`/tracks?sort=plays&order=desc&limit=${limit}&page=1`).then(d => d.tracks),
     shuffleQueue: () => request('/queue/shuffle', { method: 'PUT' }),
     getTracksByIds: (ids) => request('/tracks/batch', {
       method: 'POST',

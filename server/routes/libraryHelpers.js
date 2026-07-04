@@ -1,4 +1,4 @@
-export const VALID_SORT_FIELDS = ['title', 'artist', 'album', 'plays', 'lastPlayed', 'added', 'duration'];
+export const VALID_SORT_FIELDS = ['title', 'artist', 'album', 'lastPlayed', 'added', 'duration'];
 
 export function buildSort(sortField, sortOrder) {
   const order = sortOrder === 'desc' ? -1 : 1;
@@ -9,8 +9,6 @@ export function buildSort(sortField, sortOrder) {
       return { artistsNorm: order, album: 1, disc: 1, trackNumber: 1 };
     case 'album':
       return { album: order, disc: 1, trackNumber: 1 };
-    case 'plays':
-      return { playCount: order };
     case 'lastPlayed':
       return { lastPlayedAt: order };
     case 'added':

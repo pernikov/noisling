@@ -471,11 +471,11 @@ describe('usePlayer orchestration', () => {
     expect(api.saveSettings).not.toHaveBeenCalled();
   });
 
-  it('uses the reported server play count for the current track', async () => {
+  it('marks the current track reported without changing play counts', async () => {
     const { state, api, playAlbum } = await importUsePlayerWithApi({
-      reportPlay: vi.fn(() => Promise.resolve({ playCount: 8 })),
+      reportPlay: vi.fn(() => Promise.resolve({ lastPlayedAt: '2026-07-05T00:00:00.000Z' })),
     });
-    const track = { _id: 'track-1', title: 'One', format: 'mp3', playCount: 7 };
+    const track = { _id: 'track-1', title: 'One', format: 'mp3' };
 
     playAlbum([track], 0);
     FakeAudio.lastInstance.duration = 2;
@@ -486,9 +486,8 @@ describe('usePlayer orchestration', () => {
     await Promise.resolve();
 
     expect(api.reportPlay).toHaveBeenCalledWith('track-1');
-    expect(track.playCount).toBe(8);
-    expect(state.currentTrack.playCount).toBe(8);
+    expect(state.currentTrack.lastPlayedAt).toEqual(expect.any(String));
+    expect(state.currentTrackReported).toBe(true);
     expect(state.lastReportedTrackId).toBe('track-1');
-    expect(state.lastReportedPlayCount).toBe(8);
   });
 });

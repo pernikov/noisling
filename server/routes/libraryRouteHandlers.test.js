@@ -117,12 +117,12 @@ test('listAllTracks builds the expected filter and sort for search and genre', a
   const { listAllTracks } = createLibraryRouteHandlers({ Track });
   const res = createRes();
   await listAllTracks({
-    query: { search: 'ambient', genre: ' drone ', sort: 'plays', order: 'desc' },
+    query: { search: 'ambient', genre: ' drone ', sort: 'lastPlayed', order: 'desc' },
   }, res);
 
   assert.equal(capturedFilter.genre, 'drone');
   assert.equal(capturedFilter.$or[0].title.source, 'ambient');
-  assert.deepEqual(capturedSort, { playCount: -1 });
+  assert.deepEqual(capturedSort, { lastPlayedAt: -1 });
   assert.deepEqual(res.body, [{ _id: '1', title: 'First', hasOverrides: false, overrideFields: [] }]);
 });
 

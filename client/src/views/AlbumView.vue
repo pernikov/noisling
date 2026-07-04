@@ -248,7 +248,7 @@ async function onTrackUpdated() {
         </div>
       </div>
 
-      <TrackList :tracks="tracks" :use-track-number="true" show-plays show-last-played hide-controls @track-updated="onTrackUpdated" />
+      <TrackList :tracks="tracks" :use-track-number="true" show-last-played hide-controls @track-updated="onTrackUpdated" />
     </template>
     </template>
 

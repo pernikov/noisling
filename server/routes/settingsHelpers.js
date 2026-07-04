@@ -5,8 +5,8 @@ export const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
 export const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
 export const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to the sherwin maxawow';
 export const VALID_SORT_DIRS = ['asc', 'desc'];
-export const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'plays', 'lastPlayed', 'duration'];
-export const VALID_HOME_ALBUM_MODES = ['recent', 'random', 'top'];
+export const VALID_TRACK_SORT_FIELDS = ['', 'title', 'artist', 'album', 'lastPlayed', 'duration'];
+export const VALID_HOME_ALBUM_MODES = ['recent', 'random'];
 
 export function buildSettingsResponse(settings) {
   const tracksSortField = VALID_TRACK_SORT_FIELDS.includes(settings?.tracksSort?.field)

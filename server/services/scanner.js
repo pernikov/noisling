@@ -111,7 +111,7 @@ async function processBatch(filePaths) {
   }));
 }
 
-// Upsert a single file — preserves playCount and lastPlayedAt
+// Upsert a single file while preserving listening timestamps and legacy counters.
 async function upsertFile(filePath) {
   const trackData = await processFile(filePath);
   await Track.updateOne(

@@ -23,14 +23,14 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
   const response = buildSettingsResponse({
     accentColor: 'sky',
     volume: 0.5,
-    tracksSort: { field: 'plays', dir: 'desc' },
-    homeAlbumsMode: 'top',
+    tracksSort: { field: 'lastPlayed', dir: 'desc' },
+    homeAlbumsMode: 'random',
     butterchurnPresetMode: 'single',
     butterchurnPreset: 'Custom Preset',
   });
 
-  assert.deepEqual(response.tracksSort, { field: 'plays', dir: 'desc' });
-  assert.equal(response.homeAlbumsMode, 'top');
+  assert.deepEqual(response.tracksSort, { field: 'lastPlayed', dir: 'desc' });
+  assert.equal(response.homeAlbumsMode, 'random');
   assert.equal(response.butterchurnPresetMode, 'single');
   assert.equal(response.butterchurnPreset, 'Custom Preset');
 });
