@@ -86,9 +86,13 @@ const { accentColor: artworkAccentColor, accentPalette: artworkAccentPalette } =
 const {
   accentRgb,
   vizMode,
+  nucleusStyleMode,
+  nucleusStyle,
   randomizeOnNewTrack,
   butterchurnPresetMode,
   butterchurnPreset,
+  setNucleusStyleMode,
+  setNucleusStyle,
   setButterchurnPreset: persistButterchurnPreset,
   setButterchurnPresetMode,
   setVizMode,
@@ -96,6 +100,7 @@ const {
 } = useTheme();
 const activeCanvasMode = ref(vizMode.value);
 const fadingCanvasMode = ref(null);
+const activeNucleusStyle = ref(nucleusStyle.value);
 const nucleusRevealProgress = ref(0);
 const modeTransitionProgress = ref(1);
 const modeTransitionDecay = ref(0);
@@ -136,7 +141,7 @@ let nucleusBeatPulse = 0;
 let smoothNucleusBody = 0;
 let smoothNucleusDetail = 0;
 let nucleusBackdropPulse = 0;
-let nucleusWireColor = null;
+let nucleusShellColor = null;
 let nucleusFillColor = null;
 let prevFrequencyFrame = null;
 let orbThree = null;
@@ -162,6 +167,9 @@ const currentMode = computed(() =>
 const isButterchurnMode = computed(() => currentMode.value.value === 'butterchurn');
 const isNucleusMode = computed(() => currentMode.value.value === 'nucleus');
 const shouldShuffleVisualizerModes = computed(() => randomizeOnNewTrack.value);
+const isFilledNucleusStyle = computed(() => activeNucleusStyle.value === 'filled');
+const shouldRandomizeNucleusStyle = computed(() => nucleusStyleMode.value === 'random');
+const showNucleusStylePicker = computed(() => nucleusStyleMode.value === 'single');
 const shouldRandomizeButterchurnPresets = computed(() => butterchurnPresetMode.value === 'random');
 const showButterchurnPresetPicker = computed(() => (
   butterchurnPresetMode.value === 'single'
@@ -303,6 +311,27 @@ function getRandomVizModeValue(excludeValue = null) {
   }
 
   return nextValue;
+}
+
+function getRandomNucleusStyle(excludeValue = null) {
+  const options = ['filled', 'wireframe'];
+  let nextValue = excludeValue;
+  while (nextValue === excludeValue) {
+    nextValue = options[Math.floor(Math.random() * options.length)];
+  }
+
+  return nextValue;
+}
+
+function setActiveNucleusStyle(value) {
+  if (!['filled', 'wireframe'].includes(value)) return;
+  activeNucleusStyle.value = value;
+  syncNucleusMaterialStyle();
+  if (orbCamera) orbCamera.position.z = getActiveNucleusCameraBaseZ();
+}
+
+function randomizeNucleusStyle({ excludeCurrent = false } = {}) {
+  setActiveNucleusStyle(getRandomNucleusStyle(excludeCurrent ? activeNucleusStyle.value : null));
 }
 
 function isButterchurnAvailable() {
@@ -467,7 +496,8 @@ function getNucleusFragmentShader() {
     void main() {
       float rim = pow(1.0 - abs(normalize(vViewNormal).z), 1.7);
       vec3 fillColor = mix(uAccent * 0.72, uAccent * 1.24, rim * 0.62);
-      gl_FragColor = vec4(mix(uAccent, fillColor, uFill), uAlpha);
+      float shellAlpha = mix(uAlpha, uAlpha * (0.58 + rim * 0.64), uFill);
+      gl_FragColor = vec4(mix(uAccent, fillColor, uFill), shellAlpha);
     }
   `;
 }
@@ -476,6 +506,10 @@ function getNucleusCameraBaseZ() {
   const aspect = viewportWidth && viewportHeight ? viewportWidth / viewportHeight : 1;
   const portraitPullback = Math.min(1.72, 0.78 / Math.max(0.1, aspect));
   return 14 * Math.max(1, portraitPullback);
+}
+
+function getActiveNucleusCameraBaseZ() {
+  return isFilledNucleusStyle.value ? getNucleusCameraBaseZ() : 14;
 }
 
 function isNucleusAvailable() {
@@ -563,20 +597,20 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
 
     orbScene = new orbThree.Scene();
     orbCamera = new orbThree.PerspectiveCamera(45, 1, 0.1, 100);
-    orbCamera.position.set(0, -2, getNucleusCameraBaseZ());
+    orbCamera.position.set(0, -2, getActiveNucleusCameraBaseZ());
 
     const uniforms = {
       uTime: { value: 0 },
       uFrequency: { value: 0 },
       uAccent: { value: new orbThree.Color(0x34d399) },
-      uAlpha: { value: 1 },
-      uFill: { value: 0 },
+      uAlpha: { value: 0.22 },
+      uFill: { value: 1 },
     };
     const fillUniforms = {
       uTime: { value: 0 },
       uFrequency: { value: 0 },
       uAccent: { value: new orbThree.Color(0x7c3aed) },
-      uAlpha: { value: 1 },
+      uAlpha: { value: 0.34 },
       uFill: { value: 1 },
     };
 
@@ -586,8 +620,9 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
         uniforms: fillUniforms,
         vertexShader: getNucleusVertexShader(),
         fragmentShader: getNucleusFragmentShader(),
-        transparent: false,
-        depthWrite: true,
+        transparent: true,
+        depthWrite: false,
+        side: orbThree.DoubleSide,
       }),
     );
     orbAuraMesh.renderOrder = 2;
@@ -599,8 +634,9 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
         uniforms,
         vertexShader: getNucleusVertexShader(),
         fragmentShader: getNucleusFragmentShader(),
-        wireframe: true,
-        transparent: false,
+        transparent: true,
+        depthWrite: false,
+        side: orbThree.DoubleSide,
       }),
     );
     orbMesh.renderOrder = 3;
@@ -621,6 +657,7 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
     orbComposer.addPass(new orbOutputPassCtor());
 
     orbClock = new orbThree.Clock();
+    syncNucleusMaterialStyle();
   }
 
   return {
@@ -634,6 +671,26 @@ function ensureNucleusVisualizer({ allowInactive = false } = {}) {
     pointLight: orbPointLight,
     clock: orbClock,
   };
+}
+
+function syncNucleusMaterialStyle() {
+  if (!orbThree || !orbMesh) return;
+  const filled = isFilledNucleusStyle.value;
+  const shellMaterial = orbMesh.material;
+  shellMaterial.wireframe = !filled;
+  shellMaterial.transparent = filled;
+  shellMaterial.depthWrite = !filled;
+  shellMaterial.side = filled ? orbThree.DoubleSide : orbThree.FrontSide;
+  shellMaterial.needsUpdate = true;
+
+  if (orbAuraMesh) {
+    orbAuraMesh.visible = filled;
+    const auraMaterial = orbAuraMesh.material;
+    auraMaterial.transparent = filled;
+    auraMaterial.depthWrite = !filled;
+    auraMaterial.side = filled ? orbThree.DoubleSide : orbThree.FrontSide;
+    auraMaterial.needsUpdate = true;
+  }
 }
 
 function clearModeTransitionTimer() {
@@ -947,7 +1004,7 @@ function resetMotionState() {
   smoothNucleusBody = 0;
   smoothNucleusDetail = 0;
   nucleusBackdropPulse = 0;
-  nucleusWireColor = null;
+  nucleusShellColor = null;
   nucleusFillColor = null;
   prevBass = 0;
   beatBoost = 0;
@@ -1002,7 +1059,7 @@ function resizeCanvas() {
       orb.renderer.setSize(viewportWidth, viewportHeight, false);
       orb.composer.setSize(viewportWidth, viewportHeight);
       orb.camera.aspect = viewportWidth / viewportHeight;
-      orb.camera.position.z = getNucleusCameraBaseZ();
+      orb.camera.position.z = getActiveNucleusCameraBaseZ();
       orb.camera.updateProjectionMatrix();
     }
   }
@@ -1219,7 +1276,7 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
   const primaryColor = new orbThree.Color(`rgb(${primaryRgb.join(', ')})`);
   const secondaryColor = new orbThree.Color(`rgb(${secondaryRgb.join(', ')})`);
 
-  // Keep the original bright wire look, but let it borrow a secondary cover tone.
+  // Keep a bright outer shell while letting it borrow a secondary cover tone.
   const primaryHsl = {};
   const secondaryHsl = {};
   primaryColor.getHSL(primaryHsl);
@@ -1254,7 +1311,7 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
   nucleusBeatPulse += (((state.isPlaying ? (smoothBass * 1.0 + beatBoost * 1.02 + transient * 0.64) * motionDecay : 0)) - nucleusBeatPulse)
     * (state.isPlaying ? 0.22 : 0.08);
   const mixAmount = 0.28 + Math.min(0.2, smoothNucleusFrequency / 255 * 0.2);
-  const wireColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
+  const shellColor = brightPrimary.clone().lerp(brightSecondary, mixAmount);
   const fillBaseColor = primaryColor.clone().lerp(secondaryColor, 0.36);
   const fillHsl = {};
   fillBaseColor.getHSL(fillHsl);
@@ -1263,26 +1320,33 @@ function drawNucleusFrame({ allowInactive = false, decay = 1 } = {}) {
     Math.max(0.48, fillHsl.s * 0.95),
     Math.min(0.34, Math.max(0.18, fillHsl.l * 0.46)),
   );
-  if (!nucleusWireColor) nucleusWireColor = wireColor.clone();
-  else nucleusWireColor.lerp(wireColor, 0.075);
+  if (!nucleusShellColor) nucleusShellColor = shellColor.clone();
+  else nucleusShellColor.lerp(shellColor, 0.075);
   if (!nucleusFillColor) nucleusFillColor = fillColor.clone();
   else nucleusFillColor.lerp(fillColor, 0.055);
 
   const uniforms = orb.mesh.material.uniforms;
   const elapsedTime = orb.clock.getElapsedTime();
+  const filledNucleus = isFilledNucleusStyle.value;
   uniforms.uTime.value = elapsedTime;
   uniforms.uFrequency.value = smoothNucleusFrequency * 0.84;
-  uniforms.uAccent.value.copy(nucleusWireColor);
+  uniforms.uAccent.value.copy(nucleusShellColor);
+  uniforms.uFill.value = filledNucleus ? 1 : 0;
+  uniforms.uAlpha.value = filledNucleus
+    ? 0.16 + Math.min(0.16, nucleusBeatPulse * 0.14 + transient * 0.1)
+    : 1;
   if (orb.auraMesh) {
     const fillUniforms = orb.auraMesh.material.uniforms;
     fillUniforms.uTime.value = elapsedTime;
     fillUniforms.uFrequency.value = smoothNucleusFrequency * 0.84;
     fillUniforms.uAccent.value.copy(nucleusFillColor);
-    fillUniforms.uAlpha.value = 1;
+    fillUniforms.uAlpha.value = filledNucleus
+      ? 0.28 + Math.min(0.2, nucleusBackdropPulse * 0.16 + transient * 0.12)
+      : 1;
   }
 
   const orbitAmount = 0.35 + nucleusBackdropPulse * 0.12;
-  const baseCameraZ = getNucleusCameraBaseZ();
+  const baseCameraZ = getActiveNucleusCameraBaseZ();
   const targetCameraX = Math.sin(elapsedTime * 0.14) * orbitAmount;
   const targetCameraY = -2 + Math.cos(elapsedTime * 0.1) * 0.18;
   const targetCameraZ = baseCameraZ + Math.sin(elapsedTime * 0.08) * 0.25;
@@ -1389,7 +1453,10 @@ function selectMode(mode) {
   showModeDropdown.value = false;
   resetMotionState();
   if (mode === 'pills') paintBackground(pillsCtx);
-  else if (mode === 'nucleus') preloadNucleusVisualizer();
+  else if (mode === 'nucleus') {
+    if (shouldRandomizeNucleusStyle.value) randomizeNucleusStyle({ excludeCurrent: true });
+    preloadNucleusVisualizer();
+  }
 }
 
 function clearOverlayHideTimer() {
@@ -1420,9 +1487,25 @@ function setHideChrome(value) {
   revealOverlay();
 }
 
+function handleNucleusStyleChange(event) {
+  const nextStyle = event.target.value;
+  setActiveNucleusStyle(nextStyle);
+  setNucleusStyle(nextStyle);
+}
+
 function handleButterchurnPresetChange(event) {
   const nextPreset = event.target.value;
   persistButterchurnPreset(nextPreset);
+}
+
+function toggleNucleusStyleShuffle() {
+  const nextMode = shouldRandomizeNucleusStyle.value ? 'single' : 'random';
+  if (nextMode === 'single') {
+    setNucleusStyle(activeNucleusStyle.value);
+  } else {
+    randomizeNucleusStyle({ excludeCurrent: true });
+  }
+  setNucleusStyleMode(nextMode);
 }
 
 function toggleButterchurnPresetShuffle() {
@@ -1468,6 +1551,8 @@ watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
 
   if (nextModeValue === 'butterchurn') {
     advanceButterchurnPresetForTrack();
+  } else if (nextModeValue === 'nucleus' && shouldRandomizeNucleusStyle.value) {
+    randomizeNucleusStyle({ excludeCurrent: true });
   }
   syncButterchurnPreset();
 });
@@ -1483,6 +1568,18 @@ watch(butterchurnPresetMode, () => {
 watch(butterchurnPreset, () => {
   syncButterchurnPreset();
 });
+watch(nucleusStyleMode, () => {
+  if (shouldRandomizeNucleusStyle.value) {
+    randomizeNucleusStyle({ excludeCurrent: true });
+    return;
+  }
+  setActiveNucleusStyle(nucleusStyle.value);
+});
+watch(nucleusStyle, () => {
+  if (!shouldRandomizeNucleusStyle.value) {
+    setActiveNucleusStyle(nucleusStyle.value);
+  }
+});
 watch(showModeDropdown, (open) => {
   if (open) {
     revealOverlay();
@@ -1492,6 +1589,7 @@ watch(showModeDropdown, (open) => {
 });
 
 onMounted(() => {
+  if (shouldRandomizeNucleusStyle.value) randomizeNucleusStyle();
   ensurePillsNoiseUrl();
   start();
 
@@ -1638,10 +1736,33 @@ onUnmounted(() => {
               />
               <span
                 class="min-w-0 flex-1"
-                :class="option.value === 'butterchurn' && 'pr-8'"
+                :class="(option.value === 'nucleus' || option.value === 'butterchurn') && 'pr-8'"
               >
                 {{ option.label }}
               </span>
+              <button
+                v-if="option.value === 'nucleus'"
+                type="button"
+                class="absolute right-3 top-1/2 inline-flex size-[1.75rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/15 p-0 text-zinc-300/85 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:border-white/20 hover:bg-black/30 hover:text-white"
+                :title="shouldRandomizeNucleusStyle ? 'Shuffle styles on' : 'Shuffle styles off'"
+                :style="shouldRandomizeNucleusStyle
+                  ? {
+                      borderColor: `rgba(${accentRgb}, 0.55)`,
+                      backgroundColor: `rgba(${accentRgb}, 0.18)`,
+                      color: `rgb(${accentRgb})`,
+                      boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.18)`,
+                    }
+                  : null"
+                @click.stop="toggleNucleusStyleShuffle"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.92rem] shrink-0 fill-none stroke-current stroke-2">
+                  <path d="M16 3h5v5" />
+                  <path d="M4 20 20 4" />
+                  <path d="M21 16v5h-5" />
+                  <path d="M15 15 21 21" />
+                  <path d="M4 4l5 5" />
+                </svg>
+              </button>
               <button
                 v-if="option.value === 'butterchurn'"
                 type="button"
@@ -1665,6 +1786,34 @@ onUnmounted(() => {
                   <path d="M4 4l5 5" />
                 </svg>
               </button>
+            </div>
+
+            <div
+              v-if="option.value === 'nucleus' && showNucleusStylePicker"
+              class="flex flex-col gap-2 px-3 pb-[0.35rem] pt-[0.1rem]"
+            >
+              <label for="nucleus-style-picker" class="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-zinc-400/90">
+                Nucleus Style
+              </label>
+              <div class="relative">
+                <select
+                  id="nucleus-style-picker"
+                  :value="nucleusStyle"
+                  class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-white/20 focus:border-white/25"
+                  @click.stop
+                  @change="handleNucleusStyleChange"
+                >
+                  <option value="filled">Filled</option>
+                  <option value="wireframe">Wireframe</option>
+                </select>
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 fill-none stroke-zinc-400 stroke-2"
+                >
+                  <path d="m7 10 5 5 5-5" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </div>
             </div>
 
             <div

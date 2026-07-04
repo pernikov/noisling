@@ -21,6 +21,8 @@ const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky', 'indi
 const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 const VALID_FONT_SIZES = ['small', 'medium', 'large'];
 const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
+const VALID_NUCLEUS_STYLES = ['filled', 'wireframe'];
+const VALID_NUCLEUS_STYLE_MODES = ['single', 'random'];
 
 const COLOR_RGB = {
   rose: [244, 63, 94],
@@ -80,6 +82,8 @@ const HOME_ALBUM_MODE_KEY = 'noisling_home_album_mode';
 const WIDE_LAYOUT_KEY = 'noisling_wide_layout';
 const MOTION_KEY = 'noisling_reduce_motion';
 const VIZ_MODE_KEY = 'noisling_vizmode';
+const NUCLEUS_STYLE_MODE_KEY = 'noisling_nucleus_style_mode';
+const NUCLEUS_STYLE_KEY = 'noisling_nucleus_style';
 const RANDOMIZE_KEY = 'noisling_randomize';
 const BUTTERCHURN_PRESET_MODE_KEY = 'noisling_butterchurn_preset_mode';
 const BUTTERCHURN_PRESET_KEY = 'noisling_butterchurn_preset';
@@ -138,6 +142,12 @@ const homeAlbumsMode = ref(['recent', 'random', 'top'].includes(storedHomeAlbumM
 
 const storedViz = normalizeVizMode(readStoredValue(VIZ_MODE_KEY));
 const vizMode = ref(VALID_VIZ_MODES.includes(storedViz) ? storedViz : 'pills');
+const storedNucleusStyleMode = readStoredValue(NUCLEUS_STYLE_MODE_KEY);
+const nucleusStyleMode = ref(
+  VALID_NUCLEUS_STYLE_MODES.includes(storedNucleusStyleMode) ? storedNucleusStyleMode : 'random'
+);
+const storedNucleusStyle = readStoredValue(NUCLEUS_STYLE_KEY);
+const nucleusStyle = ref(VALID_NUCLEUS_STYLES.includes(storedNucleusStyle) ? storedNucleusStyle : 'filled');
 const storedRandomize = readStoredValue(RANDOMIZE_KEY);
 const randomizeOnNewTrack = ref(storedRandomize === null ? false : storedRandomize !== 'false');
 const storedButterchurnPresetMode = readStoredValue(BUTTERCHURN_PRESET_MODE_KEY);
@@ -202,6 +212,20 @@ export function useTheme() {
       if (VALID_VIZ_MODES.includes(normalizedVizMode)) {
         vizMode.value = normalizedVizMode;
         writeStoredValue(VIZ_MODE_KEY, normalizedVizMode);
+      }
+      if (VALID_NUCLEUS_STYLES.includes(data.nucleusStyle)) {
+        nucleusStyle.value = data.nucleusStyle;
+        writeStoredValue(NUCLEUS_STYLE_KEY, data.nucleusStyle);
+      } else {
+        nucleusStyle.value = 'filled';
+        writeStoredValue(NUCLEUS_STYLE_KEY, nucleusStyle.value);
+      }
+      if (VALID_NUCLEUS_STYLE_MODES.includes(data.nucleusStyleMode)) {
+        nucleusStyleMode.value = data.nucleusStyleMode;
+        writeStoredValue(NUCLEUS_STYLE_MODE_KEY, data.nucleusStyleMode);
+      } else {
+        nucleusStyleMode.value = 'random';
+        writeStoredValue(NUCLEUS_STYLE_MODE_KEY, nucleusStyleMode.value);
       }
       if (typeof data.randomizeOnNewTrack === 'boolean') {
         randomizeOnNewTrack.value = data.randomizeOnNewTrack;
@@ -376,6 +400,30 @@ export function useTheme() {
     });
   }
 
+  async function setNucleusStyle(value) {
+    if (!VALID_NUCLEUS_STYLES.includes(value)) return;
+    await applyStoredSetting({
+      current: nucleusStyle,
+      previous: nucleusStyle.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(NUCLEUS_STYLE_KEY, nextValue),
+      body: { nucleusStyle: value },
+      message: 'Failed to save Nucleus style.',
+    });
+  }
+
+  async function setNucleusStyleMode(value) {
+    if (!VALID_NUCLEUS_STYLE_MODES.includes(value)) return;
+    await applyStoredSetting({
+      current: nucleusStyleMode,
+      previous: nucleusStyleMode.value,
+      next: value,
+      persist: (nextValue) => writeStoredValue(NUCLEUS_STYLE_MODE_KEY, nextValue),
+      body: { nucleusStyleMode: value },
+      message: 'Failed to save Nucleus style mode.',
+    });
+  }
+
   async function setButterchurnPresetMode(value) {
     if (!VALID_BUTTERCHURN_PRESET_MODES.includes(value)) return;
     await applyStoredSetting({
@@ -416,8 +464,12 @@ export function useTheme() {
     reduceMotion,
     homeAlbumsMode,
     vizMode,
+    nucleusStyleMode,
+    nucleusStyle,
     randomizeOnNewTrack,
     VALID_VIZ_MODES,
+    VALID_NUCLEUS_STYLE_MODES,
+    VALID_NUCLEUS_STYLES,
     butterchurnPresetMode,
     butterchurnPreset,
     BUTTERCHURN_PRESET_OPTIONS,
@@ -431,6 +483,8 @@ export function useTheme() {
     setReduceMotion,
     setHomeAlbumsMode,
     setVizMode,
+    setNucleusStyleMode,
+    setNucleusStyle,
     setRandomizeOnNewTrack,
     setButterchurnPresetMode,
     setButterchurnPreset,

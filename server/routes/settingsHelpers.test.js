@@ -16,6 +16,8 @@ test('buildSettingsResponse fills defaults for missing optional settings', () =>
   assert.equal(response.fontSize, 'medium');
   assert.deepEqual(response.tracksSort, { field: 'artist', dir: 'asc' });
   assert.equal(response.vizMode, 'pills');
+  assert.equal(response.nucleusStyleMode, 'random');
+  assert.equal(response.nucleusStyle, 'filled');
   assert.equal(response.homeAlbumsMode, 'recent');
 });
 
@@ -25,12 +27,16 @@ test('buildSettingsResponse preserves valid tracksSort and preset values', () =>
     volume: 0.5,
     tracksSort: { field: 'plays', dir: 'desc' },
     homeAlbumsMode: 'top',
+    nucleusStyleMode: 'single',
+    nucleusStyle: 'wireframe',
     butterchurnPresetMode: 'single',
     butterchurnPreset: 'Custom Preset',
   });
 
   assert.deepEqual(response.tracksSort, { field: 'plays', dir: 'desc' });
   assert.equal(response.homeAlbumsMode, 'top');
+  assert.equal(response.nucleusStyleMode, 'single');
+  assert.equal(response.nucleusStyle, 'wireframe');
   assert.equal(response.butterchurnPresetMode, 'single');
   assert.equal(response.butterchurnPreset, 'Custom Preset');
 });
@@ -50,6 +56,8 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
     tracksSort: { field: 'title', dir: 'desc' },
     homeAlbumsMode: 'random',
     vizMode: 'nebula',
+    nucleusStyleMode: 'single',
+    nucleusStyle: 'wireframe',
     butterchurnPresetMode: 'random',
     wideLayout: 1,
     reduceMotion: 0,
@@ -63,6 +71,8 @@ test('buildSettingsUpdate validates and normalizes a mixed patch payload', () =>
       tracksSort: { field: 'title', dir: 'desc' },
       homeAlbumsMode: 'random',
       vizMode: 'pills',
+      nucleusStyleMode: 'single',
+      nucleusStyle: 'wireframe',
       butterchurnPresetMode: 'random',
       wideLayout: true,
       reduceMotion: false,
@@ -75,6 +85,8 @@ test('buildSettingsUpdate rejects invalid payloads and empty updates', () => {
   assert.deepEqual(buildSettingsUpdate({ volume: 2 }), { error: 'Invalid volume' });
   assert.deepEqual(buildSettingsUpdate({ tracksSort: { field: 'nope', dir: 'asc' } }), { error: 'Invalid tracksSort' });
   assert.deepEqual(buildSettingsUpdate({ homeAlbumsMode: 'latest' }), { error: 'Invalid homeAlbumsMode' });
+  assert.deepEqual(buildSettingsUpdate({ nucleusStyleMode: 'shuffle' }), { error: 'Invalid nucleusStyleMode' });
+  assert.deepEqual(buildSettingsUpdate({ nucleusStyle: 'solid' }), { error: 'Invalid nucleusStyle' });
   assert.deepEqual(buildSettingsUpdate({ butterchurnPreset: '   ' }), { error: 'Invalid butterchurnPreset' });
   assert.deepEqual(buildSettingsUpdate({}), { error: 'No valid fields' });
 });
