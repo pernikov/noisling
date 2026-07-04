@@ -2,6 +2,8 @@ export const VALID_COLORS = ['rose', 'amber', 'yellow', 'emerald', 'teal', 'sky'
 export const VALID_THEME_COLORS = [...VALID_COLORS, 'none'];
 export const VALID_FONT = ['small', 'medium', 'large'];
 export const VALID_VIZ_MODES = ['pills', 'nucleus', 'butterchurn'];
+export const VALID_NUCLEUS_STYLES = ['filled', 'wireframe'];
+export const VALID_NUCLEUS_STYLE_MODES = ['single', 'random'];
 export const VALID_BUTTERCHURN_PRESET_MODES = ['single', 'random'];
 export const DEFAULT_BUTTERCHURN_PRESET = 'Flexi, martin + geiss - dedicated to the sherwin maxawow';
 export const VALID_SORT_DIRS = ['asc', 'desc'];
@@ -25,6 +27,8 @@ export function buildSettingsResponse(settings) {
     wideLayout: settings.wideLayout ?? false,
     homeAlbumsMode: VALID_HOME_ALBUM_MODES.includes(settings.homeAlbumsMode) ? settings.homeAlbumsMode : 'recent',
     vizMode: normalizeVizMode(settings.vizMode ?? 'pills'),
+    nucleusStyleMode: VALID_NUCLEUS_STYLE_MODES.includes(settings.nucleusStyleMode) ? settings.nucleusStyleMode : 'random',
+    nucleusStyle: VALID_NUCLEUS_STYLES.includes(settings.nucleusStyle) ? settings.nucleusStyle : 'filled',
     randomizeOnNewTrack: settings.randomizeOnNewTrack ?? false,
     butterchurnPresetMode: settings.butterchurnPresetMode === 'random' ? 'random' : 'single',
     butterchurnPreset: typeof settings.butterchurnPreset === 'string' && settings.butterchurnPreset.trim()
@@ -45,7 +49,7 @@ export function buildSettingsUpdate(body = {}) {
     accentColor, themeColor, volume,
     fontSize, tracksSort, wideLayout,
     homeAlbumsMode,
-    vizMode, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, reduceMotion,
+    vizMode, nucleusStyleMode, nucleusStyle, randomizeOnNewTrack, butterchurnPresetMode, butterchurnPreset, reduceMotion,
   } = body;
 
   const update = {};
@@ -88,6 +92,14 @@ export function buildSettingsUpdate(body = {}) {
     const normalizedVizMode = normalizeVizMode(vizMode);
     if (!VALID_VIZ_MODES.includes(normalizedVizMode)) return { error: 'Invalid vizMode' };
     update.vizMode = normalizedVizMode;
+  }
+  if (nucleusStyleMode !== undefined) {
+    if (!VALID_NUCLEUS_STYLE_MODES.includes(nucleusStyleMode)) return { error: 'Invalid nucleusStyleMode' };
+    update.nucleusStyleMode = nucleusStyleMode;
+  }
+  if (nucleusStyle !== undefined) {
+    if (!VALID_NUCLEUS_STYLES.includes(nucleusStyle)) return { error: 'Invalid nucleusStyle' };
+    update.nucleusStyle = nucleusStyle;
   }
   if (randomizeOnNewTrack !== undefined) {
     update.randomizeOnNewTrack = Boolean(randomizeOnNewTrack);

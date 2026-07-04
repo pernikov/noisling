@@ -74,12 +74,22 @@ function initializeSchema(database) {
       wide_layout INTEGER NOT NULL DEFAULT 0,
       home_albums_mode TEXT NOT NULL DEFAULT 'recent',
       viz_mode TEXT NOT NULL DEFAULT 'pills',
+      nucleus_style_mode TEXT NOT NULL DEFAULT 'random',
+      nucleus_style TEXT NOT NULL DEFAULT 'filled',
       randomize_on_new_track INTEGER NOT NULL DEFAULT 0,
       butterchurn_preset_mode TEXT NOT NULL DEFAULT 'random',
       butterchurn_preset TEXT NOT NULL DEFAULT 'Flexi, martin + geiss - dedicated to the sherwin maxawow',
       reduce_motion INTEGER NOT NULL DEFAULT 0
     );
   `);
+
+  const settingsColumns = database.prepare('PRAGMA table_info(settings)').all().map(column => column.name);
+  if (!settingsColumns.includes('nucleus_style_mode')) {
+    database.exec("ALTER TABLE settings ADD COLUMN nucleus_style_mode TEXT NOT NULL DEFAULT 'random'");
+  }
+  if (!settingsColumns.includes('nucleus_style')) {
+    database.exec("ALTER TABLE settings ADD COLUMN nucleus_style TEXT NOT NULL DEFAULT 'filled'");
+  }
 }
 
 export async function connectDB() {
