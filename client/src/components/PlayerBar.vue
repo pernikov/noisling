@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { usePlayer } from "../composables/usePlayer.js";
 import { useAccentColor } from "../composables/useAccentColor.js";
 import { useTheme } from "../composables/useTheme.js";
@@ -66,6 +66,29 @@ const activeAccentStyle = computed(() => ({
 const { isScrubbing, scrubPercent, displayPercent, displayTime, startMouseScrub } = useProgressScrub({ state, seek });
 const hoverPercent = ref(null);
 const showVolTooltip = ref(false);
+const fullscreenBarDismissed = ref(false);
+let fullscreenBarHideTimer = 0;
+
+function revealFullscreenBar() {
+  if (fullscreenBarHideTimer) {
+    window.clearTimeout(fullscreenBarHideTimer);
+    fullscreenBarHideTimer = 0;
+  }
+  fullscreenBarDismissed.value = false;
+}
+
+function scheduleFullscreenBarHide() {
+  if (document.fullscreenElement !== document.documentElement) return;
+  if (fullscreenBarHideTimer) window.clearTimeout(fullscreenBarHideTimer);
+  fullscreenBarHideTimer = window.setTimeout(() => {
+    fullscreenBarHideTimer = 0;
+    fullscreenBarDismissed.value = true;
+  }, 1800);
+}
+
+onBeforeUnmount(() => {
+  if (fullscreenBarHideTimer) window.clearTimeout(fullscreenBarHideTimer);
+});
 
 function onProgressMouseDown(e) {
   const wasPlaying = state.isPlaying;
@@ -164,7 +187,11 @@ const hoverTime = computed(() => {
   <div
     v-if="state.currentTrack"
     class="player-bar-desktop hidden sm:flex flex-col fixed bottom-0 left-0 right-0 bg-zinc-900/95 backdrop-blur-xl border-t border-zinc-800 z-40"
+    :class="{ 'player-bar--dismissed': fullscreenBarDismissed }"
     :style="barStyle"
+    @pointerenter="revealFullscreenBar"
+    @focusin="revealFullscreenBar"
+    @click.capture="scheduleFullscreenBarHide"
   >
     <div class="flex items-center justify-between gap-4 px-4 py-3">
     <!-- Track info -->
@@ -486,6 +513,22 @@ const hoverTime = computed(() => {
 
   .player-bar-right-group {
     display: none;
+  }
+}
+
+@media (min-width: 1200px) and (hover: hover) and (pointer: fine) {
+  :global(html:fullscreen .player-bar-desktop) {
+    opacity: 0;
+    transform: translateY(calc(100% - 0.75rem));
+    transition:
+      transform 0.24s cubic-bezier(0.32, 0.72, 0, 1),
+      opacity 0.18s ease;
+  }
+
+  :global(html:fullscreen .player-bar-desktop:hover:not(.player-bar--dismissed)),
+  :global(html:fullscreen .player-bar-desktop:focus-within:not(.player-bar--dismissed)) {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>

@@ -1422,14 +1422,12 @@ function stop() {
 }
 
 function toggleFullscreen() {
-  if (!containerRef.value) return;
-
   if (document.fullscreenElement) {
     document.exitFullscreen();
     return;
   }
 
-  containerRef.value.requestFullscreen?.();
+  document.documentElement.requestFullscreen?.();
 }
 
 function handleVisualizerDoubleClick(event) {
@@ -1601,6 +1599,9 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  if (document.fullscreenElement === document.documentElement) {
+    document.exitFullscreen();
+  }
   stop();
   disposeButterchurnVisualizer();
   disposeNucleusVisualizer();
@@ -1617,6 +1618,7 @@ onUnmounted(() => {
   <section
     ref="containerRef"
     class="visualizer relative flex-1 overflow-hidden font-sans"
+    :class="{ 'visualizer--fullscreen': isFullscreen }"
     :style="visualizerStyle"
     @pointermove="revealOverlay"
     @pointerdown="revealOverlay"
@@ -1998,7 +2000,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-.visualizer:fullscreen {
+.visualizer--fullscreen {
   min-height: 100vh;
 }
 </style>

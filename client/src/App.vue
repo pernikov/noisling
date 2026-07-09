@@ -103,7 +103,7 @@ watch(
   >
     <!-- Top nav -->
     <nav
-      class="fixed top-0 left-0 right-0 backdrop-blur-xl border-b border-zinc-800 z-40 pt-[env(safe-area-inset-top)]"
+      class="app-navigation fixed top-0 left-0 right-0 backdrop-blur-xl border-b border-zinc-800 z-40 pt-[env(safe-area-inset-top)]"
       :style="navStyle"
     >
       <div
@@ -259,6 +259,10 @@ watch(
 </template>
 
 <style scoped>
+:global(html:fullscreen .app-navigation) {
+  display: none;
+}
+
 /* Active nav link */
 .nav-active {
   color: rgb(255 255 255);
