@@ -6,6 +6,7 @@ import {
   BUTTERCHURN_PRESET_OPTIONS,
   DEFAULT_BUTTERCHURN_PRESET,
 } from '../constants/butterchurnPresets.js';
+import CoverArt from './CoverArt.vue';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
@@ -57,6 +58,8 @@ const BUTTERCHURN_BLEND_SECONDS = 2.4;
 const CANVAS_MODE_TRANSITION_MS = 650;
 const HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_chrome';
 const LEGACY_HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_fullscreen_chrome';
+const TRACK_SPLASH_STORAGE_KEY = 'noisling_viz_track_splash';
+const TRACK_SPLASH_VISIBLE_MS = 4200;
 const butterchurnPresetMap = butterchurnPresets.getPresets();
 const butterchurnPresetNames = BUTTERCHURN_PRESET_OPTIONS
   .map(option => option.value)
@@ -79,6 +82,8 @@ const hideChrome = ref(
     ?? 'true'
   ) === 'true'
 );
+const trackSplashEnabled = ref(localStorage.getItem(TRACK_SPLASH_STORAGE_KEY) !== 'false');
+const trackSplashVisible = ref(false);
 const overlayVisible = ref(true);
 
 const { state, getVisualizerAnalyser, getVisualizerGraph, resumeVisualizerContext } = usePlayer();
@@ -122,6 +127,7 @@ let smoothRms = 0;
 let prevBass = 0;
 let beatBoost = 0;
 let overlayHideTimer = 0;
+let trackSplashTimer = 0;
 let lastOverlayRevealAt = 0;
 let butterchurnVisualizer = null;
 let butterchurnConnected = false;
@@ -228,6 +234,12 @@ const shouldShowOverlay = computed(() => {
   if (showModeDropdown.value) return true;
   if (!hideChrome.value) return true;
   return overlayVisible.value;
+});
+const currentTrackArtists = computed(() => {
+  const artists = state.currentTrack?.artists;
+  if (Array.isArray(artists) && artists.length) return artists.join(', ');
+  if (typeof artists === 'string' && artists.trim()) return artists;
+  return 'Unknown Artist';
 });
 const message = computed(() => {
   if (isButterchurnMode.value && !isButterchurnAvailable()) {
@@ -1441,6 +1453,11 @@ function handleVisualizerDoubleClick(event) {
 function handleFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement;
   overlayVisible.value = true;
+  if (isFullscreen.value) {
+    showTrackSplash();
+  } else {
+    hideTrackSplash();
+  }
   scheduleOverlayHide();
   resizeCanvas();
 }
@@ -1483,6 +1500,40 @@ function setHideChrome(value) {
   hideChrome.value = Boolean(value);
   localStorage.setItem(HIDE_CHROME_STORAGE_KEY, String(hideChrome.value));
   revealOverlay();
+}
+
+function clearTrackSplashTimer() {
+  if (!trackSplashTimer) return;
+  window.clearTimeout(trackSplashTimer);
+  trackSplashTimer = 0;
+}
+
+function hideTrackSplash() {
+  clearTrackSplashTimer();
+  trackSplashVisible.value = false;
+}
+
+function showTrackSplash() {
+  clearTrackSplashTimer();
+  if (!trackSplashEnabled.value || !isFullscreen.value || !state.currentTrack) {
+    trackSplashVisible.value = false;
+    return;
+  }
+  trackSplashVisible.value = true;
+  trackSplashTimer = window.setTimeout(() => {
+    trackSplashTimer = 0;
+    trackSplashVisible.value = false;
+  }, TRACK_SPLASH_VISIBLE_MS);
+}
+
+function setTrackSplashEnabled(value) {
+  trackSplashEnabled.value = Boolean(value);
+  localStorage.setItem(TRACK_SPLASH_STORAGE_KEY, String(trackSplashEnabled.value));
+  if (trackSplashEnabled.value) {
+    showTrackSplash();
+  } else {
+    hideTrackSplash();
+  }
 }
 
 function handleNucleusStyleChange(event) {
@@ -1535,6 +1586,7 @@ watch(vizMode, () => {
 watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
   if (!trackId || trackId === previousTrackId) {
     if (!trackId) clearButterchurnCanvas();
+    if (!trackId) hideTrackSplash();
     return;
   }
 
@@ -1553,6 +1605,7 @@ watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
     randomizeNucleusStyle({ excludeCurrent: true });
   }
   syncButterchurnPreset();
+  showTrackSplash();
 });
 watch(() => state.isPlaying, () => {
   syncButterchurnPreset();
@@ -1606,6 +1659,7 @@ onUnmounted(() => {
   disposeButterchurnVisualizer();
   disposeNucleusVisualizer();
   clearOverlayHideTimer();
+  clearTrackSplashTimer();
   clearModeTransitionTimer();
   resizeObserver?.disconnect();
   resizeObserver = null;
@@ -1677,6 +1731,33 @@ onUnmounted(() => {
         {{ message.body }}
       </h2>
     </div>
+
+    <Transition name="track-splash">
+      <div
+        v-if="trackSplashVisible && state.currentTrack"
+        class="track-splash pointer-events-none absolute left-1/2 top-[calc(var(--visualizer-nav-offset)+4.2rem)] z-[6] flex w-[min(38rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-4 rounded-[0.35rem] border border-white/10 bg-black/25 p-3 pr-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-[22px] backdrop-saturate-150 sm:top-[calc(var(--visualizer-nav-offset)+5rem)] sm:gap-5 sm:p-4 sm:pr-7"
+        aria-live="polite"
+      >
+        <CoverArt
+          :key="state.currentTrack._id"
+          :cover="state.currentTrack.cover"
+          size="h-20 w-20 sm:h-28 sm:w-28"
+          show-spinner
+          eager
+          priority="high"
+          fetchpriority="high"
+        />
+        <div class="min-w-0 flex-1">
+          <div class="mb-2 h-px w-12 bg-white/30" />
+          <h2 class="line-clamp-2 font-display text-xl font-semibold leading-[1.08] text-white sm:text-4xl">
+            {{ state.currentTrack.title }}
+          </h2>
+          <p class="mt-2 truncate text-sm font-medium text-zinc-200/80 sm:text-lg">
+            {{ currentTrackArtists }}
+          </p>
+        </div>
+      </div>
+    </Transition>
 
     <a
       v-if="currentMode.credit"
@@ -1900,6 +1981,25 @@ onUnmounted(() => {
             </svg>
             <span>Auto-hide controls</span>
           </button>
+
+          <button
+            type="button"
+            class="flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color,border-color,box-shadow] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+            :class="trackSplashEnabled && 'bg-zinc-800/95 text-zinc-50'"
+            :style="trackSplashEnabled
+              ? {
+                  borderColor: `rgba(${accentRgb}, 0.35)`,
+                  boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.2)`,
+                }
+              : null"
+            @click="setTrackSplashEnabled(!trackSplashEnabled)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
+              <rect x="4" y="5" width="16" height="14" rx="2" />
+              <path d="M8 15h8M8 11h5" stroke-linecap="round" />
+            </svg>
+            <span>Track splash</span>
+          </button>
         </div>
       </Transition>
 
@@ -1970,6 +2070,29 @@ onUnmounted(() => {
   opacity: 0;
 }
 
+.track-splash {
+  transform: translateX(-50%);
+  transform-origin: center;
+}
+
+.track-splash-enter-active {
+  transition: opacity 0.38s ease, transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.track-splash-leave-active {
+  transition: opacity 0.72s ease, transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.track-splash-enter-from {
+  opacity: 0;
+  transform: translate(-50%, -0.75rem) scale(0.985);
+}
+
+.track-splash-leave-to {
+  opacity: 0;
+  transform: translate(-50%, -1rem) scale(0.99);
+}
+
 .visualizer {
   min-height: calc(100vh - 5.5rem);
   transition: background-color 0.32s ease;
@@ -2002,5 +2125,14 @@ onUnmounted(() => {
 
 .visualizer--fullscreen {
   min-height: 100vh;
+}
+
+@media (max-width: 640px) {
+  .track-splash {
+    align-items: flex-start;
+    flex-direction: column;
+    max-width: min(17rem, calc(100% - 2rem));
+    padding-right: 1rem;
+  }
 }
 </style>
