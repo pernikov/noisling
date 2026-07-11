@@ -59,6 +59,7 @@ const CANVAS_MODE_TRANSITION_MS = 650;
 const HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_chrome';
 const LEGACY_HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_fullscreen_chrome';
 const TRACK_SPLASH_STORAGE_KEY = 'noisling_viz_track_splash';
+const TRACK_SPLASH_XS_STORAGE_KEY = 'noisling_viz_track_splash_xs';
 const TRACK_SPLASH_VISIBLE_MS = 4200;
 const butterchurnPresetMap = butterchurnPresets.getPresets();
 const butterchurnPresetNames = BUTTERCHURN_PRESET_OPTIONS
@@ -83,6 +84,7 @@ const hideChrome = ref(
   ) === 'true'
 );
 const trackSplashEnabled = ref(localStorage.getItem(TRACK_SPLASH_STORAGE_KEY) !== 'false');
+const trackSplashXs = ref(localStorage.getItem(TRACK_SPLASH_XS_STORAGE_KEY) === 'true');
 const trackSplashVisible = ref(false);
 const overlayVisible = ref(true);
 
@@ -1536,6 +1538,12 @@ function setTrackSplashEnabled(value) {
   }
 }
 
+function setTrackSplashXs(value) {
+  trackSplashXs.value = Boolean(value);
+  localStorage.setItem(TRACK_SPLASH_XS_STORAGE_KEY, String(trackSplashXs.value));
+  if (trackSplashEnabled.value) showTrackSplash();
+}
+
 function handleNucleusStyleChange(event) {
   const nextStyle = event.target.value;
   setActiveNucleusStyle(nextStyle);
@@ -1736,18 +1744,19 @@ onUnmounted(() => {
       <div
         v-if="trackSplashVisible && state.currentTrack"
         class="track-splash pointer-events-none absolute left-1/2 top-[calc(var(--visualizer-nav-offset)+4.2rem)] z-[6] flex w-[min(38rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-4 rounded-[0.35rem] border border-white/10 bg-black/25 p-3 pr-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-[22px] backdrop-saturate-150 sm:top-[calc(var(--visualizer-nav-offset)+5rem)] sm:gap-5 sm:p-4 sm:pr-7"
+        :class="trackSplashXs ? 'track-splash--xs' : 'track-splash--xl'"
         aria-live="polite"
       >
         <CoverArt
           :key="state.currentTrack._id"
           :cover="state.currentTrack.cover"
-          size="h-20 w-20 sm:h-28 sm:w-28"
+          :size="trackSplashXs ? 'track-splash__cover--xs' : 'track-splash__cover--xl'"
           show-spinner
           eager
           priority="high"
           fetchpriority="high"
         />
-        <div class="min-w-0 flex-1">
+        <div class="track-splash__details min-w-0 flex-1">
           <div class="mb-2 h-px w-12 bg-white/30" />
           <h2 class="line-clamp-2 font-display text-xl font-semibold leading-[1.08] text-white sm:text-4xl">
             {{ state.currentTrack.title }}
@@ -1982,9 +1991,10 @@ onUnmounted(() => {
             <span>Auto-hide controls</span>
           </button>
 
-          <button
-            type="button"
-            class="flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color,border-color,box-shadow] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
+          <div
+            role="button"
+            tabindex="0"
+            class="relative flex w-full items-center gap-[0.65rem] rounded-[0.7rem] px-3 py-[0.65rem] pr-12 text-left text-[0.8rem] text-zinc-300/85 transition-[background-color,color,border-color,box-shadow] duration-150 ease-out hover:bg-zinc-800/95 hover:text-zinc-50"
             :class="trackSplashEnabled && 'bg-zinc-800/95 text-zinc-50'"
             :style="trackSplashEnabled
               ? {
@@ -1993,13 +2003,33 @@ onUnmounted(() => {
                 }
               : null"
             @click="setTrackSplashEnabled(!trackSplashEnabled)"
+            @keydown.enter.prevent="setTrackSplashEnabled(!trackSplashEnabled)"
+            @keydown.space.prevent="setTrackSplashEnabled(!trackSplashEnabled)"
           >
             <svg viewBox="0 0 24 24" aria-hidden="true" class="size-[0.95rem] shrink-0 fill-none stroke-current stroke-2">
               <rect x="4" y="5" width="16" height="14" rx="2" />
               <path d="M8 15h8M8 11h5" stroke-linecap="round" />
             </svg>
             <span>Track splash</span>
-          </button>
+            <button
+              type="button"
+              class="absolute right-3 top-1/2 inline-flex h-[1.75rem] min-w-[1.75rem] -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/15 px-[0.38rem] text-[0.58rem] font-bold tracking-[-0.02em] text-zinc-300/85 transition-[background-color,border-color,color,box-shadow,transform] duration-150 ease-out hover:border-white/20 hover:bg-black/30 hover:text-white"
+              :title="trackSplashXs ? 'Compact notification splash on' : 'Compact notification splash off'"
+              :style="trackSplashXs
+                ? {
+                    borderColor: `rgba(${accentRgb}, 0.55)`,
+                    backgroundColor: `rgba(${accentRgb}, 0.18)`,
+                    color: `rgb(${accentRgb})`,
+                    boxShadow: `inset 0 0 0 1px rgba(${accentRgb}, 0.18)`,
+                  }
+                : null"
+              @click.stop="setTrackSplashXs(!trackSplashXs)"
+              @keydown.enter.stop.prevent="setTrackSplashXs(!trackSplashXs)"
+              @keydown.space.stop.prevent="setTrackSplashXs(!trackSplashXs)"
+            >
+              XS
+            </button>
+          </div>
         </div>
       </Transition>
 
@@ -2075,6 +2105,112 @@ onUnmounted(() => {
   transform-origin: center;
 }
 
+.track-splash.track-splash--xs {
+  width: min(23rem, calc(100% - 2rem));
+  gap: 0.8rem;
+  padding: 0.65rem 0.85rem 0.65rem 0.65rem;
+  border-color: rgba(255, 255, 255, 0.14);
+  border-radius: 0.8rem;
+  background: rgba(12, 14, 18, 0.58);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  backdrop-filter: blur(24px) saturate(150%);
+}
+
+.track-splash--xs .track-splash__cover--xs {
+  width: 3.75rem;
+  height: 3.75rem;
+  border-radius: 0.55rem;
+}
+
+.track-splash--xs .track-splash__details > div {
+  width: 1.5rem;
+  margin-bottom: 0.35rem;
+  opacity: 0.65;
+}
+
+.track-splash--xs h2 {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.track-splash--xs p {
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+}
+
+.track-splash.track-splash--xl {
+  top: 50%;
+  width: min(52rem, calc(100% - 3rem));
+  max-height: calc(100% - 7rem);
+  flex-direction: column;
+  gap: clamp(1rem, 2.5vh, 1.75rem);
+  padding: clamp(1rem, 3vh, 2rem);
+  text-align: center;
+  transform: translate(-50%, -50%);
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.track-splash.track-splash--xl::before {
+  position: absolute;
+  inset: -12% -18%;
+  z-index: 0;
+  content: '';
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.42) 0%,
+    rgba(0, 0, 0, 0.22) 42%,
+    rgba(0, 0, 0, 0) 74%
+  );
+  pointer-events: none;
+}
+
+.track-splash--xl > * {
+  position: relative;
+  z-index: 1;
+}
+
+.track-splash--xl .track-splash__cover--xl {
+  width: min(48vh, 25rem, calc(100vw - 6rem));
+  height: min(48vh, 25rem, calc(100vw - 6rem));
+  border-radius: 0.5rem;
+  box-shadow:
+    0 34px 90px rgba(0, 0, 0, 0.52),
+    0 8px 28px rgba(0, 0, 0, 0.34);
+}
+
+.track-splash--xl .track-splash__details {
+  width: 100%;
+  flex: none;
+}
+
+.track-splash--xl .track-splash__details > div {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.track-splash--xl h2 {
+  display: block;
+  overflow: visible;
+  padding-bottom: 0.1em;
+  font-size: clamp(2rem, 5vw, 4.75rem);
+  line-height: 1.02;
+  -webkit-box-orient: initial;
+  -webkit-line-clamp: initial;
+  text-shadow: 0 4px 24px rgba(0, 0, 0, 0.72);
+}
+
+.track-splash--xl p {
+  margin-top: 0.75rem;
+  font-size: clamp(1rem, 2vw, 1.5rem);
+  letter-spacing: 0.025em;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.78);
+}
+
 .track-splash-enter-active {
   transition: opacity 0.38s ease, transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -2088,9 +2224,17 @@ onUnmounted(() => {
   transform: translate(-50%, -0.75rem) scale(0.985);
 }
 
+.track-splash--xl.track-splash-enter-from {
+  transform: translate(-50%, calc(-50% - 0.75rem)) scale(0.975);
+}
+
 .track-splash-leave-to {
   opacity: 0;
   transform: translate(-50%, -1rem) scale(0.99);
+}
+
+.track-splash--xl.track-splash-leave-to {
+  transform: translate(-50%, calc(-50% - 1rem)) scale(0.985);
 }
 
 .visualizer {
@@ -2128,11 +2272,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: 640px) {
-  .track-splash {
-    align-items: flex-start;
-    flex-direction: column;
-    max-width: min(17rem, calc(100% - 2rem));
-    padding-right: 1rem;
+  .track-splash.track-splash--xl {
+    width: min(26rem, calc(100% - 2rem));
+    max-height: calc(100% - 5rem);
+    padding: 1rem;
   }
 }
 </style>
