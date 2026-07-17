@@ -61,6 +61,7 @@ const LEGACY_HIDE_CHROME_STORAGE_KEY = 'noisling_viz_hide_fullscreen_chrome';
 const TRACK_SPLASH_STORAGE_KEY = 'noisling_viz_track_splash';
 const TRACK_SPLASH_XS_STORAGE_KEY = 'noisling_viz_track_splash_xs';
 const TRACK_SPLASH_VISIBLE_MS = 4200;
+const TRACK_SPLASH_XL_VISIBLE_MS = 5400;
 const butterchurnPresetMap = butterchurnPresets.getPresets();
 const butterchurnPresetNames = BUTTERCHURN_PRESET_OPTIONS
   .map(option => option.value)
@@ -1522,10 +1523,13 @@ function showTrackSplash() {
     return;
   }
   trackSplashVisible.value = true;
+  const visibleDuration = trackSplashXs.value
+    ? TRACK_SPLASH_VISIBLE_MS
+    : TRACK_SPLASH_XL_VISIBLE_MS;
   trackSplashTimer = window.setTimeout(() => {
     trackSplashTimer = 0;
     trackSplashVisible.value = false;
-  }, TRACK_SPLASH_VISIBLE_MS);
+  }, visibleDuration);
 }
 
 function setTrackSplashEnabled(value) {
@@ -1740,15 +1744,17 @@ onUnmounted(() => {
       </h2>
     </div>
 
-    <Transition name="track-splash">
+    <Transition name="track-splash" mode="out-in">
       <div
         v-if="trackSplashVisible && state.currentTrack"
+        :key="trackSplashXs ? 'track-splash-xs' : state.currentTrack._id"
         class="track-splash pointer-events-none absolute left-1/2 top-[calc(var(--visualizer-nav-offset)+4.2rem)] z-[6] flex w-[min(38rem,calc(100%-2rem))] -translate-x-1/2 items-center gap-4 rounded-[0.35rem] border border-white/10 bg-black/25 p-3 pr-5 text-white shadow-[0_24px_70px_rgba(0,0,0,0.34)] backdrop-blur-[22px] backdrop-saturate-150 sm:top-[calc(var(--visualizer-nav-offset)+5rem)] sm:gap-5 sm:p-4 sm:pr-7"
         :class="trackSplashXs ? 'track-splash--xs' : 'track-splash--xl'"
         aria-live="polite"
       >
         <CoverArt
           :key="state.currentTrack._id"
+          class="track-splash__artwork"
           :cover="state.currentTrack.cover"
           :size="trackSplashXs ? 'track-splash__cover--xs' : 'track-splash__cover--xl'"
           show-spinner
@@ -1757,11 +1763,11 @@ onUnmounted(() => {
           fetchpriority="high"
         />
         <div class="track-splash__details min-w-0 flex-1">
-          <div class="mb-2 h-px w-12 bg-white/30" />
-          <h2 class="line-clamp-2 font-display text-xl font-semibold leading-[1.08] text-white sm:text-4xl">
+          <div class="track-splash__divider mb-2 h-px w-12 bg-white/30" />
+          <h2 class="track-splash__title line-clamp-2 font-display text-xl font-semibold leading-[1.08] text-white sm:text-4xl">
             {{ state.currentTrack.title }}
           </h2>
-          <p class="mt-2 truncate text-sm font-medium text-zinc-200/80 sm:text-lg">
+          <p class="track-splash__artist mt-2 truncate text-sm font-medium text-zinc-200/80 sm:text-lg">
             {{ currentTrackArtists }}
           </p>
         </div>
@@ -2167,6 +2173,9 @@ onUnmounted(() => {
     rgba(0, 0, 0, 0) 74%
   );
   pointer-events: none;
+  animation:
+    track-splash-halo-reveal 0.9s cubic-bezier(0.22, 1, 0.36, 1) both,
+    track-splash-halo-breathe 3.2s 1.05s ease-in-out infinite alternate;
 }
 
 .track-splash--xl > * {
@@ -2183,6 +2192,32 @@ onUnmounted(() => {
     0 8px 28px rgba(0, 0, 0, 0.34);
 }
 
+.track-splash--xl .track-splash__artwork {
+  will-change: clip-path, filter, opacity, transform;
+  animation:
+    track-splash-artwork-reveal 1.05s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both,
+    track-splash-artwork-breathe 3.4s 1.15s ease-in-out infinite alternate;
+}
+
+.track-splash--xl .track-splash__artwork::after {
+  position: absolute;
+  inset: -35%;
+  z-index: 2;
+  content: '';
+  opacity: 0;
+  background: linear-gradient(
+    112deg,
+    transparent 36%,
+    rgba(255, 255, 255, 0.03) 44%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.04) 56%,
+    transparent 64%
+  );
+  transform: translateX(-68%);
+  pointer-events: none;
+  animation: track-splash-artwork-sheen 1.2s 0.48s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .track-splash--xl .track-splash__details {
   width: 100%;
   flex: none;
@@ -2191,6 +2226,11 @@ onUnmounted(() => {
 .track-splash--xl .track-splash__details > div {
   margin-right: auto;
   margin-left: auto;
+}
+
+.track-splash--xl .track-splash__divider {
+  transform-origin: center;
+  animation: track-splash-divider-reveal 0.5s 0.68s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .track-splash--xl h2 {
@@ -2204,6 +2244,11 @@ onUnmounted(() => {
   text-shadow: 0 4px 24px rgba(0, 0, 0, 0.72);
 }
 
+.track-splash--xl .track-splash__title {
+  will-change: filter, opacity, transform;
+  animation: track-splash-copy-reveal 0.72s 0.78s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 .track-splash--xl p {
   margin-top: 0.75rem;
   font-size: clamp(1rem, 2vw, 1.5rem);
@@ -2211,8 +2256,101 @@ onUnmounted(() => {
   text-shadow: 0 3px 18px rgba(0, 0, 0, 0.78);
 }
 
+.track-splash--xl .track-splash__artist {
+  will-change: filter, opacity, transform;
+  animation: track-splash-copy-reveal 0.62s 1.02s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes track-splash-halo-reveal {
+  from {
+    opacity: 0;
+    transform: scale(0.82);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes track-splash-halo-breathe {
+  from {
+    opacity: 0.82;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.035);
+  }
+}
+
+@keyframes track-splash-artwork-reveal {
+  from {
+    clip-path: inset(8% 8% 8% 8% round 0.75rem);
+    filter: blur(12px) saturate(0.72);
+    opacity: 0;
+    transform: translateY(1.35rem) scale(0.93);
+  }
+  to {
+    clip-path: inset(0 round 0.5rem);
+    filter: blur(0) saturate(1);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes track-splash-artwork-breathe {
+  from {
+    transform: translateY(0) scale(1);
+  }
+  to {
+    transform: translateY(-0.22rem) scale(1.008);
+  }
+}
+
+@keyframes track-splash-artwork-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-68%);
+  }
+  30% {
+    opacity: 0.58;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(68%);
+  }
+}
+
+@keyframes track-splash-divider-reveal {
+  from {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  to {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes track-splash-copy-reveal {
+  from {
+    filter: blur(8px);
+    opacity: 0;
+    transform: translateY(0.9rem);
+  }
+  to {
+    filter: blur(0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .track-splash-enter-active {
   transition: opacity 0.38s ease, transform 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.track-splash--xl.track-splash-enter-active {
+  transition: opacity 0.28s ease, transform 0.75s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .track-splash-leave-active {
@@ -2225,7 +2363,7 @@ onUnmounted(() => {
 }
 
 .track-splash--xl.track-splash-enter-from {
-  transform: translate(-50%, calc(-50% - 0.75rem)) scale(0.975);
+  transform: translate(-50%, calc(-50% - 0.35rem)) scale(0.995);
 }
 
 .track-splash-leave-to {
@@ -2276,6 +2414,27 @@ onUnmounted(() => {
     width: min(26rem, calc(100% - 2rem));
     max-height: calc(100% - 5rem);
     padding: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .track-splash--xl.track-splash-enter-active,
+  .track-splash--xl.track-splash-leave-active {
+    transition: opacity 0.2s ease;
+  }
+
+  .track-splash--xl.track-splash-enter-from,
+  .track-splash--xl.track-splash-leave-to {
+    transform: translate(-50%, -50%);
+  }
+
+  .track-splash.track-splash--xl::before,
+  .track-splash--xl .track-splash__artwork,
+  .track-splash--xl .track-splash__artwork::after,
+  .track-splash--xl .track-splash__divider,
+  .track-splash--xl .track-splash__title,
+  .track-splash--xl .track-splash__artist {
+    animation: none;
   }
 }
 </style>
