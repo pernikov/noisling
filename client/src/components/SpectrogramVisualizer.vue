@@ -2195,7 +2195,7 @@ onUnmounted(() => {
 }
 
 .track-splash--xl .track-splash__artwork {
-  will-change: clip-path, filter, opacity, transform;
+  will-change: filter, opacity, transform;
   animation:
     track-splash-artwork-reveal 1.05s 0.1s cubic-bezier(0.16, 1, 0.3, 1) both,
     track-splash-artwork-breathe 3.4s 1.15s ease-in-out infinite alternate;
@@ -2287,16 +2287,14 @@ onUnmounted(() => {
 
 @keyframes track-splash-artwork-reveal {
   from {
-    clip-path: inset(8% 8% 8% 8% round 0.75rem);
-    filter: blur(12px) saturate(0.72);
+    filter: blur(12px) brightness(0.72) saturate(0.82);
     opacity: 0;
-    transform: translateY(1.35rem) scale(0.93);
+    transform: translateY(1.15rem);
   }
   to {
-    clip-path: inset(0 round 0.5rem);
-    filter: blur(0) saturate(1);
+    filter: blur(0) brightness(1) saturate(1);
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
