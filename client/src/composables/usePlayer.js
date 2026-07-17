@@ -96,6 +96,7 @@ let _startupResetActive = false;
 let _trackStartedAtMs = 0;
 let _allowBackwardTimeUntilMs = 0;
 let _mediaSessionStableTicks = 0;
+let _visualizerStartedTrackId = null;
 let _volumeRevision = 0;
 let _applyingVolume = false;
 
@@ -356,6 +357,12 @@ function registerPlayerEventListeners() {
   audio.addEventListener('playing', () => {
     applyPlayerVolume();
     state.transcodeWaiting = false;
+
+    const trackId = state.currentTrack?._id?.toString?.() ?? null;
+    if (trackId && trackId !== _visualizerStartedTrackId) {
+      _visualizerStartedTrackId = trackId;
+      state.visualizerTrackTick += 1;
+    }
   });
 
   audio.addEventListener('volumechange', () => {
@@ -405,11 +412,6 @@ async function loadPlayerPrefs() {
 function play(track, options = {}) {
   const hidden = isPlaybackHidden();
   const preserveMediaSession = Boolean(options.preserveMediaSession) && isAppleMobileEnvironment() && hidden;
-  const previousTrackId = state.currentTrack?._id?.toString?.() ?? null;
-  const nextTrackId = track?._id?.toString?.() ?? null;
-  if (nextTrackId && nextTrackId !== previousTrackId) {
-    state.visualizerTrackTick += 1;
-  }
   // Explicit user playback should always start fresh for the selected track.
   _pendingRestore = null;
   // Do not call pause() before src swap: on iOS background playback this can

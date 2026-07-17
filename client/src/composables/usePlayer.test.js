@@ -402,6 +402,30 @@ describe('usePlayer orchestration', () => {
     expect(state.currentTime).toBe(0.5);
   });
 
+  it('signals a visualizer track change only when the new track starts playing', async () => {
+    const { state, playAlbum, next } = await importUsePlayerWithApi();
+    const tracks = [
+      { _id: 'track-1', title: 'One', format: 'mp3', duration: 180 },
+      { _id: 'track-2', title: 'Two', format: 'mp3', duration: 180 },
+    ];
+
+    playAlbum(tracks, 0);
+    expect(state.visualizerTrackTick).toBe(0);
+
+    FakeAudio.lastInstance.emit('playing');
+    expect(state.visualizerTrackTick).toBe(1);
+
+    next();
+    expect(state.currentTrack?._id).toBe('track-2');
+    expect(state.visualizerTrackTick).toBe(1);
+
+    FakeAudio.lastInstance.emit('playing');
+    expect(state.visualizerTrackTick).toBe(2);
+
+    FakeAudio.lastInstance.emit('playing');
+    expect(state.visualizerTrackTick).toBe(2);
+  });
+
   it('ignores late loadstart resets after progress has already unlocked', async () => {
     const { state, playAlbum } = await importUsePlayerWithApi();
     const track = { _id: 'track-late-loadstart', title: 'Late Loadstart', format: 'mp3', duration: 180 };

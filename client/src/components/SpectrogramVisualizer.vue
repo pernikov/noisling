@@ -1595,12 +1595,14 @@ watch(vizMode, () => {
   if (vizMode.value === 'pills') paintBackground(pillsCtx);
   syncButterchurnPreset();
 });
-watch(() => state.currentTrack?._id, (trackId, previousTrackId) => {
-  if (!trackId || trackId === previousTrackId) {
-    if (!trackId) clearButterchurnCanvas();
-    if (!trackId) hideTrackSplash();
-    return;
-  }
+watch(() => state.currentTrack?._id, (trackId) => {
+  if (trackId) return;
+  clearButterchurnCanvas();
+  hideTrackSplash();
+});
+
+watch(() => state.visualizerTrackTick, () => {
+  if (!state.currentTrack?._id) return;
 
   let nextModeValue = currentMode.value.value;
   if (shouldShuffleVisualizerModes.value) {
