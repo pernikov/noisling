@@ -143,6 +143,11 @@ function timeAgo(date) {
   return `${months}mo ago`;
 }
 
+function lastPlayedText(track) {
+  const playedAt = track.playedAt ?? track.lastPlayedAt;
+  return playedAt ? `Last played ${timeAgo(playedAt)}` : 'Never played';
+}
+
 function clampProgress(progress) {
   return Math.max(0, Math.min(1, Number(progress) || 0));
 }
@@ -551,8 +556,8 @@ defineExpose({ playAll, playShuffle });
                       </template>
 
                       <template v-else>
-                        <span v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt)" class="shrink-0">
-                          Last played {{ timeAgo(track.playedAt ?? track.lastPlayedAt) }}
+                        <span v-if="showLastPlayed" class="shrink-0">
+                          {{ lastPlayedText(track) }}
                         </span>
                       </template>
                     </div>
@@ -583,12 +588,12 @@ defineExpose({ playAll, playShuffle });
                       >{{ track.album }}</router-link>
 
                       <span
-                        v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt) && (showArtist || showAlbum)"
+                        v-if="showLastPlayed && (showArtist || showAlbum)"
                         class="shrink-0 px-0.5 text-white/10"
                         aria-hidden="true"
                       >•</span>
-                      <span v-if="showLastPlayed && (track.playedAt ?? track.lastPlayedAt)" class="shrink-0">
-                        Last played {{ timeAgo(track.playedAt ?? track.lastPlayedAt) }}
+                      <span v-if="showLastPlayed" class="shrink-0">
+                        {{ lastPlayedText(track) }}
                       </span>
                       </div>
                     </div>
