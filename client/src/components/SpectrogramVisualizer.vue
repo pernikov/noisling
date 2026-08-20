@@ -10,6 +10,7 @@ import CoverArt from './CoverArt.vue';
 import { useAccentColor } from '../composables/useAccentColor.js';
 import { usePlayer } from '../composables/usePlayer.js';
 import { useTheme } from '../composables/useTheme.js';
+import { getWeightedRandomValue } from '../utils/weightedRandom.js';
 
 const props = defineProps({
   analyser: {
@@ -46,6 +47,10 @@ const VIZ_OPTIONS = [
       url: 'https://github.com/jberg/butterchurn',
     },
   },
+];
+const NUCLEUS_STYLE_OPTIONS = [
+  { value: 'filled', label: 'Filled' },
+  { value: 'wireframe', label: 'Wireframe' },
 ];
 const PILL_SCALE = { min: 5, max: 80 };
 const PILL_SPEED = { min: 0.2, max: 1.0 };
@@ -316,20 +321,25 @@ function getButterchurnPresetAt(index) {
   return butterchurnPresetNames[safeIndex];
 }
 
-function getRandomVizModeValue(excludeValue = null) {
-  if (!VIZ_OPTIONS.length) return null;
-  if (VIZ_OPTIONS.length === 1) return VIZ_OPTIONS[0].value;
-
-  let nextValue = excludeValue;
-  while (nextValue === excludeValue) {
-    nextValue = VIZ_OPTIONS[Math.floor(Math.random() * VIZ_OPTIONS.length)]?.value ?? null;
+function getVizModeVariantCount(mode) {
+  if (mode === 'nucleus' && shouldRandomizeNucleusStyle.value) {
+    return NUCLEUS_STYLE_OPTIONS.length;
   }
+  if (mode === 'butterchurn' && shouldRandomizeButterchurnPresets.value) {
+    return butterchurnPresetNames.length;
+  }
+  return 1;
+}
 
-  return nextValue;
+function getRandomVizModeValue() {
+  return getWeightedRandomValue(VIZ_OPTIONS.map(option => ({
+    value: option.value,
+    weight: getVizModeVariantCount(option.value),
+  })));
 }
 
 function getRandomNucleusStyle(excludeValue = null) {
-  const options = ['filled', 'wireframe'];
+  const options = NUCLEUS_STYLE_OPTIONS.map(option => option.value);
   let nextValue = excludeValue;
   while (nextValue === excludeValue) {
     nextValue = options[Math.floor(Math.random() * options.length)];
@@ -339,7 +349,7 @@ function getRandomNucleusStyle(excludeValue = null) {
 }
 
 function setActiveNucleusStyle(value) {
-  if (!['filled', 'wireframe'].includes(value)) return;
+  if (!NUCLEUS_STYLE_OPTIONS.some(option => option.value === value)) return;
   activeNucleusStyle.value = value;
   syncNucleusMaterialStyle();
   if (orbCamera) orbCamera.position.z = getActiveNucleusCameraBaseZ();
@@ -799,13 +809,15 @@ function getRandomButterchurnPresetIndex(excludeIndex = -1) {
   return nextIndex;
 }
 
-function advanceButterchurnPresetForTrack() {
+function advanceButterchurnPresetForTrack({ excludeCurrent = true } = {}) {
   if (!state.currentTrack || !butterchurnPresetNames.length) return;
   if (!shouldRandomizeButterchurnPresets.value) {
     setButterchurnPreset(getButterchurnPresetIndexByName(butterchurnPreset.value));
     return;
   }
-  setButterchurnPreset(getRandomButterchurnPresetIndex(butterchurnPresetIndex.value));
+  setButterchurnPreset(getRandomButterchurnPresetIndex(
+    excludeCurrent ? butterchurnPresetIndex.value : -1,
+  ));
 }
 
 function syncButterchurnPreset() {
@@ -1604,19 +1616,21 @@ watch(() => state.currentTrack?._id, (trackId) => {
 watch(() => state.visualizerTrackTick, () => {
   if (!state.currentTrack?._id) return;
 
-  let nextModeValue = currentMode.value.value;
+  const previousModeValue = currentMode.value.value;
+  let nextModeValue = previousModeValue;
   if (shouldShuffleVisualizerModes.value) {
-    const nextMode = getRandomVizModeValue(currentMode.value.value);
+    const nextMode = getRandomVizModeValue();
     if (nextMode) {
       nextModeValue = nextMode;
       setVizMode(nextMode);
     }
   }
 
+  const stayingInCurrentMode = nextModeValue === previousModeValue;
   if (nextModeValue === 'butterchurn') {
-    advanceButterchurnPresetForTrack();
+    advanceButterchurnPresetForTrack({ excludeCurrent: stayingInCurrentMode });
   } else if (nextModeValue === 'nucleus' && shouldRandomizeNucleusStyle.value) {
-    randomizeNucleusStyle({ excludeCurrent: true });
+    randomizeNucleusStyle({ excludeCurrent: stayingInCurrentMode });
   }
   syncButterchurnPreset();
   showTrackSplash();
@@ -1903,8 +1917,13 @@ onUnmounted(() => {
                   @click.stop
                   @change="handleNucleusStyleChange"
                 >
-                  <option value="filled">Filled</option>
-                  <option value="wireframe">Wireframe</option>
+                  <option
+                    v-for="styleOption in NUCLEUS_STYLE_OPTIONS"
+                    :key="styleOption.value"
+                    :value="styleOption.value"
+                  >
+                    {{ styleOption.label }}
+                  </option>
                 </select>
                 <svg
                   viewBox="0 0 24 24"
