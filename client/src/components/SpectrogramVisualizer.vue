@@ -183,10 +183,14 @@ const isNucleusMode = computed(() => currentMode.value.value === 'nucleus');
 const shouldShuffleVisualizerModes = computed(() => randomizeOnNewTrack.value);
 const isFilledNucleusStyle = computed(() => activeNucleusStyle.value === 'filled');
 const shouldRandomizeNucleusStyle = computed(() => nucleusStyleMode.value === 'random');
-const showNucleusStylePicker = computed(() => nucleusStyleMode.value === 'single');
 const shouldRandomizeButterchurnPresets = computed(() => butterchurnPresetMode.value === 'random');
-const showButterchurnPresetPicker = computed(() => (
-  butterchurnPresetMode.value === 'single'
+const displayedNucleusStyle = computed(() => (
+  shouldRandomizeNucleusStyle.value ? activeNucleusStyle.value : nucleusStyle.value
+));
+const displayedButterchurnPreset = computed(() => (
+  shouldRandomizeButterchurnPresets.value
+    ? (butterchurnPresetName.value ?? butterchurnPreset.value)
+    : butterchurnPreset.value
 ));
 const nucleusBackdropStyle = computed(() => {
   const pulse = clamp01(nucleusBackdropPulse);
@@ -1575,8 +1579,6 @@ function toggleNucleusStyleShuffle() {
   const nextMode = shouldRandomizeNucleusStyle.value ? 'single' : 'random';
   if (nextMode === 'single') {
     setNucleusStyle(activeNucleusStyle.value);
-  } else {
-    randomizeNucleusStyle({ excludeCurrent: true });
   }
   setNucleusStyleMode(nextMode);
 }
@@ -1827,7 +1829,7 @@ onUnmounted(() => {
       <Transition name="menu">
         <div
           v-if="showModeDropdown"
-          class="absolute right-0 top-[calc(100%+0.65rem)] flex min-w-[min(260px,calc(100vw-1.3rem))] flex-col gap-1 rounded-[0.95rem] border border-white/10 bg-zinc-950/90 p-1 shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-[18px] sm:min-w-[260px]"
+          class="absolute right-0 top-[calc(100%+0.65rem)] flex max-h-[calc(100dvh-var(--visualizer-nav-offset)-4.5rem)] min-w-[min(260px,calc(100vw-1.3rem))] flex-col gap-1 overflow-y-auto overscroll-contain rounded-[0.95rem] border border-white/10 bg-zinc-950/90 p-1 shadow-[0_24px_60px_rgba(0,0,0,0.38)] backdrop-blur-[18px] sm:min-w-[260px]"
         >
           <div class="px-3 py-[0.45rem] pb-[0.2rem] text-[0.66rem] font-semibold uppercase tracking-[0.08em] text-zinc-400/90">
             Mode
@@ -1903,7 +1905,7 @@ onUnmounted(() => {
             </div>
 
             <div
-              v-if="option.value === 'nucleus' && showNucleusStylePicker"
+              v-if="option.value === 'nucleus'"
               class="flex flex-col gap-2 px-3 pb-[0.35rem] pt-[0.1rem]"
             >
               <label for="nucleus-style-picker" class="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-zinc-400/90">
@@ -1912,8 +1914,10 @@ onUnmounted(() => {
               <div class="relative">
                 <select
                   id="nucleus-style-picker"
-                  :value="nucleusStyle"
-                  class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-white/20 focus:border-white/25"
+                  :value="displayedNucleusStyle"
+                  :disabled="shouldRandomizeNucleusStyle"
+                  :title="shouldRandomizeNucleusStyle ? 'Controlled by shuffle. Turn off shuffle to select manually.' : undefined"
+                  class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color,opacity] duration-150 ease-out hover:border-white/20 focus:border-white/25 disabled:cursor-not-allowed disabled:text-zinc-300/75 disabled:opacity-80 disabled:hover:border-white/10"
                   @click.stop
                   @change="handleNucleusStyleChange"
                 >
@@ -1936,7 +1940,7 @@ onUnmounted(() => {
             </div>
 
             <div
-              v-if="option.value === 'butterchurn' && showButterchurnPresetPicker"
+              v-if="option.value === 'butterchurn'"
               class="flex flex-col gap-2 px-3 pb-[0.35rem] pt-[0.1rem]"
             >
               <label for="butterchurn-preset-picker" class="text-[0.68rem] font-medium uppercase tracking-[0.08em] text-zinc-400/90">
@@ -1945,8 +1949,10 @@ onUnmounted(() => {
               <div class="relative">
                 <select
                   id="butterchurn-preset-picker"
-                  :value="butterchurnPreset"
-                  class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color] duration-150 ease-out hover:border-white/20 focus:border-white/25"
+                  :value="displayedButterchurnPreset"
+                  :disabled="shouldRandomizeButterchurnPresets"
+                  :title="shouldRandomizeButterchurnPresets ? 'Controlled by shuffle. Turn off shuffle to select manually.' : undefined"
+                  class="w-full appearance-none rounded-[0.7rem] border border-white/10 bg-zinc-900/90 px-3 py-[0.65rem] pr-10 text-[0.8rem] text-zinc-200 outline-none transition-[border-color,background-color,color,opacity] duration-150 ease-out hover:border-white/20 focus:border-white/25 disabled:cursor-not-allowed disabled:text-zinc-300/75 disabled:opacity-80 disabled:hover:border-white/10"
                   @click.stop
                   @change="handleButterchurnPresetChange"
                 >
