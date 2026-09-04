@@ -30,6 +30,7 @@ const inputRef = ref(null);
 const resultsRef = ref(null);
 
 let debounceTimer = null;
+let searchRequestId = 0;
 
 const rowPy = computed(() => 'py-3 sm:py-2');
 const coverSize = computed(() => 'w-10 h-10 sm:w-9 sm:h-9');
@@ -40,6 +41,7 @@ function openSearch() {
 }
 
 function closeSearch() {
+  searchRequestId++;
   open.value = false;
   query.value = '';
   results.value = { tracks: [], artists: [], albums: [] };
@@ -65,6 +67,7 @@ onMounted(() => window.addEventListener('keydown', onGlobalKeydown));
 onUnmounted(() => window.removeEventListener('keydown', onGlobalKeydown));
 
 watch(query, (val) => {
+  const requestId = ++searchRequestId;
   clearTimeout(debounceTimer);
   focusedIndex.value = -1;
   if (!val.trim()) {
@@ -75,11 +78,14 @@ watch(query, (val) => {
   loading.value = true;
   debounceTimer = setTimeout(async () => {
     try {
-      results.value = await api.globalSearch(val.trim());
+      const nextResults = await api.globalSearch(val.trim());
+      if (requestId !== searchRequestId) return;
+      results.value = nextResults;
     } catch {
+      if (requestId !== searchRequestId) return;
       results.value = { tracks: [], artists: [], albums: [] };
     }
-    loading.value = false;
+    if (requestId === searchRequestId) loading.value = false;
   }, 300);
 });
 

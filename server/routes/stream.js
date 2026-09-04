@@ -80,6 +80,8 @@ function startWarm(id, trackPath, label) {
     resolveTranscode = res;
     rejectTranscode = rej;
   });
+  // Warm-only requests do not await this promise; playback requests still observe its rejection.
+  transcodePromise.catch(() => {});
   transcodeInProgress.set(id, transcodePromise);
 
   ff.on('close', (code) => {

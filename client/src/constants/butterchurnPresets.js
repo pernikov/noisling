@@ -1,7 +1,3 @@
-import butterchurnPresets from 'butterchurn-presets';
-
-const ALL_BUTTERCHURN_PRESET_NAMES = Object.keys(butterchurnPresets.getPresets());
-
 const FEATURED_BUTTERCHURN_PRESET_LABELS = {
   'Flexi, martin + geiss - dedicated to the sherwin maxawow': 'Sherwin Maxawow',
   'martin - mandelbox explorer - high speed demo version': 'Mandelbox Explorer',
@@ -44,7 +40,7 @@ const FEATURED_BUTTERCHURN_PRESET_NAMES = [
   '_Rovastar + Geiss - Hurricane Nightmare (Posterize Mix)',
   'Rovastar + Loadus + Geiss - FractalDrop (Triple Mix)',
   "TonyMilkdrop - Leonardo Da Vinci's Balloon [Flexi - merry-go-round + techstyle]",
-].filter(name => ALL_BUTTERCHURN_PRESET_NAMES.includes(name));
+];
 
 function formatButterchurnPresetLabel(name) {
   return FEATURED_BUTTERCHURN_PRESET_LABELS[name] ?? name.replace(/^_+/, '');

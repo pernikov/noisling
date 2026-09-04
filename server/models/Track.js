@@ -154,13 +154,24 @@ function findMatching(filter = {}) {
   return allTracks().filter((track) => matchesFilter(track, filter));
 }
 
+function findOneMatching(filter = {}) {
+  const fields = Object.keys(filter);
+  if (fields.length === 1 && typeof filter.path === 'string') {
+    return rowToTrack(getDB().prepare('SELECT * FROM tracks WHERE path = ?').get(filter.path));
+  }
+  if (fields.length === 1 && typeof filter._id === 'string') {
+    return rowToTrack(getDB().prepare('SELECT * FROM tracks WHERE id = ?').get(filter._id));
+  }
+  return findMatching(filter)[0] ?? null;
+}
+
 const Track = {
   find(filter = {}) {
     return new Query(() => findMatching(filter), { hydrate: hydrateTrack });
   },
 
   findOne(filter = {}) {
-    return new Query(() => findMatching(filter)[0] ?? null, { hydrate: hydrateTrack, single: true });
+    return new Query(() => findOneMatching(filter), { hydrate: hydrateTrack, single: true });
   },
 
   findById(id) {
@@ -181,14 +192,14 @@ const Track = {
   },
 
   async findOneAndDelete(filter = {}) {
-    const doc = findMatching(filter)[0];
+    const doc = findOneMatching(filter);
     if (!doc) return null;
     getDB().prepare('DELETE FROM tracks WHERE id = ?').run(doc._id);
     return hydrateTrack(doc);
   },
 
   async updateOne(filter = {}, update = {}, options = {}) {
-    const current = findMatching(filter)[0];
+    const current = findOneMatching(filter);
     if (current) {
       saveTrack(applyUpdate(current, update));
       return { matchedCount: 1, modifiedCount: 1, upsertedCount: 0 };
@@ -247,7 +258,8 @@ const Track = {
   },
 
   async exists(filter = {}) {
-    return findMatching(filter).length > 0 ? { _id: findMatching(filter)[0]._id } : null;
+    const doc = findOneMatching(filter);
+    return doc ? { _id: doc._id } : null;
   },
 
   async create(doc) {

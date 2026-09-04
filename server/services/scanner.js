@@ -276,7 +276,7 @@ export async function handleImageAdd(imagePath) {
 
   // Find tracks in the same folder that don't have an embedded cover
   const tracks = await Track.find({
-    path: { $regex: `^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^/]+$` },
+    path: new RegExp(`^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^/]+$`),
     hasEmbeddedCover: { $ne: true },
   });
 
@@ -313,7 +313,7 @@ export async function handleImageRemove(imagePath) {
 
   // Find tracks in this folder without embedded covers
   const tracks = await Track.find({
-    path: { $regex: `^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^/]+$` },
+    path: new RegExp(`^${dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/[^/]+$`),
     hasEmbeddedCover: { $ne: true },
   });
 
