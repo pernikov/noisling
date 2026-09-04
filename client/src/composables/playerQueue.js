@@ -217,8 +217,6 @@ export function createPlayerQueue({
         state.queueIndex = 0;
         startTrack(state.queue[0], playOptions);
       }
-    } else {
-      clearQueue();
     }
   }
 

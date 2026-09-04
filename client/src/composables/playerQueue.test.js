@@ -134,7 +134,7 @@ describe('createPlayerQueue', () => {
     randomSpy.mockRestore();
   });
 
-  it('clears playback state when advancing past the last track with repeat off', () => {
+  it('keeps the last track and queue visible when advancing past the end with repeat off', () => {
     const { state, queue } = createQueueHarness();
     const tracks = [makeTrack('1'), makeTrack('2')];
     state.queue = [...tracks];
@@ -146,11 +146,11 @@ describe('createPlayerQueue', () => {
 
     queue.next();
 
-    expect(state.currentTrack).toBe(null);
-    expect(state.queue).toEqual([]);
-    expect(state.queueIndex).toBe(-1);
-    expect(state.isPlaying).toBe(false);
-    expect(state.showQueue).toBe(false);
+    expect(state.currentTrack?._id).toBe('2');
+    expect(state.queue).toEqual(tracks);
+    expect(state.queueIndex).toBe(1);
+    expect(state.isPlaying).toBe(true);
+    expect(state.showQueue).toBe(true);
   });
 
   it('keeps only the current track in the queue', () => {
