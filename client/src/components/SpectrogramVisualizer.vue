@@ -122,8 +122,10 @@ let ctx = null;
 let pillsCtx = null;
 let animationFrameId = 0;
 let resizeObserver = null;
+let resizeFrameId = 0;
 let viewportWidth = 0;
 let viewportHeight = 0;
+let viewportDpr = 0;
 let frequencyData = null;
 let timeDomainData = null;
 let pillsParticles = [];
@@ -1044,17 +1046,24 @@ function resetMotionState() {
   if (orbMesh) orbMesh.scale.setScalar(1);
 }
 
-function resizeCanvas() {
+function resizeCanvas({ skipIfUnchanged = false } = {}) {
   const container = containerRef.value;
   if (!container) return;
 
   const bounds = container.getBoundingClientRect();
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (
+    skipIfUnchanged
+    && bounds.width === viewportWidth
+    && bounds.height === viewportHeight
+    && dpr === viewportDpr
+  ) return;
   const previousWidth = viewportWidth;
   const previousHeight = viewportHeight;
 
   viewportWidth = bounds.width;
   viewportHeight = bounds.height;
+  viewportDpr = dpr;
 
   if (!viewportWidth || !viewportHeight) return;
 
@@ -1097,6 +1106,14 @@ function resizeCanvas() {
 
   resizePills(previousWidth, previousHeight);
   paintBackground(pillsCtx);
+}
+
+function scheduleCanvasResize() {
+  if (resizeFrameId) window.cancelAnimationFrame(resizeFrameId);
+  resizeFrameId = window.requestAnimationFrame(() => {
+    resizeFrameId = 0;
+    resizeCanvas({ skipIfUnchanged: true });
+  });
 }
 
 function paintBackground(targetCtx = ctx) {
@@ -1478,7 +1495,7 @@ function handleFullscreenChange() {
     hideTrackSplash();
   }
   scheduleOverlayHide();
-  resizeCanvas();
+  scheduleCanvasResize();
 }
 
 function selectMode(mode) {
@@ -1674,7 +1691,7 @@ onMounted(() => {
   ensurePillsNoiseUrl();
   start();
 
-  resizeObserver = new ResizeObserver(() => resizeCanvas());
+  resizeObserver = new ResizeObserver(scheduleCanvasResize);
   if (containerRef.value) resizeObserver.observe(containerRef.value);
 
   document.addEventListener('fullscreenchange', handleFullscreenChange);
@@ -1686,6 +1703,8 @@ onUnmounted(() => {
     document.exitFullscreen();
   }
   stop();
+  if (resizeFrameId) window.cancelAnimationFrame(resizeFrameId);
+  resizeFrameId = 0;
   disposeButterchurnVisualizer();
   disposeNucleusVisualizer();
   clearOverlayHideTimer();
